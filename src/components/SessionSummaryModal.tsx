@@ -12,14 +12,12 @@ export type SessionSummaryData = {
 
 type Props = {
   open: boolean
-  accent: string
   data: SessionSummaryData | null
   shareText: string
   onClose: () => void
 }
 
-export function SessionSummaryModal({ open, accent: _accent, data, shareText, onClose }: Props) {
-  void _accent
+export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
 
   async function downloadImage() {
@@ -55,12 +53,16 @@ export function SessionSummaryModal({ open, accent: _accent, data, shareText, on
   if (!open || !data) return null
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/85 p-4">
-      <div className="w-full max-w-md space-y-4">
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[85] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
         <div ref={cardRef} className="apex-card p-6">
           <p className="apex-section-label">Apex</p>
           <p className="mt-2 text-[13px] font-normal text-[#e0e0e0]">Session complete</p>
-          <p className="mt-2 text-[13px] font-normal text-[#555]">{data.dateLabel}</p>
+          <p className="mt-2 text-[13px] font-normal text-[#a0a0a8]">{data.dateLabel}</p>
           <div className="mt-6 grid grid-cols-2 gap-3">
             <div className="rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">Duration</p>
@@ -106,7 +108,7 @@ export function SessionSummaryModal({ open, accent: _accent, data, shareText, on
           >
             Share text summary
           </button>
-          <button type="button" className="min-h-11 text-[13px] font-normal text-[#555]" onClick={onClose}>
+          <button type="button" className="min-h-11 text-[13px] font-normal text-[#a0a0a8]" onClick={onClose}>
             Close
           </button>
         </div>

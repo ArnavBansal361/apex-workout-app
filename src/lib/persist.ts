@@ -1,16 +1,135 @@
+import { useCallback, useState } from 'react'
 import type { AppPersisted, CardioEntry, CardioTimerPersist, Exercise, MuscleGroup, SetLog, ChatMessage } from '../types'
 import { DEFAULT_SETTINGS } from '../types'
 import { dateKey, weekStartMonday } from './dates'
 import { normalizeTodayLayout } from './todayLayout'
 
 const STORAGE_KEY = 'workout-app-v1'
-/** One-time: reset coach chat to welcome (clears legacy duplicate messages). */
-const CLAUDE_CHAT_RESET_KEY = 'apex-claude-coach-chat-reset-v2'
+
+/** Set when user finishes first-launch onboarding. */
+export const APEX_ONBOARDING_COMPLETE_KEY = 'apex-onboarding-complete'
+
+/** Set after first coach welcome is applied (see WorkoutContext mount). */
+export const APEX_COACH_INIT_FLAG = 'apex_coach_initialized'
+
+/** Coach / planner profile (fitness goal, etc.). */
+export const APEX_COACH_PROFILE_KEY = 'apex-coach-profile'
+
+/** PWA install banner dismissed (show at most once). */
+export const APEX_PWA_DISMISSED_KEY = 'apex-pwa-dismissed'
+
+export const OFFLINE_SYNC_TOAST = "You're offline — data will sync when reconnected"
+
+export function isPwaInstallDismissed(): boolean {
+  try {
+    return localStorage.getItem(APEX_PWA_DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setPwaInstallDismissed(): void {
+  try {
+    localStorage.setItem(APEX_PWA_DISMISSED_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isAppOnline(): boolean {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true
+}
+
+export function readFitnessGoalFromCoachProfile(fallback = ''): string {
+  try {
+    const raw = localStorage.getItem(APEX_COACH_PROFILE_KEY)
+    if (!raw) return fallback
+    const o = JSON.parse(raw) as Record<string, unknown>
+    if (typeof o.fitnessGoal === 'string' && o.fitnessGoal.trim()) return o.fitnessGoal.trim()
+    if (typeof o.goal === 'string' && o.goal.trim()) return o.goal.trim()
+    if (typeof o.fitnessGoals === 'string' && o.fitnessGoals.trim()) return o.fitnessGoals.trim()
+  } catch {
+    /* ignore */
+  }
+  return fallback
+}
+
+export function isOnboardingCompleteLocal(): boolean {
+  try {
+    return localStorage.getItem(APEX_ONBOARDING_COMPLETE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setOnboardingCompleteLocal(complete: boolean): void {
+  try {
+    if (complete) localStorage.setItem(APEX_ONBOARDING_COMPLETE_KEY, '1')
+    else localStorage.removeItem(APEX_ONBOARDING_COMPLETE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 const COACH_WELCOME_ID = 'apex-claude-welcome-v1'
 const COACH_WELCOME_PREFIX = "Hi — I'm your Apex AI coach"
 
-function coachWelcomeMessages(): ChatMessage[] {
+/** Lines duplicated by the suggestion chips — never show inside a bubble. */
+const COACH_UI_PROMPT_LINES = new Set([
+  'What should I work on today?',
+  'Review my progress this week',
+  'Design me a workout plan',
+])
+
+export function isCoachUiPromptLine(text: string): boolean {
+  return COACH_UI_PROMPT_LINES.has(text.trim())
+}
+
+/** Remove leaked API/model metadata from a single line. */
+function isLeakedModelMetadataLine(line: string): boolean {
+  const t = line.trim()
+  if (!t) return true
+  if (/^model:\s*/i.test(t)) return true
+  if (/model:\s*\S+/i.test(t) && /claude|sonnet|anthropic/i.test(t)) return true
+  if (/\bclaude-sonnet-4[\w-]*/i.test(t)) return true
+  if (/^anthropic-version\s*:/i.test(t)) return true
+  return false
+}
+
+/** Strip model ids / API debug from any user-visible string. */
+export function redactLeakedApiMetadataFromText(text: string): string {
+  return text
+    .split(/\n/)
+    .map((l) => l.trimEnd())
+    .filter((line) => !isLeakedModelMetadataLine(line))
+    .join('\n')
+    .replace(/\bclaude-sonnet-4[\w-]*/gi, '')
+    .replace(/model:\s*[^\n]*/gi, '')
+    .replace(/anthropic-version\s*:\s*[^\n]*/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Remove chip prompt echoes (whole lines or trailing duplicates) so they only appear in the chip row. */
+function stripCoachUiPromptEchoes(text: string): string {
+  let s = text
+  for (const phrase of COACH_UI_PROMPT_LINES) {
+    const esc = escapeRegExp(phrase)
+    s = s.replace(new RegExp(`(^|\\n)\\s*${esc}\\s*(?=\\n|$)`, 'gi'), '\n')
+    s = s.replace(new RegExp(`([.!?])\\s*${esc}\\s*$`, 'gi'), '$1')
+    s = s.replace(new RegExp(`\\s*${esc}\\s*$`, 'gi'), '')
+    // Standalone prompt line embedded without newlines (e.g. after welcome copy).
+    s = s.replace(new RegExp(`\\s+${esc}\\s+`, 'gi'), ' ')
+    if (s.trim().toLowerCase() === phrase.toLowerCase()) s = ''
+  }
+  return s.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+export function coachWelcomeMessages(): ChatMessage[] {
   return [
     {
       id: COACH_WELCOME_ID,
@@ -21,27 +140,65 @@ function coachWelcomeMessages(): ChatMessage[] {
   ]
 }
 
+/** Strip accidental debug / API metadata from user-visible notification text. */
+export function stripNotificationMessage(message: string): string {
+  const out = redactLeakedApiMetadataFromText(message)
+  if (out) return out.length > 360 ? `${out.slice(0, 360)}…` : out
+  return 'Something went wrong.'
+}
+
+function shouldLimitCoachReplySentences(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  if (t.startsWith('{') || t.startsWith('[')) return false
+  if (/"suggestedDays"\s*:/.test(t)) return false
+  return true
+}
+
+/** Cap coach chat replies at N sentences (client-side; matches API instruction). */
+export function limitCoachReplySentences(text: string, maxSentences = 3): string {
+  const t = text.trim()
+  if (!t || !shouldLimitCoachReplySentences(t)) return t
+
+  const parts = t.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g)
+  if (!parts || parts.length <= maxSentences) return t
+  return parts
+    .slice(0, maxSentences)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
 /** Strip accidental debug lines (e.g. leaked model ids) from assistant bubbles. */
 export function sanitizeCoachBubbleText(text: string): string {
-  return text
+  const lineCleaned = redactLeakedApiMetadataFromText(text)
     .split(/\n/)
-    .map((l) => l.trimEnd())
     .filter((line) => {
       const t = line.trim()
       if (!t) return false
-      if (/^model:\s*claude/i.test(t)) return false
-      if (/^model:\s*/i.test(t) && /claude|sonnet|anthropic/i.test(t)) return false
+      if (COACH_UI_PROMPT_LINES.has(t)) return false
       return true
     })
     .join('\n')
     .trim()
+  return stripCoachUiPromptEchoes(lineCleaned)
+}
+
+/** Display text for a coach chat row; null means do not render a bubble. */
+export function getCoachMessageDisplayText(m: ChatMessage): string | null {
+  if (m.role === 'user' && isCoachUiPromptLine(m.text)) return null
+  let display = sanitizeCoachBubbleText(m.text)
+  if (m.role === 'model') {
+    display = limitCoachReplySentences(display)
+  }
+  return display.trim() ? display : null
 }
 
 function isJunkCoachMessage(m: ChatMessage): boolean {
   const t = m.text.trim()
   if (!t) return m.role === 'model'
-  if (/^\s*model:\s*claude/i.test(t)) return true
-  if (/^\s*model:\s*[^\s]+\s*$/i.test(t) && /claude|sonnet|anthropic/i.test(t)) return true
+  if (isLeakedModelMetadataLine(t)) return true
+  if (m.role === 'user' && isCoachUiPromptLine(t)) return true
   return false
 }
 
@@ -114,7 +271,14 @@ export function normalizeCoachChatMessages(messages: ChatMessage[]): ChatMessage
       const cleaned = sanitizeCoachBubbleText(m.text)
       if (!cleaned.trim()) continue
       next = cleaned === m.text ? m : { ...m, text: cleaned }
+    } else {
+      const cleaned = redactLeakedApiMetadataFromText(m.text)
+      if (!cleaned.trim()) continue
+      if (isCoachUiPromptLine(cleaned)) continue
+      next = cleaned === m.text ? m : { ...m, text: cleaned }
     }
+
+    if (m.role === 'user' && isCoachUiPromptLine(next.text)) continue
 
     if (isCoachWelcomeMessage(next)) {
       if (welcomeUsed) continue
@@ -133,7 +297,7 @@ export function normalizeCoachChatMessages(messages: ChatMessage[]): ChatMessage
     out.push(m)
   }
 
-  return out.length ? out : [{ ...welcomeCanon, at: 1 }]
+  return out
 }
 
 function migrateCardioTimer(
@@ -202,6 +366,20 @@ function migrateAppState(s: AppPersisted): AppPersisted {
       ...d,
       plannedExerciseIds: Array.isArray(d.plannedExerciseIds) ? d.plannedExerciseIds : [],
     })),
+    burnoutDismissedWeekStart:
+      typeof s.burnoutDismissedWeekStart === 'string' || s.burnoutDismissedWeekStart === null
+        ? s.burnoutDismissedWeekStart
+        : null,
+    todaySupersetPairs: Array.isArray(s.todaySupersetPairs)
+      ? s.todaySupersetPairs.filter(
+          (p): p is [string, string] =>
+            Array.isArray(p) &&
+            p.length === 2 &&
+            typeof p[0] === 'string' &&
+            typeof p[1] === 'string' &&
+            p[0] !== p[1],
+        )
+      : [],
   }
 }
 
@@ -227,6 +405,7 @@ export function defaultState(): AppPersisted {
     version: 1,
     setLogs: [],
     todayPlanExerciseIds: [],
+    todaySupersetPairs: [],
     favoriteExerciseIds: [],
     hiddenExerciseIds: [],
     customExercises: [],
@@ -250,7 +429,7 @@ export function defaultState(): AppPersisted {
     },
     achievements: [],
     restTimer: { endAt: null, dismissed: true },
-    chatMessages: coachWelcomeMessages(),
+    chatMessages: [],
     scheduleWeekStart: ws,
     friends: [],
     onboardingComplete: false,
@@ -258,6 +437,7 @@ export function defaultState(): AppPersisted {
     todayLayout: normalizeTodayLayout(undefined),
     notificationPromptDone: false,
     lastWeeklySummaryNotifWeekStart: null,
+    burnoutDismissedWeekStart: null,
   }
 }
 
@@ -265,22 +445,37 @@ export function loadState(): AppPersisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      try {
-        localStorage.setItem(CLAUDE_CHAT_RESET_KEY, '1')
-      } catch {
-        /* ignore */
-      }
       return defaultState()
     }
     const rawObj = JSON.parse(raw) as Record<string, unknown>
-    if (rawObj.version !== 1) return defaultState()
+    if (!rawObj || typeof rawObj !== 'object') {
+      return defaultState()
+    }
+
+    const hasAppData =
+      Array.isArray(rawObj.setLogs) ||
+      Array.isArray(rawObj.schedule) ||
+      Array.isArray(rawObj.achievements) ||
+      Array.isArray(rawObj.templates) ||
+      (typeof rawObj.settings === 'object' && rawObj.settings !== null)
+
+    if (!hasAppData) {
+      return defaultState()
+    }
+
+    const v = rawObj.version
+    if (v != null && typeof v === 'number' && v !== 1) {
+      console.warn('[Apex] Storage version is not 1 — preserving data and merging fields', v)
+    }
+
     delete rawObj.geminiApiKey
     const parsed = rawObj as unknown as AppPersisted
 
     const onboardingComplete =
-      typeof parsed.onboardingComplete === 'boolean'
+      isOnboardingCompleteLocal() ||
+      (typeof parsed.onboardingComplete === 'boolean'
         ? parsed.onboardingComplete
-        : (parsed.setLogs?.length ?? 0) > 0
+        : (parsed.setLogs?.length ?? 0) > 0)
 
     let merged = migrateAppState({
       ...defaultState(),
@@ -304,21 +499,24 @@ export function loadState(): AppPersisted {
           : 0,
     })
 
-    try {
-      if (!localStorage.getItem(CLAUDE_CHAT_RESET_KEY)) {
-        merged = { ...merged, chatMessages: coachWelcomeMessages() }
-        localStorage.setItem(CLAUDE_CHAT_RESET_KEY, '1')
-      }
-    } catch {
-      /* ignore */
-    }
-
     merged = { ...merged, chatMessages: normalizeCoachChatMessages(merged.chatMessages) }
 
     return merged
   } catch {
     return defaultState()
   }
+}
+
+/** Wipe local workout storage and return a fresh default state (onboarding not complete). */
+export function clearAllAppData(): AppPersisted {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(APEX_COACH_INIT_FLAG)
+    localStorage.removeItem(APEX_ONBOARDING_COMPLETE_KEY)
+  } catch {
+    /* ignore */
+  }
+  return defaultState()
 }
 
 export function saveState(state: AppPersisted): void {
@@ -331,6 +529,83 @@ export function saveState(state: AppPersisted): void {
     }
   } catch (e) {
     console.error('[Apex] saveState failed', e)
+  }
+}
+
+export const APEX_THEME_STORAGE_KEY = 'apex_theme'
+export const APEX_FONT_SIZE_STORAGE_KEY = 'apex_font_size'
+
+/** Today tab collapsible sections (persist across tab switches). */
+export const APEX_TODAY_MORE_OPEN_KEY = 'apex-today-more-open'
+export const APEX_TODAY_PLAN_OPEN_KEY = 'apex-today-plan-open'
+
+export function readTodaySectionOpen(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function writeTodaySectionOpen(key: string, open: boolean): void {
+  try {
+    localStorage.setItem(key, open ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Persisted open state for Today tab sections (use in App/Dashboard shell, not inside TodayTab). */
+export function useTodaySectionOpen(
+  key: string,
+): readonly [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {
+  const [open, setOpen] = useState(() => readTodaySectionOpen(key))
+  const setOpenPersist = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      setOpen((prev) => {
+        const next = typeof value === 'function' ? value(prev) : value
+        writeTodaySectionOpen(key, next)
+        return next
+      })
+    },
+    [key],
+  )
+  return [open, setOpenPersist] as const
+}
+
+export type ApexThemeMode = 'dark' | 'light'
+export type ApexFontSizeMode = 'small' | 'medium' | 'large' | 'xlarge'
+
+const FONT_SCALE: Record<ApexFontSizeMode, number> = {
+  small: 0.88,
+  medium: 1,
+  large: 1.14,
+  xlarge: 1.28,
+}
+
+export function fontScaleForMode(size: ApexFontSizeMode): number {
+  return FONT_SCALE[size] ?? 1
+}
+
+/** Read localStorage and set data attributes on `<html>` (theme + font size). */
+export function applyApexAppearanceFromStorage(): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  try {
+    const theme = localStorage.getItem(APEX_THEME_STORAGE_KEY)
+    root.setAttribute('data-apex-theme', theme === 'light' ? 'light' : 'dark')
+    const fs = localStorage.getItem(APEX_FONT_SIZE_STORAGE_KEY)
+    const size: ApexFontSizeMode =
+      fs === 'small' || fs === 'large' || fs === 'xlarge' ? fs : 'medium'
+    root.setAttribute('data-apex-font-size', size)
+    const scale = String(fontScaleForMode(size))
+    root.style.setProperty('--font-scale', scale)
+    root.style.setProperty('--apex-font-scale', scale)
+  } catch {
+    root.setAttribute('data-apex-theme', 'dark')
+    root.setAttribute('data-apex-font-size', 'medium')
+    root.style.setProperty('--font-scale', '1')
+    root.style.setProperty('--apex-font-scale', '1')
   }
 }
 

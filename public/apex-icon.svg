@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#0c0c0c"/>
-  <path fill="#3b82f6" fill-opacity="0.25" d="M96 380 L180 220 L256 260 L340 180 L416 380 Z"/>
-  <path fill="#3b82f6" fill-opacity="0.45" d="M140 380 L256 200 L372 380 Z"/>
-  <circle cx="256" cy="210" r="18" fill="#3b82f6" fill-opacity="0.5"/>
-  <circle cx="256" cy="210" r="8" fill="#3b82f6"/>
-  <text x="256" y="460" text-anchor="middle" fill="#3b82f6" font-family="system-ui,sans-serif" font-size="56" font-weight="700" letter-spacing="12">APEX</text>
-</svg>

@@ -1,5 +1,5 @@
 import type { AppPersisted, SetLog } from '../types'
-import { dateKey, startOfDay, weekStartMonday } from './dates'
+import { dateKey, parseDateKey, startOfDay, weekDatesFromStart, weekStartMonday } from './dates'
 
 function hasLogAtHour(logs: SetLog[], hourAfter: number, hourBefore: number): boolean {
   for (const l of logs) {
@@ -16,9 +16,18 @@ export function workoutDaysFromLogs(logs: SetLog[]): Set<string> {
   return d
 }
 
-function streakDays(workoutDays: Set<string>): number {
+/** Distinct local calendar days with logged strength/timed work or cardio. */
+export function workoutDaysFromActivity(state: AppPersisted): Set<string> {
+  const d = workoutDaysFromLogs(state.setLogs)
+  for (const c of state.cardioEntries) {
+    d.add(dateKey(new Date(c.at)))
+  }
+  return d
+}
+
+function streakDays(workoutDays: Set<string>, nowMs: number = Date.now()): number {
   let count = 0
-  const cur = startOfDay(new Date())
+  const cur = startOfDay(new Date(nowMs))
   if (!workoutDays.has(dateKey(cur))) {
     cur.setDate(cur.getDate() - 1)
     if (!workoutDays.has(dateKey(cur))) return 0
@@ -36,6 +45,143 @@ function muscleGroupsOnDay(logs: SetLog[], dayKey: string): Set<string> {
     if (dateKey(new Date(l.at)) === dayKey) g.add(l.muscleGroup)
   }
   return g
+}
+
+function setCountOnLog(l: SetLog): number {
+  if (l.kind === 'weighted') return Math.max(1, Math.floor(l.sets))
+  return 1
+}
+
+function setsOnDay(logs: SetLog[], dayKey: string): number {
+  let n = 0
+  for (const l of logs) {
+    if (dateKey(new Date(l.at)) === dayKey) n += setCountOnLog(l)
+  }
+  return n
+}
+
+function weekVolumeLbs(state: AppPersisted, weekStart: Date): number {
+  const ws = new Date(weekStart)
+  const we = new Date(ws)
+  we.setDate(ws.getDate() + 7)
+  const factor = state.settings.unit === 'kg' ? 2.20462 : 1
+  let vol = 0
+  for (const l of state.setLogs) {
+    if (l.kind !== 'weighted' || l.bodyweight) continue
+    const t = new Date(l.at)
+    if (t < ws || t >= we) continue
+    vol += (l.weight ?? 0) * factor * l.reps * Math.max(1, l.sets)
+  }
+  return vol
+}
+
+function maxWeeklyVolumeLbs(state: AppPersisted): number {
+  if (!state.setLogs.length) return 0
+  let minT = Infinity
+  let maxT = -Infinity
+  for (const l of state.setLogs) {
+    minT = Math.min(minT, l.at)
+    maxT = Math.max(maxT, l.at)
+  }
+  const startMonday = weekStartMonday(new Date(minT))
+  const endMonday = weekStartMonday(new Date(maxT))
+  let max = 0
+  for (let d = new Date(startMonday); d <= endMonday; d.setDate(d.getDate() + 7)) {
+    max = Math.max(max, weekVolumeLbs(state, d))
+  }
+  return max
+}
+
+function consecutiveWeeksWithActivity(state: AppPersisted): number {
+  let streak = 0
+  const thisMon = weekStartMonday(new Date())
+  for (let back = 0; back < 52; back++) {
+    const ws = new Date(thisMon)
+    ws.setDate(thisMon.getDate() - back * 7)
+    const we = new Date(ws)
+    we.setDate(ws.getDate() + 7)
+    let active = false
+    for (const l of state.setLogs) {
+      const t = new Date(l.at)
+      if (t >= ws && t < we) {
+        active = true
+        break
+      }
+    }
+    if (!active) {
+      for (const c of state.cardioEntries) {
+        const t = new Date(c.at)
+        if (t >= ws && t < we) {
+          active = true
+          break
+        }
+      }
+    }
+    if (active) streak++
+    else break
+  }
+  return streak
+}
+
+function muscleGroupsInCurrentWeek(state: AppPersisted): number {
+  const ws = weekStartMonday(new Date())
+  const we = new Date(ws)
+  we.setDate(ws.getDate() + 7)
+  const g = new Set<string>()
+  for (const l of state.setLogs) {
+    const t = new Date(l.at)
+    if (t >= ws && t < we) g.add(l.muscleGroup)
+  }
+  return g.size
+}
+
+function maxSetsSingleSession(logs: SetLog[]): number {
+  const byDay = new Map<string, number>()
+  for (const l of logs) {
+    const k = dateKey(new Date(l.at))
+    byDay.set(k, (byDay.get(k) ?? 0) + setCountOnLog(l))
+  }
+  return byDay.size ? Math.max(...byDay.values()) : 0
+}
+
+function hasMarathonSession(logs: SetLog[]): boolean {
+  const byDay = new Map<string, number[]>()
+  for (const l of logs) {
+    const k = dateKey(new Date(l.at))
+    const arr = byDay.get(k) ?? []
+    arr.push(l.at)
+    byDay.set(k, arr)
+  }
+  for (const times of byDay.values()) {
+    if (times.length < 2) continue
+    const spanH = (Math.max(...times) - Math.min(...times)) / 3_600_000
+    if (spanH >= 2) return true
+  }
+  return false
+}
+
+function hasComebackKid(logs: SetLog[], workoutDays: Set<string>): boolean {
+  const sorted = [...workoutDays].sort()
+  if (sorted.length < 2) return false
+  let maxGap = 0
+  for (let i = 1; i < sorted.length; i++) {
+    const a = parseDateKey(sorted[i - 1]!)
+    const b = parseDateKey(sorted[i]!)
+    const gap = Math.round((b.getTime() - a.getTime()) / 86_400_000)
+    maxGap = Math.max(maxGap, gap)
+  }
+  if (maxGap < 7) return false
+  const last = sorted[sorted.length - 1]!
+  return setsOnDay(logs, last) >= 3
+}
+
+function hasPerfectWeek(state: AppPersisted): boolean {
+  const ws = weekStartMonday(new Date())
+  const keys = weekDatesFromStart(ws)
+  const active = new Set<string>()
+  for (const l of state.setLogs) active.add(dateKey(new Date(l.at)))
+  for (const c of state.cardioEntries) active.add(dateKey(new Date(c.at)))
+  return keys.every((k) => active.has(k))
 }
 
 export function evaluateAchievements(state: AppPersisted): string[] {
@@ -61,6 +207,17 @@ export function evaluateAchievements(state: AppPersisted): string[] {
   if (logs.length >= 1) earned.add('first-workout')
   if (hasLogAtHour(logs, 21, 24)) earned.add('night-owl')
   if (hasLogAtHour(logs, 0, 7)) earned.add('early-bird')
+
+  if (streak >= 7) earned.add('iron-will')
+  if (maxWeeklyVolumeLbs(state) > 50_000) earned.add('volume-king')
+  if (consecutiveWeeksWithActivity(state) >= 4) earned.add('consistency')
+  if (logs.filter((l) => l.isPr).length >= 10) earned.add('pr-machine')
+  if (muscleGroupsInCurrentWeek(state) >= 5) earned.add('variety-pack')
+  if (hasMarathonSession(logs)) earned.add('marathon-session')
+  if (workoutDays.size >= 100) earned.add('century-club')
+  if (maxSetsSingleSession(logs) >= 20) earned.add('beast-mode')
+  if (hasComebackKid(logs, workoutDays)) earned.add('comeback-kid')
+  if (hasPerfectWeek(state)) earned.add('perfect-week')
 
   return [...earned]
 }
@@ -89,10 +246,18 @@ export function setsThisWeek(state: AppPersisted): number {
   const ws = weekStartMonday(new Date())
   const we = new Date(ws)
   we.setDate(ws.getDate() + 7)
-  return state.setLogs.filter((l) => {
+  let total = 0
+  for (const l of state.setLogs) {
     const t = new Date(l.at)
-    return t >= ws && t < we
-  }).length
+    if (t < ws || t >= we) continue
+    if (l.kind === 'weighted') {
+      const n = Math.floor(l.sets)
+      total += n > 0 ? n : 1
+    } else {
+      total += 1
+    }
+  }
+  return total
 }
 
 export function minutesThisWeek(state: AppPersisted): number {
@@ -123,8 +288,8 @@ export function muscleGroupsThisWeek(state: AppPersisted): string[] {
   return [...g].sort()
 }
 
-export function streakCurrent(state: AppPersisted): number {
-  return streakDays(workoutDaysFromLogs(state.setLogs))
+export function streakCurrent(state: AppPersisted, nowMs: number = Date.now()): number {
+  return streakDays(workoutDaysFromActivity(state), nowMs)
 }
 
 function maxMuscleGroupsSingleDay(logs: SetLog[]): number {
@@ -239,6 +404,104 @@ export function getAchievementProgress(state: AppPersisted, achievementId: strin
         target: 1,
         percent: has ? 100 : 0,
         detail: has ? 'Early session logged' : 'Train before 7am',
+      }
+    }
+    case 'iron-will': {
+      const cur = Math.min(streak, 7)
+      return {
+        current: cur,
+        target: 7,
+        percent: pct(streak, 7),
+        detail: `${streak} day streak`,
+      }
+    }
+    case 'volume-king': {
+      const vol = Math.round(maxWeeklyVolumeLbs(state))
+      const cur = Math.min(vol, 50_000)
+      return {
+        current: cur,
+        target: 50_000,
+        percent: pct(vol, 50_000),
+        detail: `Best week: ${vol.toLocaleString()} lbs`,
+      }
+    }
+    case 'consistency': {
+      const w = consecutiveWeeksWithActivity(state)
+      const cur = Math.min(w, 4)
+      return {
+        current: cur,
+        target: 4,
+        percent: pct(w, 4),
+        detail: `${w} consecutive weeks`,
+      }
+    }
+    case 'pr-machine': {
+      const prs = logs.filter((l) => l.isPr).length
+      const cur = Math.min(prs, 10)
+      return {
+        current: cur,
+        target: 10,
+        percent: pct(prs, 10),
+        detail: `${prs} PRs logged`,
+      }
+    }
+    case 'variety-pack': {
+      const g = muscleGroupsInCurrentWeek(state)
+      const cur = Math.min(g, 5)
+      return {
+        current: cur,
+        target: 5,
+        percent: pct(g, 5),
+        detail: `${g} groups this week`,
+      }
+    }
+    case 'marathon-session': {
+      const has = hasMarathonSession(logs)
+      return {
+        current: has ? 1 : 0,
+        target: 1,
+        percent: has ? 100 : 0,
+        detail: has ? '2+ hour session logged' : 'Log a session over 2 hours',
+      }
+    }
+    case 'century-club': {
+      const n = workoutDays.size
+      const cur = Math.min(n, 100)
+      return {
+        current: cur,
+        target: 100,
+        percent: pct(n, 100),
+        detail: `${n} workout days`,
+      }
+    }
+    case 'beast-mode': {
+      const max = maxSetsSingleSession(logs)
+      const cur = Math.min(max, 20)
+      return {
+        current: cur,
+        target: 20,
+        percent: pct(max, 20),
+        detail: `Best day: ${max} sets`,
+      }
+    }
+    case 'comeback-kid': {
+      const has = hasComebackKid(logs, workoutDays)
+      return {
+        current: has ? 1 : 0,
+        target: 1,
+        percent: has ? 100 : 0,
+        detail: has ? 'Comeback complete' : 'Return after 7+ days off',
+      }
+    }
+    case 'perfect-week': {
+      const keys = weekDatesFromStart(weekStartMonday(new Date()))
+      const active = daysWithActivityThisWeek(state)
+      const cur = active.size
+      return {
+        current: cur,
+        target: 7,
+        percent: pct(cur, 7),
+        detail: `${cur} of ${keys.length} days this week`,
       }
     }
     default:

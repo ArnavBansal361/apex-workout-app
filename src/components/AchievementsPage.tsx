@@ -114,23 +114,30 @@ function AchievementGlyph({ id, className }: { id: string; className?: string })
 
 export function AchievementsPage({ onClose }: Props) {
   const { state } = useWorkout()
-  const accent = state.settings.accentColor
   const earned = new Set(state.achievements)
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col bg-[#0c0c0c]">
-      <header className="flex items-center justify-between px-4 py-4 border-b border-[#1e1e1e]">
-        <ApexLogo accent={accent} />
-        <button
-          type="button"
-          className="min-h-11 min-w-11 rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
-          onClick={onClose}
-        >
-          ✕
-        </button>
-      </header>
-      <p className="px-4 pt-3 text-[13px] font-normal text-[#555]">Achievements</p>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-28">
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[20px] sm:rounded-[20px] bg-[#0a0e14] border border-white/[0.08] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between px-4 py-4 border-b border-[#1e1e1e] shrink-0">
+          <ApexLogo />
+          <button
+            type="button"
+            className="min-h-11 min-w-11 rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </header>
+        <p className="px-4 pt-3 text-[13px] font-normal text-[#a0a0a8] shrink-0">Achievements</p>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 pb-28">
         {ACHIEVEMENT_DEFS.map((a) => {
           const ok = earned.has(a.id)
           const prog = getAchievementProgress(state, a.id)
@@ -142,55 +149,46 @@ export function AchievementsPage({ onClose }: Props) {
                   ? 'bg-[#161616] border-white/[0.1]'
                   : 'bg-[#101012] border-[#252528] opacity-90'
               }`}
-              style={ok ? { borderColor: `color-mix(in srgb, ${accent} 55%, #2a2a2e)` } : undefined}
             >
               <div className="flex gap-4">
                 <div
                   className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border ${
                     ok ? '' : 'border-[#2a2a2e] bg-[#0d0d0f]'
                   }`}
-                  style={
-                    ok
-                      ? {
-                          borderColor: `color-mix(in srgb, ${accent} 50%, transparent)`,
-                          color: accent,
-                          background: `linear-gradient(160deg, color-mix(in srgb, ${accent} 18%, #121214), #121214)`,
-                        }
-                      : { color: '#4a4a52' }
-                  }
+                  style={ok ? { color: '#ffffff', background: '#1a1a1a' } : { color: '#909098' }}
                 >
                   <AchievementGlyph id={a.id} />
                   {!ok ? (
-                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#2a2a2e] bg-[#141416] text-[#6b6b73]">
-                      <LockIcon className="text-[#7c7c84]" />
+                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#2a2a2e] bg-[#141416] text-[#a0a0a8]">
+                      <LockIcon className="text-[#a0a0a8]" />
                     </span>
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`text-[14px] font-semibold leading-snug ${ok ? 'text-[#ececee]' : 'text-[#6b6b73]'}`}>
+                    <p className={`text-[14px] font-semibold leading-snug ${ok ? 'text-[#ececee]' : 'text-[#a0a0a8]'}`}>
                       {a.title}
                     </p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] ${
-                        ok ? 'text-[#0c0c0c]' : 'text-[#5c5c64] bg-[#1a1a1e] border border-[#2a2a2e]'
+                        ok ? 'text-[#0c0c0c]' : 'text-[#9898a0] bg-[#1a1a1e] border border-[#2a2a2e]'
                       }`}
-                      style={ok ? { backgroundColor: accent } : undefined}
+                      style={ok ? { backgroundColor: '#ffffff' } : undefined}
                     >
                       {ok ? 'Unlocked' : 'Locked'}
                     </span>
                   </div>
                   <p
                     className={`mt-2 text-[13px] font-medium leading-relaxed ${
-                      ok ? 'text-[#9a9aa3]' : 'text-[#4a4a52]'
+                      ok ? 'text-[#a0a0a8]' : 'text-[#909098]'
                     }`}
                   >
                     {a.description}
                   </p>
                   <div className="mt-3">
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#5c5c64]">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#9898a0]">
                       <span>Progress</span>
-                      <span className="tabular-nums text-[#7c7c84]">
+                      <span className="tabular-nums text-[#a0a0a8]">
                         {prog.current} / {prog.target}
                       </span>
                     </div>
@@ -199,11 +197,11 @@ export function AchievementsPage({ onClose }: Props) {
                         className="h-full rounded-full transition-[width] duration-300"
                         style={{
                           width: `${prog.percent}%`,
-                          backgroundColor: ok ? accent : '#3f3f46',
+                          backgroundColor: ok ? '#ffffff' : '#3f3f46',
                         }}
                       />
                     </div>
-                    <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[#6b6b73]' : 'text-[#4a4a52]'}`}>
+                    <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[#a0a0a8]' : 'text-[#909098]'}`}>
                       {prog.detail}
                     </p>
                   </div>
@@ -212,6 +210,7 @@ export function AchievementsPage({ onClose }: Props) {
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

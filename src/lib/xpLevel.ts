@@ -19,10 +19,10 @@ export type LevelInfo = {
 }
 
 const TIERS: Omit<LevelInfo, 'progressInTier'>[] = [
-  { tier: 'beginner', label: 'Beginner', minXp: 0, nextThreshold: 500, ringColor: '#64748b' },
-  { tier: 'intermediate', label: 'Intermediate', minXp: 500, nextThreshold: 2000, ringColor: '#3b82f6' },
-  { tier: 'advanced', label: 'Advanced', minXp: 2000, nextThreshold: 5000, ringColor: '#a855f7' },
-  { tier: 'elite', label: 'Elite', minXp: 5000, nextThreshold: null, ringColor: '#eab308' },
+  { tier: 'beginner', label: 'Beginner', minXp: 0, nextThreshold: 500, ringColor: 'rgba(255,255,255,0.35)' },
+  { tier: 'intermediate', label: 'Intermediate', minXp: 500, nextThreshold: 2000, ringColor: 'rgba(255,255,255,0.5)' },
+  { tier: 'advanced', label: 'Advanced', minXp: 2000, nextThreshold: 5000, ringColor: 'rgba(255,255,255,0.7)' },
+  { tier: 'elite', label: 'Elite', minXp: 5000, nextThreshold: null, ringColor: '#ffffff' },
 ]
 
 export function getLevelInfo(totalXp: number): LevelInfo {

@@ -1,5 +1,37 @@
 import type { SetLog } from '../types'
-import { dateKey } from './dates'
+import { dateKey, weekStartMonday } from './dates'
+
+export type StrengthProgressPoint = {
+  weekStartKey: string
+  label: string
+  weight: number | null
+}
+
+/** Max weight per week for exercise (non-BW), last 8 Mon–Sun blocks. */
+export function strengthProgressSeries(logs: SetLog[], exerciseId: string): StrengthProgressPoint[] {
+  const thisMonday = weekStartMonday(new Date())
+  const out: StrengthProgressPoint[] = []
+  for (let back = 7; back >= 0; back--) {
+    const ws = new Date(thisMonday)
+    ws.setDate(thisMonday.getDate() - back * 7)
+    const we = new Date(ws)
+    we.setDate(ws.getDate() + 7)
+    let maxW: number | null = null
+    for (const l of logs) {
+      if (l.exerciseId !== exerciseId || l.kind !== 'weighted' || l.bodyweight) continue
+      const t = new Date(l.at)
+      if (t < ws || t >= we) continue
+      const w = l.weight ?? 0
+      maxW = maxW === null ? w : Math.max(maxW, w)
+    }
+    out.push({
+      weekStartKey: dateKey(ws),
+      label: `${ws.getMonth() + 1}/${ws.getDate()}`,
+      weight: maxW,
+    })
+  }
+  return out
+}
 
 /** Max weight used on a calendar day for exercise (non-bodyweight only) */
 function maxWeightOnDay(logs: SetLog[], exerciseId: string, dayKey: string): number | null {

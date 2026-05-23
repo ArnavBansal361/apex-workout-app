@@ -1,25 +1,46 @@
-import { useMemo, useState, type DragEvent, type ReactNode } from 'react'
-import { useWorkout } from '../context/WorkoutContext'
-import { dateKey, formatLong } from '../lib/dates'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
+import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
+import { dateKey, formatLong, getNow } from '../lib/dates'
 import { formatDuration } from '../lib/timers'
 import { progressiveOverloadBanner } from '../lib/overload'
 import { shouldSuggestDeload } from '../lib/deload'
-import { formatLastSessionLine } from '../lib/lastSession'
-import { muscleGroupIcon } from '../lib/muscleIcons'
+import { formatLastSessionLine, getLastWeightedSetForExercise } from '../lib/lastSession'
 import { PLAN_PRESETS } from '../data/planPresets'
-import { computeWeekSummary, isSundayLocal } from '../lib/weekSummary'
+import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
 import { LogSetModal } from './LogSetModal'
 import { QuickLogModal } from './QuickLogModal'
-import { TodayMuscleBalanceChart, TodayWeeklyVolumeChart } from './TodayVolumeCharts'
+import { TodayWeekChartsSection, TodayWeekChartsSideBySide } from './TodayVolumeCharts'
 import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
+import { streakCurrent } from '../lib/achievements'
+import { buildDailyMotivationInput, fetchDailyMotivation } from '../lib/anthropicCoach'
+import {
+  readGymBarcode,
+  renderGymBarcodeToCanvas,
+  requestGymCardScreenWakeLock,
+  type GymBarcodeStored,
+} from '../lib/gymBarcode'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
-import type { Exercise, SetLog, TodaySectionId } from '../types'
+import type { Exercise, SetLog, TodaySectionId, TodaySupersetPair } from '../types'
 
 type Props = {
   onOpenHistory: () => void
+  onOpenGymMembershipSetup?: () => void
+  screenLayout?: 'mobile' | 'desktop'
+  moreOpen: boolean
+  onMoreOpenChange: (open: boolean) => void
+  planOpen: boolean
+  onPlanOpenChange: (open: boolean) => void
 }
 
 function timeToMsSinceMidnight(time: string): number {
@@ -63,6 +84,177 @@ function dailyQuoteForDateKey(todayKey: string): string {
   }
   const idx = Math.abs(h >>> 0) % DAILY_FITNESS_QUOTES.length
   return DAILY_FITNESS_QUOTES[idx]!
+}
+
+type PlanRow =
+  | { kind: 'single'; id: string }
+  | { kind: 'superset'; ids: [string, string] }
+
+function buildPlanRows(ids: string[], pairs: TodaySupersetPair[]): PlanRow[] {
+  const used = new Set<string>()
+  const partnerOf = new Map<string, string>()
+  for (const [a, b] of pairs) {
+    partnerOf.set(a, b)
+    partnerOf.set(b, a)
+  }
+  const rows: PlanRow[] = []
+  for (const id of ids) {
+    if (used.has(id)) continue
+    const partner = partnerOf.get(id)
+    if (partner && ids.includes(partner)) {
+      const ordered: [string, string] =
+        ids.indexOf(id) < ids.indexOf(partner) ? [id, partner] : [partner, id]
+      rows.push({ kind: 'superset', ids: ordered })
+      used.add(ordered[0])
+      used.add(ordered[1])
+    } else {
+      rows.push({ kind: 'single', id })
+      used.add(id)
+    }
+  }
+  return rows
+}
+
+type PlanExerciseSwipeRowProps = {
+  ex: Exercise
+  logged: boolean
+  flash: boolean
+  linkPickActive: boolean
+  onSwipeLog: () => void
+  onOpenLog: () => void
+  onRemove: () => void
+  onLongPress: () => void
+  onTapWhileLinking: () => void
+}
+
+function PlanExerciseSwipeRow({
+  ex,
+  logged,
+  flash,
+  linkPickActive,
+  onSwipeLog,
+  onOpenLog,
+  onRemove,
+  onLongPress,
+  onTapWhileLinking,
+}: PlanExerciseSwipeRowProps) {
+  const rowRef = useRef<HTMLLIElement>(null)
+  const [offset, setOffset] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const startX = useRef(0)
+  const widthRef = useRef(280)
+
+  useEffect(() => {
+    if (rowRef.current) widthRef.current = rowRef.current.offsetWidth || 280
+  }, [])
+
+  function endDrag(clientX: number) {
+    const dx = clientX - startX.current
+    const w = widthRef.current
+    if (dx >= w * 0.4) onSwipeLog()
+    setOffset(0)
+    setDragging(false)
+  }
+
+  const longPressTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+
+  function onPointerDown(e: ReactPointerEvent) {
+    if (linkPickActive) {
+      onTapWhileLinking()
+      return
+    }
+    if ((e.target as HTMLElement).closest('button')) return
+    startX.current = e.clientX
+    setDragging(true)
+    if (rowRef.current) widthRef.current = rowRef.current.offsetWidth || 280
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onPointerMove(e: ReactPointerEvent) {
+    if (!dragging || linkPickActive) return
+    const dx = e.clientX - startX.current
+    if (dx > 8) setOffset(Math.min(dx, widthRef.current))
+    else if (dx < -4) setOffset(0)
+  }
+
+  function onPointerUp(e: ReactPointerEvent) {
+    if (!dragging) return
+    endDrag(e.clientX)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <li
+      ref={rowRef}
+      className={`relative overflow-hidden transition-colors duration-150 ${
+        flash ? 'bg-white/[0.15]' : ''
+      } ${logged ? 'opacity-40' : ''}`}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onLongPress()
+      }}
+    >
+      <div
+        className="absolute inset-y-0 left-0 flex items-center overflow-hidden"
+        style={{
+          width: Math.max(offset, 0),
+          background: 'rgba(255,255,255,0.08)',
+        }}
+        aria-hidden
+      >
+        <i
+          className="ti ti-check shrink-0 ml-3 text-white text-[18px] leading-none"
+          style={{ opacity: offset > 24 ? 1 : offset / 24 }}
+        />
+      </div>
+      <div
+        className={`flex items-center gap-3 px-4 py-3.5 bg-transparent touch-pan-y ${
+          dragging ? '' : 'transition-transform duration-200 ease-out'
+        }`}
+        style={{ transform: `translateX(${offset}px)` }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onTouchStart={() => {
+          longPressTimerRef.current = window.setTimeout(() => onLongPress(), 520)
+        }}
+        onTouchEnd={() => {
+          if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current)
+        }}
+        onTouchMove={() => {
+          if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current)
+        }}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-[#f0f0f2] truncate tracking-tight">{ex.name}</p>
+          <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 uppercase tracking-wider">
+            {ex.muscleGroup}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            className="apex-btn-primary rounded-[12px] min-h-10 px-3.5 text-[12px]"
+            onClick={onOpenLog}
+          >
+            Log Set
+          </button>
+          <button
+            type="button"
+            className="text-[11px] font-normal text-red-500 px-1"
+            onClick={onRemove}
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    </li>
+  )
 }
 
 function fmtCardioMin(m: number | null | undefined): string {
@@ -116,11 +308,11 @@ function SectionEditShell({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={`rounded-[20px] border-2 border-dashed p-3 transition-opacity ${
-        hidden ? 'border-white/[0.12] bg-black/25' : 'border-white/[0.22]'
+        hidden ? 'border-white/[0.12]' : 'border-white/[0.22]'
       } ${dragging ? 'opacity-60' : ''}`}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8b8b93]">{label}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">{label}</p>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <button
             type="button"
@@ -148,7 +340,7 @@ function SectionEditShell({
         </div>
       </div>
       {hidden ? (
-        <p className="py-6 text-center text-[13px] font-medium text-[#6b6b73]">
+        <p className="py-6 text-center text-[13px] font-medium text-[#a0a0a8]">
           Hidden on Today — tap Show to bring it back.
         </p>
       ) : (
@@ -158,7 +350,16 @@ function SectionEditShell({
   )
 }
 
-export function TodayTab({ onOpenHistory }: Props) {
+export function TodayTab({
+  onOpenHistory,
+  onOpenGymMembershipSetup,
+  screenLayout = 'mobile',
+  moreOpen,
+  onMoreOpenChange,
+  planOpen,
+  onPlanOpenChange,
+}: Props) {
+  const isDesktop = screenLayout === 'desktop'
   const {
     state,
     todayKey,
@@ -173,8 +374,9 @@ export function TodayTab({ onOpenHistory }: Props) {
     deleteTemplate,
     loadTemplate,
     applyPresetPlan,
-    gymElapsedMs,
-    cardioElapsedMs,
+    updateScheduleDay,
+    linkSuperset,
+    getSupersetPartner,
     startGymSession,
     pauseGymSession,
     resumeGymSession,
@@ -188,20 +390,66 @@ export function TodayTab({ onOpenHistory }: Props) {
     buildTodayShareText,
     visibleExercises,
     resolveExerciseById,
-    clock,
     updateTodayLayout,
     completeNotificationPrompt,
+    coachNote,
   } = useWorkout()
+  const { clock, gymElapsedMs, cardioElapsedMs } = useWorkoutTick()
 
-  const dailyQuote = useMemo(() => dailyQuoteForDateKey(todayKey), [todayKey])
+  const fallbackQuote = useMemo(() => dailyQuoteForDateKey(todayKey), [todayKey])
+  const streakDays = useMemo(() => streakCurrent(state, clock), [state.setLogs, state.cardioEntries, clock])
+  const [motivationText, setMotivationText] = useState<string | null>(null)
+  const [motivationReady, setMotivationReady] = useState(false)
+  const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
 
   const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
-  const showSundayRecap = isSundayLocal(clock)
+  const showSundayRecap = isSundayLocal(clock) && !isMondayMorningLocal(clock)
+  const weekRecapEmpty =
+    weekRecap.totalSets === 0 && weekRecap.totalVolumeLbs === 0 && weekRecap.prCount === 0
 
-  const accent = state.settings.accentColor
   const sched = state.schedule.find((d) => d.dateKey === todayKey)
+  const planName = sched?.workoutName?.trim() ?? ''
+  const isCardioPlan = /\bcardio\b/i.test(planName)
+  const isRestDay = !planName
+  const workoutTitle = planName || 'Rest day'
 
-  const [planOpen, setPlanOpen] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    const cacheKey = `apex-daily-motivation-${todayKey}`
+    try {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached?.trim()) {
+        setMotivationText(cached.trim())
+        setMotivationReady(true)
+        return
+      }
+    } catch {
+      /* ignore */
+    }
+    setMotivationText(null)
+    setMotivationReady(false)
+    const input = buildDailyMotivationInput(state, streakDays, clock)
+    void fetchDailyMotivation(input)
+      .then((text) => {
+        if (cancelled) return
+        setMotivationText(text)
+        setMotivationReady(true)
+        try {
+          sessionStorage.setItem(cacheKey, text)
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setMotivationText(fallbackQuote)
+        setMotivationReady(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [todayKey, streakDays, state.setLogs, state.settings.unit, fallbackQuote])
+
   const [planSearch, setPlanSearch] = useState('')
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -210,6 +458,7 @@ export function TodayTab({ onOpenHistory }: Props) {
   const [sessionSummary, setSessionSummary] = useState<SessionSummaryData | null>(null)
   const [deloadDismissed, setDeloadDismissed] = useState(false)
   const [gymTime, setGymTime] = useState('09:00')
+  const [gymManualOpen, setGymManualOpen] = useState(false)
   const [cardioName, setCardioName] = useState('')
   const [cardioManualMin, setCardioManualMin] = useState('')
   const [confirmCardioId, setConfirmCardioId] = useState<string | null>(null)
@@ -219,7 +468,36 @@ export function TodayTab({ onOpenHistory }: Props) {
   const [confirmDeleteSetId, setConfirmDeleteSetId] = useState<string | null>(null)
   const [confirmClearAllPlan, setConfirmClearAllPlan] = useState(false)
   const [quickLogOpen, setQuickLogOpen] = useState(false)
+  const [gymCardOpen, setGymCardOpen] = useState(false)
+  const [gymBarcodeRenderError, setGymBarcodeRenderError] = useState<string | null>(null)
+  const gymBarcodeCanvasRef = useRef<HTMLCanvasElement>(null)
   const [layoutEditing, setLayoutEditing] = useState(false)
+  const [flashPlanId, setFlashPlanId] = useState<string | null>(null)
+  const [supersetLinkFrom, setSupersetLinkFrom] = useState<string | null>(null)
+  const [planActionMenuId, setPlanActionMenuId] = useState<string | null>(null)
+  const [supersetLogFromId, setSupersetLogFromId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!gymCardOpen || !gymBarcode) return
+    setGymBarcodeRenderError(null)
+    let releaseWake = () => {}
+    void requestGymCardScreenWakeLock().then((release) => {
+      releaseWake = release
+    })
+    const id = window.requestAnimationFrame(() => {
+      const canvas = gymBarcodeCanvasRef.current
+      if (!canvas) return
+      try {
+        renderGymBarcodeToCanvas(canvas, gymBarcode)
+      } catch (e) {
+        setGymBarcodeRenderError(e instanceof Error ? e.message : 'Could not render barcode')
+      }
+    })
+    return () => {
+      window.cancelAnimationFrame(id)
+      releaseWake()
+    }
+  }, [gymCardOpen, gymBarcode])
   const [dragId, setDragId] = useState<TodaySectionId | null>(null)
 
   const layout = state.todayLayout
@@ -228,6 +506,20 @@ export function TodayTab({ onOpenHistory }: Props) {
     if (layoutEditing) return layout.order
     return layout.order.filter((id) => !hiddenSet.has(id))
   }, [layoutEditing, layout.order, hiddenSet])
+
+  const moreSectionIds = useMemo(
+    () => orderedSectionIds.filter((id) => id !== 'daily-motivation'),
+    [orderedSectionIds],
+  )
+
+  function handlePrimaryAction() {
+    onMoreOpenChange(true)
+    if (isCardioPlan) {
+      if (!state.cardioTimer.running) startCardioTimer()
+    } else if (!state.gymSession.active) {
+      startGymSession('stopwatch')
+    }
+  }
 
   const filteredAdd = useMemo(() => {
     const q = planSearch.trim().toLowerCase()
@@ -273,6 +565,117 @@ export function TodayTab({ onOpenHistory }: Props) {
     return formatLastSessionLine(state.setLogs, logTarget.id, state.settings.unit)
   }, [logTarget, state.setLogs, state.settings.unit])
 
+  const logInitialWeighted = useMemo(() => {
+    if (!logTarget) return null
+    return getLastWeightedSetForExercise(state.setLogs, logTarget.id)
+  }, [logTarget, state.setLogs])
+
+  const planRows = useMemo(
+    () => buildPlanRows(state.todayPlanExerciseIds, state.todaySupersetPairs ?? []),
+    [state.todayPlanExerciseIds, state.todaySupersetPairs],
+  )
+
+  function flashPlanCard(planId: string) {
+    setFlashPlanId(planId)
+    window.setTimeout(() => setFlashPlanId(null), 150)
+  }
+
+  function commitWeightedLog(
+    ex: Exercise,
+    vals: { bodyweight: boolean; weight: number | null; reps: number; sets: number; note: string },
+    options?: { deferRestTimer?: boolean },
+  ) {
+    addSetLog(
+      {
+        kind: 'weighted',
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        muscleGroup: ex.muscleGroup,
+        weight: vals.bodyweight ? null : vals.weight,
+        bodyweight: vals.bodyweight,
+        reps: vals.reps,
+        sets: vals.sets,
+        note: vals.note,
+      },
+      options,
+    )
+  }
+
+  function afterPlanSetLogged(ex: Exercise) {
+    const partner = getSupersetPartner(ex.id)
+    if (partner && supersetLogFromId === null) {
+      setSupersetLogFromId(ex.id)
+      const next = resolveExerciseById(partner)
+      if (next) {
+        setLogTarget(next)
+        setEditLog(null)
+        return
+      }
+    }
+    setSupersetLogFromId(null)
+    setLogTarget(null)
+  }
+
+  function swipeQuickLog(ex: Exercise) {
+    const last = getLastWeightedSetForExercise(state.setLogs, ex.id)
+    if (!last) {
+      setLogTarget(ex)
+      setEditLog(null)
+      return
+    }
+    const partner = getSupersetPartner(ex.id)
+    const deferRest = Boolean(partner && supersetLogFromId === null)
+    commitWeightedLog(
+      ex,
+      {
+        bodyweight: last.bodyweight,
+        weight: last.weight,
+        reps: last.reps,
+        sets: last.sets,
+        note: '',
+      },
+      { deferRestTimer: deferRest },
+    )
+    flashPlanCard(ex.id)
+    notify(`Set logged — ${ex.name}`, 2000)
+    if (partner && supersetLogFromId === null) {
+      setSupersetLogFromId(ex.id)
+      const next = resolveExerciseById(partner)
+      if (next) {
+        const lastB = getLastWeightedSetForExercise(state.setLogs, partner)
+        if (lastB) {
+          commitWeightedLog(
+            next,
+            {
+              bodyweight: lastB.bodyweight,
+              weight: lastB.weight,
+              reps: lastB.reps,
+              sets: lastB.sets,
+              note: '',
+            },
+            { deferRestTimer: false },
+          )
+          flashPlanCard(next.id)
+          notify(`Set logged — ${next.name}`, 2000)
+          setSupersetLogFromId(null)
+        } else {
+          setLogTarget(next)
+          setEditLog(null)
+        }
+        return
+      }
+    }
+    setSupersetLogFromId(null)
+  }
+
+  function handlePlanLinkTap(targetId: string) {
+    if (supersetLinkFrom && supersetLinkFrom !== targetId) {
+      linkSuperset(supersetLinkFrom, targetId)
+      setSupersetLinkFrom(null)
+      return
+    }
+  }
+
   async function endGym() {
     const durationSec = Math.floor(gymElapsedMs / 1000)
     const logsToday = state.setLogs.filter((l) => dateKey(new Date(l.at)) === todayKey)
@@ -280,7 +683,7 @@ export function TodayTab({ onOpenHistory }: Props) {
     const prCount = logsToday.filter((l) => l.isPr).length
     await stopGymSession()
     setSessionSummary({
-      dateLabel: formatLong(new Date()),
+      dateLabel: formatLong(getNow()),
       durationSec,
       exerciseNames: names,
       totalSets: logsToday.length,
@@ -320,25 +723,31 @@ export function TodayTab({ onOpenHistory }: Props) {
     switch (id) {
       case 'daily-motivation':
         return (
-          <div
-            className="apex-card px-5 py-4 sm:px-6 sm:py-5 border-l-[3px]"
-            style={{ borderLeftColor: accent }}
-          >
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b6b73] mb-2">
-              Daily motivation
-            </p>
-            <p className="text-[15px] sm:text-[16px] font-semibold text-[#ececee] leading-relaxed">
-              &ldquo;{dailyQuote}&rdquo;
-            </p>
+          <div className="apex-card">
+            <p className="apex-section-label mb-2">Daily motivation</p>
+            {!motivationReady ? (
+              <div
+                className="rounded-[4px] bg-white/20"
+                style={{ width: '60%', height: 12, opacity: 0.2 }}
+                aria-hidden
+              />
+            ) : (
+              <p
+                className="text-[15px] sm:text-[16px] font-normal text-[#ececee] leading-relaxed transition-opacity duration-500"
+                style={{ opacity: motivationReady ? 1 : 0 }}
+              >
+                {motivationText ?? fallbackQuote}
+              </p>
+            )}
           </div>
         )
       case 'weekly-volume':
-        return <TodayWeeklyVolumeChart state={state} clock={clock} accent={accent} />
+        return isDesktop ? <TodayWeekChartsSideBySide /> : <TodayWeekChartsSection />
       case 'muscle-balance':
-        return <TodayMuscleBalanceChart state={state} clock={clock} accent={accent} />
+        return isDesktop ? null : null
       case 'gym-tracker':
         return (
-          <div className="apex-card p-4 flex flex-col gap-3 min-h-[158px]">
+          <div className="apex-card flex flex-col gap-3 min-h-[158px]">
             <p className="apex-section-label">Gym</p>
             {!state.gymSession.active ? (
               <>
@@ -349,19 +758,31 @@ export function TodayTab({ onOpenHistory }: Props) {
                 >
                   Start stopwatch
                 </button>
-                <input
-                  type="time"
-                  className={`${inp} w-full min-h-10`}
-                  value={gymTime}
-                  onChange={(e) => setGymTime(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className={`${btnNeutral} w-full text-[13px]`}
-                  onClick={() => startGymSession('manual', timeToMsSinceMidnight(gymTime))}
-                >
-                  From time
-                </button>
+                {!gymManualOpen ? (
+                  <button
+                    type="button"
+                    className="text-[12px] font-medium text-[#a0a0a8] underline-offset-2 hover:underline self-start"
+                    onClick={() => setGymManualOpen(true)}
+                  >
+                    Enter time manually
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="time"
+                      className={`${inp} w-full min-h-10`}
+                      value={gymTime}
+                      onChange={(e) => setGymTime(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className={`${btnNeutral} w-full text-[13px]`}
+                      onClick={() => startGymSession('manual', timeToMsSinceMidnight(gymTime))}
+                    >
+                      From time
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -404,7 +825,7 @@ export function TodayTab({ onOpenHistory }: Props) {
               </div>
             </div>
             <section className="apex-card p-5 space-y-4">
-              <h2 className="apex-section-label tracking-[0.12em]">Cardio log</h2>
+              <h2 className="apex-section-label">Cardio log</h2>
               <input
                 className={`w-full min-h-11 ${inp}`}
                 placeholder="Activity name"
@@ -422,7 +843,6 @@ export function TodayTab({ onOpenHistory }: Props) {
                 <button
                   type="button"
                   className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[14px]"
-                  style={{ backgroundColor: accent }}
                   onClick={() => {
                     const name = cardioName.trim() || 'Cardio'
                     const raw = cardioManualMin.trim()
@@ -443,11 +863,11 @@ export function TodayTab({ onOpenHistory }: Props) {
                   .map((c) => (
                     <li
                       key={c.id}
-                      className="flex items-center justify-between gap-2 rounded-[14px] border border-white/[0.07] bg-black/20 px-4 py-3 apex-card-interactive"
+                      className="flex items-center justify-between gap-2 rounded-[14px] border border-white/[0.07] px-4 py-3 apex-card-interactive"
                     >
                       <div>
                         <p className="text-[13px] font-normal text-[#e0e0e0]">{c.name}</p>
-                        <p className="text-[11px] text-[#bdbdbd]">{fmtCardioMin(c.durationMinutes)}</p>
+                        <p className="text-[11px] text-[#a8a8b0]">{fmtCardioMin(c.durationMinutes)}</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button type="button" className={btnNeutral} onClick={() => applyCardioTimerToEntry(c.id)}>
@@ -473,12 +893,10 @@ export function TodayTab({ onOpenHistory }: Props) {
             <button
               type="button"
               className="w-full min-h-14 flex items-center justify-between px-5 py-3 text-left transition-colors hover:bg-white/[0.03] active:bg-white/[0.05]"
-              onClick={() => setPlanOpen((o) => !o)}
+              onClick={() => onPlanOpenChange(!planOpen)}
             >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a8a8ae]">
-                My plan
-              </span>
-              <span className="text-[15px] font-light text-[#8b8b93]">{planOpen ? '−' : '+'}</span>
+              <span className="apex-section-title">My plan</span>
+              <span className="text-[15px] font-light text-[#a0a0a8]">{planOpen ? '−' : '+'}</span>
             </button>
             {planOpen ? (
               <div className="px-5 pb-5 space-y-4 border-t border-white/[0.06] pt-4">
@@ -488,7 +906,7 @@ export function TodayTab({ onOpenHistory }: Props) {
                     <button
                       key={p.id}
                       type="button"
-                      className="apex-card apex-card-interactive p-4 text-left min-h-[6rem] border-white/[0.08]"
+                      className="rounded-[18px] border border-white/[0.07] bg-white/[0.03] apex-card-interactive p-4 text-left min-h-[6rem]"
                       onClick={() => applyPresetPlan(p.exerciseIds)}
                     >
                       <p className="text-[15px] font-semibold text-[#f0f0f2] leading-tight tracking-tight">
@@ -515,9 +933,9 @@ export function TodayTab({ onOpenHistory }: Props) {
                     autoComplete="off"
                   />
                   {planSearch.trim() ? (
-                    <ul className="absolute z-20 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-[#141418]/98 backdrop-blur-md shadow-xl">
+                    <ul className="absolute z-20 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-[#13181f]">
                       {filteredAdd.length === 0 ? (
-                        <li className="px-4 py-3 text-[13px] text-[#8b8b93]">No matches</li>
+                        <li className="px-4 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
                       ) : (
                         filteredAdd.map((e) => (
                           <li key={e.id}>
@@ -530,7 +948,7 @@ export function TodayTab({ onOpenHistory }: Props) {
                               }}
                             >
                               {e.name}{' '}
-                              <span className="text-[#bdbdbd]">· {e.muscleGroup}</span>
+                              <span className="text-[#a8a8b0]">· {e.muscleGroup}</span>
                             </button>
                           </li>
                         ))
@@ -539,56 +957,137 @@ export function TodayTab({ onOpenHistory }: Props) {
                   ) : null}
                 </div>
 
-                <ul className="divide-y divide-white/[0.06] border border-white/[0.08] rounded-[16px] overflow-hidden bg-black/20">
-                  {state.todayPlanExerciseIds.map((planId) => {
-                    const ex = resolveExerciseById(planId)
-                    if (!ex) return null
-                    const logged = todaysLogs.some((l) => l.exerciseId === planId)
+                {supersetLinkFrom ? (
+                  <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">
+                    Tap a second exercise to link as superset
+                  </p>
+                ) : null}
+
+                <ul className="space-y-3">
+                  {planRows.map((row) => {
+                    if (row.kind === 'single') {
+                      const ex = resolveExerciseById(row.id)
+                      if (!ex) return null
+                      const logged = todaysLogs.some((l) => l.exerciseId === row.id)
+                      return (
+                        <div
+                          key={row.id}
+                          className="border border-white/[0.08] rounded-[16px] overflow-hidden"
+                        >
+                          <ul className="divide-y divide-white/[0.06]">
+                            <PlanExerciseSwipeRow
+                              ex={ex}
+                              logged={logged}
+                              flash={flashPlanId === row.id}
+                              linkPickActive={!!supersetLinkFrom}
+                              onSwipeLog={() => swipeQuickLog(ex)}
+                              onOpenLog={() => {
+                                setSupersetLogFromId(null)
+                                setLogTarget(ex)
+                                setEditLog(null)
+                              }}
+                              onRemove={() => setPlanRemoveId(row.id)}
+                              onLongPress={() => setPlanActionMenuId(row.id)}
+                              onTapWhileLinking={() => handlePlanLinkTap(row.id)}
+                            />
+                          </ul>
+                        </div>
+                      )
+                    }
+                    const exA = resolveExerciseById(row.ids[0])
+                    const exB = resolveExerciseById(row.ids[1])
+                    if (!exA || !exB) return null
                     return (
                       <li
-                        key={planId}
-                        className={`flex items-center gap-3 px-4 py-3.5 transition-opacity ${
-                          logged ? 'opacity-40' : ''
-                        }`}
+                        key={`${row.ids[0]}-${row.ids[1]}`}
+                        className="rounded-[12px] p-3"
+                        style={{
+                          background: '#1a2028',
+                          border: '0.5px solid rgba(255,255,255,0.1)',
+                        }}
                       >
-                        <span
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg leading-none bg-white/[0.06] border border-white/[0.08]"
-                          aria-hidden
-                        >
-                          {muscleGroupIcon(ex.muscleGroup)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold text-[#f0f0f2] truncate tracking-tight">
-                            {ex.name}
+                        <div className="flex items-center gap-2 mb-2 min-w-0">
+                          <p className="flex-1 min-w-0 text-[14px] font-semibold text-[#f0f0f2] truncate">
+                            {exA.name}
                           </p>
-                          <p className="text-[11px] font-medium text-[#7c7c84] mt-0.5 uppercase tracking-wider">
-                            {ex.muscleGroup}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            className="apex-btn-primary rounded-[12px] min-h-10 px-3.5 text-[12px]"
-                            style={{ backgroundColor: accent }}
-                            onClick={() => {
-                              setLogTarget(ex)
-                              setEditLog(null)
+                          <span
+                            className="shrink-0 text-[9px] font-normal uppercase tracking-wider"
+                            style={{
+                              color: 'rgba(255,255,255,0.4)',
+                              border: '0.5px solid rgba(255,255,255,0.2)',
+                              borderRadius: 4,
+                              padding: '2px 5px',
+                              background: 'transparent',
                             }}
                           >
-                            Log Set
-                          </button>
-                          <button
-                            type="button"
-                            className="text-[11px] font-normal text-red-500 px-1"
-                            onClick={() => setPlanRemoveId(planId)}
-                          >
-                            Remove
-                          </button>
+                            SS
+                          </span>
+                          <p className="flex-1 min-w-0 text-[14px] font-semibold text-[#f0f0f2] truncate text-right">
+                            {exB.name}
+                          </p>
                         </div>
+                        <div
+                          className="mb-2"
+                          style={{ height: 0.5, background: 'rgba(255,255,255,0.1)' }}
+                        />
+                        <ul className="divide-y divide-white/[0.06]">
+                          {[exA, exB].map((ex) => {
+                            const logged = todaysLogs.some((l) => l.exerciseId === ex.id)
+                            return (
+                              <PlanExerciseSwipeRow
+                                key={ex.id}
+                                ex={ex}
+                                logged={logged}
+                                flash={flashPlanId === ex.id}
+                                linkPickActive={!!supersetLinkFrom}
+                                onSwipeLog={() => swipeQuickLog(ex)}
+                                onOpenLog={() => {
+                                  setSupersetLogFromId(null)
+                                  setLogTarget(ex)
+                                  setEditLog(null)
+                                }}
+                                onRemove={() => setPlanRemoveId(ex.id)}
+                                onLongPress={() => setPlanActionMenuId(ex.id)}
+                                onTapWhileLinking={() => handlePlanLinkTap(ex.id)}
+                              />
+                            )
+                          })}
+                        </ul>
                       </li>
                     )
                   })}
                 </ul>
+
+                {planActionMenuId ? (
+                  <div
+                    role="presentation"
+                    className="fixed inset-0 z-[62] flex items-end justify-center p-4 bg-black/50"
+                    onClick={() => setPlanActionMenuId(null)}
+                  >
+                    <div
+                      className="w-full max-w-sm apex-card p-4 space-y-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        className="apex-btn w-full min-h-11 text-[13px]"
+                        onClick={() => {
+                          setSupersetLinkFrom(planActionMenuId)
+                          setPlanActionMenuId(null)
+                        }}
+                      >
+                        Link as superset
+                      </button>
+                      <button
+                        type="button"
+                        className="apex-btn-muted w-full min-h-11 text-[13px]"
+                        onClick={() => setPlanActionMenuId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {state.todayPlanExerciseIds.length > 0 ? (
                   <button
@@ -615,19 +1114,13 @@ export function TodayTab({ onOpenHistory }: Props) {
               {todaysLogs.map((l) => (
                 <li key={l.id} className="apex-card apex-card-interactive p-4">
                   <div className="flex justify-between gap-2 items-start">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base shrink-0" aria-hidden>
-                        {muscleGroupIcon(l.muscleGroup)}
-                      </span>
+                    <div className="min-w-0 flex-1">
                       <p className="text-[15px] font-semibold text-[#f0f0f2] min-w-0 tracking-tight">
                         {l.exerciseName}
                       </p>
                     </div>
                     {l.isPr ? (
-                      <span
-                        className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0a0a0c]"
-                        style={{ backgroundColor: accent }}
-                      >
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-black">
                         PR
                       </span>
                     ) : null}
@@ -637,7 +1130,7 @@ export function TodayTab({ onOpenHistory }: Props) {
                       ? `${l.bodyweight ? 'Bodyweight' : `${l.weight ?? 0} ${state.settings.unit}`} × ${l.reps} · ${l.sets} sets`
                       : `${l.durationSec}s timed`}
                   </p>
-                  {l.note ? <p className="text-[12px] text-[#8b8b93] mt-2 leading-relaxed">{l.note}</p> : null}
+                  {l.note ? <p className="text-[12px] text-[#a0a0a8] mt-2 leading-relaxed">{l.note}</p> : null}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
                     <p className="apex-section-label opacity-80">
                       {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -646,7 +1139,6 @@ export function TodayTab({ onOpenHistory }: Props) {
                       <button
                         type="button"
                         className="apex-btn-primary min-h-9 rounded-[12px] px-3 text-[12px]"
-                        style={{ backgroundColor: accent }}
                         onClick={() => {
                           setEditLog(l)
                           setLogTarget(null)
@@ -666,7 +1158,7 @@ export function TodayTab({ onOpenHistory }: Props) {
                 </li>
               ))}
               {todaysLogs.length === 0 ? (
-                <p className="text-[14px] font-medium text-[#7c7c84] py-2">No sets logged yet today.</p>
+                <p className="text-[14px] font-medium text-[#a0a0a8] py-2">No sets logged yet today.</p>
               ) : null}
             </ul>
           </section>
@@ -677,35 +1169,133 @@ export function TodayTab({ onOpenHistory }: Props) {
   }
 
   return (
-    <div className="space-y-7 pb-36" style={{ ['--accent' as string]: accent }}>
-      {showSundayRecap ? (
-        <div className="apex-card px-5 py-5 border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.07] to-transparent">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200/80 mb-1">
-            Sunday week recap
-          </p>
-          <h2 className="text-lg font-bold text-[#f4f4f5] tracking-tight">This week · {weekRecap.weekLabel}</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-[12px] border border-white/[0.06] bg-black/25 px-3 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6b73]">Sets</p>
-              <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
-            </div>
-            <div className="rounded-[12px] border border-white/[0.06] bg-black/25 px-3 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6b73]">Volume</p>
-              <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">
-                {weekRecap.totalVolumeLbs.toLocaleString()} lb
-              </p>
-            </div>
-            <div className="rounded-[12px] border border-white/[0.06] bg-black/25 px-3 py-3 col-span-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6b73]">Muscle groups</p>
-              <p className="mt-1 text-[13px] font-semibold text-[#c8c8ce] leading-snug">
-                {weekRecap.muscleGroups.length ? weekRecap.muscleGroups.join(', ') : 'None logged yet'}
-              </p>
-            </div>
-            <div className="rounded-[12px] border border-white/[0.06] bg-black/25 px-3 py-3 col-span-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6b73]">PRs hit</p>
-              <p className="mt-1 text-xl font-black tabular-nums text-amber-200/95">{weekRecap.prCount}</p>
-            </div>
+    <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}`}>
+      <header className="apex-card px-6 py-6 relative">
+        <button
+          type="button"
+          className="absolute top-4 right-4 z-[1] flex h-9 w-9 items-center justify-center rounded-[10px] border border-white/[0.12] bg-black/30 text-[#ececee] touch-manipulation active:scale-[0.98]"
+          aria-label={
+            gymBarcode ? 'Open gym membership barcode' : 'Set up gym membership barcode'
+          }
+          onClick={() => {
+            const saved = readGymBarcode()
+            setGymBarcode(saved)
+            if (saved) {
+              setGymCardOpen(true)
+            } else {
+              onOpenGymMembershipSetup?.()
+            }
+          }}
+        >
+          <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
+        </button>
+        <p className="apex-page-sub pr-14">{formatLong(new Date(clock))}</p>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="text-[0.8125rem] font-medium text-[#7d7d88]">Streak</span>
+          <span className="text-[18px] font-black tabular-nums text-[#f4f4f5]">{streakDays}d</span>
+        </div>
+        <h1 className="apex-page-title mt-2 pr-2">{workoutTitle}</h1>
+        {isRestDay && !isCardioPlan ? (
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              className="flex-1 min-h-[44px] rounded-[8px] text-[14px] font-normal touch-manipulation"
+              style={{
+                background: 'transparent',
+                border: '0.5px solid rgba(255,255,255,0.15)',
+                color: 'rgba(255,255,255,0.5)',
+              }}
+              onClick={() => {
+                addCardioEntry('Recovery', null)
+                onMoreOpenChange(true)
+              }}
+            >
+              Log recovery
+            </button>
+            <button
+              type="button"
+              className="flex-1 min-h-[44px] rounded-[8px] bg-white text-black text-[14px] font-medium touch-manipulation active:scale-[0.98]"
+              onClick={() => {
+                updateScheduleDay(todayKey, { workoutName: 'Workout' })
+                onMoreOpenChange(true)
+                onPlanOpenChange(true)
+                if (!state.gymSession.active) startGymSession('stopwatch')
+              }}
+            >
+              Workout day
+            </button>
           </div>
+        ) : (
+          <button
+            type="button"
+            className="apex-btn-primary w-full min-h-12 mt-5 text-[14px] font-semibold rounded-[14px]"
+            onClick={handlePrimaryAction}
+          >
+            {isCardioPlan ? 'Log cardio' : 'Start workout'}
+          </button>
+        )}
+      </header>
+
+      {sectionBody('daily-motivation')}
+
+      {!isDesktop ? (
+        <button
+          type="button"
+          className="apex-card w-full min-h-12 px-5 flex items-center justify-between text-left touch-manipulation"
+          onClick={() => onMoreOpenChange(!moreOpen)}
+          aria-expanded={moreOpen}
+        >
+          <span className="text-[15px] font-semibold text-[#ececee]">More</span>
+          <span className="text-[20px] font-light leading-none text-[#a0a0a8]">{moreOpen ? '−' : '+'}</span>
+        </button>
+      ) : null}
+
+      {isDesktop || moreOpen ? (
+        <div className="apex-tab-stack">
+      {showSundayRecap ? (
+        <div className="apex-card px-5 py-5 ">
+          <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-1">Sunday week recap</p>
+          <h2 className="text-lg font-bold text-[#f4f4f5] tracking-tight">This week · {weekRecap.weekLabel}</h2>
+          {weekRecapEmpty ? (
+            <p className="mt-4 text-[14px] font-medium text-[#a0a0a8] leading-relaxed">
+              Start logging to see your week take shape
+            </p>
+          ) : (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {weekRecap.totalSets > 0 ? (
+                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
+                  <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sets</p>
+                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
+                </div>
+              ) : null}
+              {weekRecap.totalVolumeLbs > 0 ? (
+                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
+                  <p className="text-[0.75rem] font-medium text-[#7d7d88]">Volume</p>
+                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">
+                    {weekRecap.totalVolumeLbs.toLocaleString()} lb
+                  </p>
+                </div>
+              ) : null}
+              {weekRecap.muscleGroups.length > 0 ? (
+                <div
+                  className={`rounded-[12px] border border-white/[0.06] px-3 py-3 ${
+                    weekRecap.totalSets > 0 && weekRecap.totalVolumeLbs > 0 ? 'col-span-2' : ''
+                  }`}
+                >
+                  <p className="text-[0.75rem] font-medium text-[#7d7d88]">Muscle groups</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#c8c8ce] leading-snug">
+                    {weekRecap.muscleGroups.join(', ')}
+                  </p>
+                </div>
+              ) : null}
+              {weekRecap.prCount > 0 ? (
+                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3 col-span-2">
+                  <p className="text-[0.75rem] font-medium text-[#7d7d88]">PRs hit</p>
+                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">{weekRecap.prCount}</p>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -729,7 +1319,7 @@ export function TodayTab({ onOpenHistory }: Props) {
           </p>
           <button
             type="button"
-            className="mt-2 text-[10px] uppercase tracking-[0.5px] text-[#bdbdbd]"
+            className="mt-2 text-[10px] uppercase tracking-[0.5px] text-[#a8a8b0]"
             onClick={() => setDeloadDismissed(true)}
           >
             Dismiss
@@ -737,25 +1327,10 @@ export function TodayTab({ onOpenHistory }: Props) {
         </div>
       ) : null}
 
-      <header className="apex-card px-6 py-6">
-        <p className="apex-page-sub">{formatLong(new Date())}</p>
-        <h1 className="apex-page-title mt-2">
-          {sched?.workoutName?.trim() ? sched.workoutName : 'Rest day'}
-        </h1>
-        {sched?.notes?.trim() ? (
-          <p className="mt-4 apex-lead text-[15px]">{sched.notes}</p>
-        ) : null}
-        {sched?.aiSummary?.trim() ? (
-          <p className="mt-4 rounded-[14px] border border-white/[0.08] bg-black/25 px-4 py-3 apex-lead text-[14px]">
-            {sched.aiSummary}
-          </p>
-        ) : null}
-      </header>
-
       {state.onboardingComplete && !state.notificationPromptDone ? (
         <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-white/[0.08]">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6b6b73] mb-1.5">Stay in the loop</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
             <p className="text-[14px] font-medium text-[#d4d4d8] leading-snug">
               Enable notifications for Sunday evening week summaries and when your rest timer finishes while Apex is in the background.
             </p>
@@ -764,7 +1339,6 @@ export function TodayTab({ onOpenHistory }: Props) {
             <button
               type="button"
               className={`${btnNeutral} min-h-11 px-4`}
-              style={{ borderColor: `${accent}55`, color: accent }}
               onClick={async () => {
                 await requestNotificationPermission()
                 completeNotificationPrompt()
@@ -782,7 +1356,7 @@ export function TodayTab({ onOpenHistory }: Props) {
       <div className="flex justify-end">
         <button
           type="button"
-          className={`${btnNeutral} min-h-10 ${layoutEditing ? 'border-amber-500/40 text-amber-100/90' : ''}`}
+          className={`${btnNeutral} min-h-10 ${layoutEditing ? 'border-white/20 text-white' : ''}`}
           onClick={() => {
             setLayoutEditing((v) => !v)
             setDragId(null)
@@ -793,13 +1367,13 @@ export function TodayTab({ onOpenHistory }: Props) {
       </div>
 
       {layoutEditing ? (
-        <p className="text-[12px] font-medium text-[#7c7c84] -mt-5 text-right">
+        <p className="text-[12px] font-medium text-[#a0a0a8] -mt-5 text-right">
           Drag a section onto another to reorder. Use Hide to remove blocks from Today.
         </p>
       ) : null}
 
-      <div className="space-y-6">
-        {orderedSectionIds.map((sid) => {
+      <div className="apex-tab-stack">
+        {moreSectionIds.map((sid) => {
           const label = TODAY_SECTION_LABELS[sid]
           const hidden = hiddenSet.has(sid)
           const idx = layout.order.indexOf(sid)
@@ -837,46 +1411,65 @@ export function TodayTab({ onOpenHistory }: Props) {
           )
         })}
       </div>
+        </div>
+      ) : null}
 
-      {state.settings.trainerMode && state.settings.trainerNotes.trim() ? (
+      {coachNote ? (
         <div className="apex-card p-5">
-          <p className="apex-section-label mb-2">Trainer notes</p>
-          <p className="apex-lead text-[14px]">{state.settings.trainerNotes}</p>
+          <p className="apex-section-label mb-2">Coach note</p>
+          <p className="apex-lead text-[14px]">{coachNote}</p>
         </div>
       ) : null}
 
       <LogSetModal
         open={!!logTarget}
         exercise={logTarget}
-        accent={accent}
         unit={state.settings.unit}
         lastSessionLine={lastSessionLine}
-        onClose={() => setLogTarget(null)}
+        initialWeighted={logInitialWeighted}
+        onClose={() => {
+          setLogTarget(null)
+          setSupersetLogFromId(null)
+        }}
         onSave={(p) => {
           try {
             const ex = p.exercise
+            const partner = getSupersetPartner(ex.id)
+            const deferRest = Boolean(partner && supersetLogFromId === null)
             if (p.mode === 'weighted') {
-              addSetLog({
-                kind: 'weighted',
-                exerciseId: ex.id,
-                exerciseName: ex.name,
-                muscleGroup: ex.muscleGroup,
-                weight: p.bodyweight ? null : p.weight,
-                bodyweight: p.bodyweight,
-                reps: p.reps,
-                sets: p.sets,
-                note: p.note,
-              })
+              addSetLog(
+                {
+                  kind: 'weighted',
+                  exerciseId: ex.id,
+                  exerciseName: ex.name,
+                  muscleGroup: ex.muscleGroup,
+                  weight: p.bodyweight ? null : p.weight,
+                  bodyweight: p.bodyweight,
+                  reps: p.reps,
+                  sets: p.sets,
+                  note: p.note,
+                },
+                { deferRestTimer: deferRest },
+              )
             } else {
-              addSetLog({
-                kind: 'timed',
-                exerciseId: ex.id,
-                exerciseName: ex.name,
-                muscleGroup: ex.muscleGroup,
-                durationSec: p.durationSec,
-                note: p.note,
-              })
+              addSetLog(
+                {
+                  kind: 'timed',
+                  exerciseId: ex.id,
+                  exerciseName: ex.name,
+                  muscleGroup: ex.muscleGroup,
+                  durationSec: p.durationSec,
+                  note: p.note,
+                },
+                { deferRestTimer: deferRest },
+              )
             }
+            if (partner && supersetLogFromId === null) {
+              afterPlanSetLogged(ex)
+              return false
+            }
+            setSupersetLogFromId(null)
+            setLogTarget(null)
           } catch (e) {
             notify(e instanceof Error ? e.message : 'Could not save set')
             throw e
@@ -887,7 +1480,7 @@ export function TodayTab({ onOpenHistory }: Props) {
       <EditSetLogModal
         open={!!editLog}
         log={editLog}
-        accent={accent}
+       
         unit={state.settings.unit}
         onClose={() => setEditLog(null)}
         onSave={(logId, payload) => {
@@ -902,7 +1495,7 @@ export function TodayTab({ onOpenHistory }: Props) {
 
       <SessionSummaryModal
         open={summaryOpen}
-        accent={accent}
+       
         data={sessionSummary}
         shareText={buildTodayShareText()}
         onClose={() => {
@@ -912,8 +1505,15 @@ export function TodayTab({ onOpenHistory }: Props) {
       />
 
       {templatesOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-md apex-card p-4 max-h-[85vh] overflow-y-auto">
+        <div
+          role="presentation"
+          className="apex-modal-overlay fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
+          onClick={() => setTemplatesOpen(false)}
+        >
+          <div
+            className="w-full max-w-md apex-card p-4 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center">
               <h3 className="apex-section-label">Templates</h3>
               <button
@@ -950,7 +1550,7 @@ export function TodayTab({ onOpenHistory }: Props) {
                 >
                   <div>
                     <p className="text-[13px] font-normal text-[#e0e0e0]">{t.name}</p>
-                    <p className="text-[11px] text-[#bdbdbd]">{t.exerciseIds.length} exercises</p>
+                    <p className="text-[11px] text-[#a8a8b0]">{t.exerciseIds.length} exercises</p>
                   </div>
                   <div className="flex gap-2">
                     <button type="button" className={btnNeutral} onClick={() => loadTemplate(t.id)}>
@@ -976,7 +1576,7 @@ export function TodayTab({ onOpenHistory }: Props) {
         title="Clear today's plan?"
         message="Remove every exercise from My Plan. Your logged sets and templates are not deleted."
         confirmLabel="Clear all"
-        accent={accent}
+       
         destructive
         onCancel={() => setConfirmClearAllPlan(false)}
         onConfirm={() => {
@@ -990,7 +1590,7 @@ export function TodayTab({ onOpenHistory }: Props) {
         title="Delete this set?"
         message="This removes the set from your log. You can't undo this."
         confirmLabel="Delete"
-        accent={accent}
+       
         destructive
         onCancel={() => setConfirmDeleteSetId(null)}
         onConfirm={() => {
@@ -1004,7 +1604,7 @@ export function TodayTab({ onOpenHistory }: Props) {
         title="Delete cardio?"
         message="This removes the cardio entry from today."
         confirmLabel="Delete"
-        accent={accent}
+       
         onCancel={() => setConfirmCardioId(null)}
         onConfirm={() => {
           if (confirmCardioId) deleteCardio(confirmCardioId)
@@ -1017,7 +1617,7 @@ export function TodayTab({ onOpenHistory }: Props) {
         title="Delete template?"
         message="This template will be removed permanently."
         confirmLabel="Delete"
-        accent={accent}
+       
         onCancel={() => setTemplateDeleteId(null)}
         onConfirm={() => {
           if (templateDeleteId) deleteTemplate(templateDeleteId)
@@ -1030,7 +1630,7 @@ export function TodayTab({ onOpenHistory }: Props) {
         title="Remove from plan?"
         message="This exercise will be removed from today's plan."
         confirmLabel="Remove"
-        accent={accent}
+       
         onCancel={() => setPlanRemoveId(null)}
         onConfirm={() => {
           if (planRemoveId) removePlanExercise(planRemoveId)
@@ -1038,16 +1638,46 @@ export function TodayTab({ onOpenHistory }: Props) {
         }}
       />
 
-      {quickLogOpen ? <QuickLogModal accent={accent} onClose={() => setQuickLogOpen(false)} /> : null}
+      {gymCardOpen && gymBarcode ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Gym membership card"
+          className="fixed inset-0 z-[96] flex flex-col items-center justify-center bg-white px-6 py-10"
+        >
+          <button
+            type="button"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 min-h-10 px-4 rounded-full border border-black/15 text-[13px] font-semibold text-black touch-manipulation"
+            onClick={() => setGymCardOpen(false)}
+          >
+            Close
+          </button>
+          <div className="flex flex-col items-center justify-center flex-1 w-full max-w-md gap-6">
+            {gymBarcode.gymName ? (
+              <p className="text-[15px] font-semibold text-black/70 text-center">{gymBarcode.gymName}</p>
+            ) : null}
+            {gymBarcodeRenderError ? (
+              <p className="text-[13px] font-medium text-red-600 text-center">{gymBarcodeRenderError}</p>
+            ) : (
+              <canvas
+                ref={gymBarcodeCanvasRef}
+                className="max-w-full h-auto"
+                aria-label="Membership barcode"
+              />
+            )}
+            <p className="text-[22px] sm:text-[26px] font-bold tabular-nums text-black text-center tracking-wide break-all">
+              {gymBarcode.number}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {quickLogOpen ? <QuickLogModal onClose={() => setQuickLogOpen(false)} /> : null}
 
       <button
         type="button"
         aria-label="Quick log a set"
-        className="fixed z-[56] flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#070708] text-[#0a0a0c] shadow-lg bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 transition-transform active:scale-90 touch-manipulation"
-        style={{
-          backgroundColor: accent,
-          boxShadow: `0 10px 36px color-mix(in srgb, ${accent} 45%, transparent)`,
-        }}
+        className="apex-fab fixed z-[56] flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white text-black bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-5 transition-transform active:scale-90 touch-manipulation"
         onClick={() => {
           setQuickLogOpen(true)
           setLogTarget(null)

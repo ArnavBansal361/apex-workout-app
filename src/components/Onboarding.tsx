@@ -1,124 +1,145 @@
 import { useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
-import { formatShortWeekday, parseDateKey } from '../lib/dates'
+import { claudeParseImport } from '../lib/anthropicCoach'
+import { APEX_COACH_PROFILE_KEY } from '../lib/persist'
+import type { AppPersisted } from '../types'
 import { ApexLogo } from './ApexLogo'
 
 type Props = {
   onComplete: () => void
 }
 
+const inp =
+  'w-full min-h-12 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]'
+
+function sanitizeImport(raw: unknown): Partial<AppPersisted> {
+  if (!raw || typeof raw !== 'object') return {}
+  const o = raw as Record<string, unknown>
+  const out: Partial<AppPersisted> = {}
+  if (Array.isArray(o.setLogs)) out.setLogs = o.setLogs as AppPersisted['setLogs']
+  if (Array.isArray(o.bodyweightLogs)) out.bodyweightLogs = o.bodyweightLogs as AppPersisted['bodyweightLogs']
+  if (Array.isArray(o.cardioEntries)) out.cardioEntries = o.cardioEntries as AppPersisted['cardioEntries']
+  if (Array.isArray(o.schedule)) out.schedule = o.schedule as AppPersisted['schedule']
+  return out
+}
+
 export function Onboarding({ onComplete }: Props) {
-  const { state, updateSettings, updateScheduleDay } = useWorkout()
-  const accent = state.settings.accentColor
-  const [step, setStep] = useState(0)
+  const { state, updateSettings, mergeImport, notify } = useWorkout()
   const [name, setName] = useState(state.settings.displayName)
   const [goals, setGoals] = useState(state.settings.fitnessGoals)
+  const [unit, setUnit] = useState<'lbs' | 'kg'>(state.settings.unit)
+  const [migrationText, setMigrationText] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  function nextFromProfile() {
-    updateSettings({ displayName: name.trim(), fitnessGoals: goals.trim() })
-    setStep(1)
-  }
+  async function finish() {
+    const fitnessGoal = goals.trim()
+    updateSettings({
+      displayName: name.trim(),
+      fitnessGoals: fitnessGoal,
+      unit,
+    })
+    try {
+      localStorage.setItem(APEX_COACH_PROFILE_KEY, JSON.stringify({ fitnessGoal }))
+    } catch {
+      /* ignore */
+    }
 
-  function nextFromSchedule() {
-    setStep(2)
-  }
+    const notes = migrationText.trim()
+    if (notes) {
+      setBusy(true)
+      try {
+        const raw = await claudeParseImport(state, notes)
+        const partial = sanitizeImport(raw)
+        if (
+          partial.setLogs?.length ||
+          partial.cardioEntries?.length ||
+          partial.bodyweightLogs?.length ||
+          partial.schedule
+        ) {
+          mergeImport(partial, { silent: true })
+        }
+      } catch (e) {
+        notify(e instanceof Error ? e.message : 'Could not parse migration notes')
+        setBusy(false)
+        return
+      }
+      setBusy(false)
+    }
 
-  function finish() {
     onComplete()
   }
 
   return (
-    <div
-      className="min-h-[100dvh] bg-[#0c0c0c] text-[#e0e0e0] px-4 py-6 pb-12"
-      style={{ ['--accent' as string]: accent }}
-    >
+    <div className="apex-safe-top min-h-[100dvh] bg-[#0c0c0c] text-[#e0e0e0] px-4 py-6 pb-12">
       <div className="max-w-lg mx-auto space-y-6">
-        <ApexLogo accent={accent} />
+        <ApexLogo />
 
-        {step === 0 ? (
-          <div className="space-y-4">
-            <p className="text-[13px] text-[#555]">Welcome — let&apos;s set you up.</p>
-            <h1 className="text-[18px] font-medium text-[#e0e0e0]">About you</h1>
-            <label className="block space-y-2">
-              <span className="apex-section-label">Display name</span>
-              <input
-                className="w-full min-h-12 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 text-[13px] text-[#e0e0e0]"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-              />
-            </label>
-            <label className="block space-y-2">
-              <span className="apex-section-label">Fitness goals</span>
-              <textarea
-                className="w-full min-h-28 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 py-2 text-[13px] text-[#e0e0e0]"
-                value={goals}
-                onChange={(e) => setGoals(e.target.value)}
-                placeholder="What are you training for?"
-              />
-            </label>
-            <button
-              type="button"
-              className="w-full min-h-12 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-              style={{ backgroundColor: accent }}
-              onClick={nextFromProfile}
-            >
-              Continue
-            </button>
+        <div className="space-y-4">
+          <p className="text-[13px] text-[#a0a0a8]">Welcome — let&apos;s set you up.</p>
+          <h1 className="text-[18px] font-medium text-[#e0e0e0]">Get started</h1>
+
+          <label className="block space-y-2">
+            <span className="apex-section-label">Display name</span>
+            <input
+              className={inp}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="apex-section-label">Fitness goal</span>
+            <textarea
+              className="w-full min-h-28 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 py-2 text-[13px] text-[#e0e0e0]"
+              value={goals}
+              onChange={(e) => setGoals(e.target.value)}
+              placeholder="What are you training for?"
+            />
+          </label>
+
+          <div>
+            <span className="apex-section-label block mb-2">Weight unit</span>
+            <div className="apex-unit-segment">
+              <button
+                type="button"
+                className={unit === 'lbs' ? 'apex-unit-segment--active' : ''}
+                onClick={() => setUnit('lbs')}
+              >
+                lbs
+              </button>
+              <button
+                type="button"
+                className={unit === 'kg' ? 'apex-unit-segment--active' : ''}
+                onClick={() => setUnit('kg')}
+              >
+                kg
+              </button>
+            </div>
           </div>
-        ) : null}
 
-        {step === 1 ? (
-          <div className="space-y-4">
-            <p className="text-[13px] text-[#555]">Plan your week — you can edit anytime.</p>
-            <h1 className="text-[18px] font-medium text-[#e0e0e0]">Weekly schedule</h1>
-            <ul className="space-y-2">
-              {state.schedule.map((d) => (
-                <li key={d.dateKey} className="apex-card p-3">
-                  <p className="apex-section-label mb-2">
-                    {formatShortWeekday(parseDateKey(d.dateKey))} · {d.dateKey.slice(5)}
-                  </p>
-                  <input
-                    className="w-full min-h-10 rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[13px] text-[#e0e0e0]"
-                    placeholder="Workout name or Rest"
-                    value={d.workoutName}
-                    onChange={(e) =>
-                      updateScheduleDay(d.dateKey, { workoutName: e.target.value })
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="w-full min-h-12 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-              style={{ backgroundColor: accent }}
-              onClick={nextFromSchedule}
-            >
-              Continue
-            </button>
-          </div>
-        ) : null}
-
-        {step === 2 ? (
-          <div className="space-y-4">
-            <h1 className="text-[18px] font-medium text-[#e0e0e0]">Log your first set</h1>
-            <p className="text-[13px] text-[#555] leading-relaxed">
-              Open the <strong className="text-[#e0e0e0] font-medium">Today</strong> tab, add
-              exercises to <strong className="text-[#e0e0e0] font-medium">My Plan</strong>, then
-              tap <strong className="text-[#e0e0e0] font-medium">Log Set</strong> to record weight,
-              reps, and sets. Your history stays on this device.
+          <label className="block space-y-2">
+            <span className="apex-section-label">Import past workouts (optional)</span>
+            <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+              Paste notes from another app — Apex will parse them with AI after you finish setup.
             </p>
-            <button
-              type="button"
-              className="w-full min-h-12 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-              style={{ backgroundColor: accent }}
-              onClick={finish}
-            >
-              Go to Today
-            </button>
-          </div>
-        ) : null}
+            <textarea
+              className="w-full min-h-32 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 py-2 text-[13px] text-[#e0e0e0]"
+              value={migrationText}
+              onChange={(e) => setMigrationText(e.target.value)}
+              placeholder="Paste workout history or notes…"
+            />
+          </label>
+
+          <button
+            type="button"
+            disabled={busy}
+            className="apex-btn-primary w-full min-h-12 text-[13px] font-medium disabled:opacity-50"
+            onClick={() => void finish()}
+          >
+            {busy ? 'Parsing…' : 'Continue to Today'}
+          </button>
+        </div>
       </div>
     </div>
   )

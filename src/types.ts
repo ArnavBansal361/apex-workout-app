@@ -41,6 +41,10 @@ export interface Exercise {
   muscleGroup: MuscleGroup
   /** Optional demo GIF (e.g. user-pasted URL for custom exercises). */
   gifUrl?: string
+  /** User- or AI-authored help (custom exercises). */
+  formTips?: string
+  commonMistakes?: string
+  beginnerAdvice?: string
 }
 
 export interface ExerciseHelp {
@@ -129,7 +133,6 @@ export interface Settings {
   unit: 'lbs' | 'kg'
   restTimerSeconds: number
   restTimerEnabled: boolean
-  accentColor: string
   trainerMode: boolean
   trainerNotes: string
   /** Selected profile icon; null shows initials. */
@@ -164,10 +167,15 @@ export interface ChatMessage {
   at: number
 }
 
+/** Two exercise ids linked as a superset in today's plan. */
+export type TodaySupersetPair = [string, string]
+
 export interface AppPersisted {
   version: 1
   setLogs: SetLog[]
   todayPlanExerciseIds: string[]
+  /** Paired exercises in My Plan (order follows plan list). */
+  todaySupersetPairs: TodaySupersetPair[]
   /** Starred exercises in the library (persisted). */
   favoriteExerciseIds: string[]
   hiddenExerciseIds: string[]
@@ -196,6 +204,14 @@ export interface AppPersisted {
   notificationPromptDone: boolean
   /** Monday `dateKey` of the week we last showed the Sunday weekly summary notification for. */
   lastWeeklySummaryNotifWeekStart: string | null
+  /** Week start (Mon YYYY-MM-DD) when user dismissed burnout warnings on Insights. */
+  burnoutDismissedWeekStart: string | null
+  /** Synced to cloud so trainers can respect client privacy toggles. */
+  trainerShare?: {
+    workoutLogs: boolean
+    bodyweight: boolean
+    personalRecords: boolean
+  }
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -204,7 +220,6 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'lbs',
   restTimerSeconds: 90,
   restTimerEnabled: true,
-  accentColor: '#3b82f6',
   trainerMode: false,
   trainerNotes: '',
   profileAvatarId: null,
@@ -220,4 +235,14 @@ export const ACHIEVEMENT_DEFS = [
   { id: 'first-workout', title: 'First Workout', description: 'Log your first set.' },
   { id: 'night-owl', title: 'Night Owl', description: 'Log a workout after 9pm.' },
   { id: 'early-bird', title: 'Early Bird', description: 'Log a workout before 7am.' },
+  { id: 'iron-will', title: 'Iron Will', description: 'Log 7 days in a row.' },
+  { id: 'volume-king', title: 'Volume King', description: 'Log over 50,000 lbs in a single week.' },
+  { id: 'consistency', title: 'Consistency', description: 'Log workouts for 4 weeks straight.' },
+  { id: 'pr-machine', title: 'PR Machine', description: 'Hit 10 personal records total.' },
+  { id: 'variety-pack', title: 'Variety Pack', description: 'Train 5 different muscle groups in one week.' },
+  { id: 'marathon-session', title: 'Marathon Session', description: 'Log a workout lasting over 2 hours.' },
+  { id: 'century-club', title: 'Century Club', description: 'Log 100 total sessions.' },
+  { id: 'beast-mode', title: 'Beast Mode', description: 'Log 20 or more sets in a single session.' },
+  { id: 'comeback-kid', title: 'Comeback Kid', description: 'Return after a 7+ day gap and log a full session.' },
+  { id: 'perfect-week', title: 'Perfect Week', description: 'Train every single day Mon–Sun.' },
 ] as const

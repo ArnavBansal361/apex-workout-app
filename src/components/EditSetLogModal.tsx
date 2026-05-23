@@ -1,36 +1,35 @@
 import { useState } from 'react'
 import type { SetLog, SetLogEditPayload } from '../types'
+import { ApexStepper } from './LogSetModal'
 
 type Props = {
   open: boolean
   log: SetLog | null
-  accent: string
   unit: 'lbs' | 'kg'
   onClose: () => void
   onSave: (logId: string, payload: SetLogEditPayload) => void
 }
 
 const inp =
-  'rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#555]'
+  'rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
 type InnerProps = {
   log: SetLog
-  accent: string
   unit: 'lbs' | 'kg'
   onClose: () => void
   onSave: (logId: string, payload: SetLogEditPayload) => void
 }
 
 /** Remount when `log.id` changes so fields reinitialize from the log (see parent `key`). */
-function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps) {
+function EditSetLogModalInner({ log, unit, onClose, onSave }: InnerProps) {
   const [bodyweight, setBodyweight] = useState(
     () => (log.kind === 'weighted' ? log.bodyweight : false),
   )
   const [weight, setWeight] = useState(() =>
     log.kind === 'weighted' ? (log.bodyweight ? '' : String(log.weight ?? '')) : '',
   )
-  const [reps, setReps] = useState(() => (log.kind === 'weighted' ? String(log.reps) : '8'))
-  const [sets, setSets] = useState(() => (log.kind === 'weighted' ? String(log.sets) : '1'))
+  const [reps, setReps] = useState(() => (log.kind === 'weighted' ? log.reps : 10))
+  const [sets, setSets] = useState(() => (log.kind === 'weighted' ? log.sets : 3))
   const [duration, setDuration] = useState(() =>
     log.kind === 'timed' ? String(log.durationSec) : '60',
   )
@@ -41,8 +40,8 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
       if (log.kind === 'weighted') {
         const rawW = weight.trim() === '' ? null : Number(weight)
         const w = rawW != null && Number.isFinite(rawW) ? rawW : null
-        const r = Math.max(0, Math.floor(Number(reps) || 0))
-        const s = Math.max(1, Math.floor(Number(sets) || 1))
+        const r = Math.max(0, Math.floor(reps))
+        const s = Math.max(1, Math.floor(sets))
         onSave(log.id, {
           kind: 'weighted',
           weight: bodyweight ? null : w == null ? 0 : w,
@@ -67,8 +66,9 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
 
   return (
     <div
-      className="w-full max-w-lg rounded-t-[12px] sm:rounded-[12px] apex-card p-5 max-h-[90vh] overflow-y-auto"
-      style={{ ['--accent' as string]: accent }}
+      className="w-full max-w-lg rounded-t-[12px] sm:rounded-[12px] apex-card apex-modal-panel max-h-[90vh] overflow-y-auto"
+      
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -92,8 +92,7 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
               type="checkbox"
               checked={bodyweight}
               onChange={(e) => setBodyweight(e.target.checked)}
-              className="h-4 w-4"
-              style={{ accentColor: accent }}
+              className="apex-checkbox"
             />
             Bodyweight
           </label>
@@ -109,24 +108,8 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
               />
             </label>
           )}
-          <label className="block">
-            <span className="apex-section-label block mb-2">Reps</span>
-            <input
-              inputMode="numeric"
-              className={`mt-1 w-full min-h-12 ${inp}`}
-              value={reps}
-              onChange={(e) => setReps(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <span className="apex-section-label block mb-2">Sets</span>
-            <input
-              inputMode="numeric"
-              className={`mt-1 w-full min-h-12 ${inp}`}
-              value={sets}
-              onChange={(e) => setSets(e.target.value)}
-            />
-          </label>
+          <ApexStepper label="Reps" value={reps} onChange={setReps} min={0} />
+          <ApexStepper label="Sets" value={sets} onChange={(n) => setSets(Math.max(1, n))} min={1} />
         </div>
       ) : (
         <div className="mt-4 space-y-3">
@@ -161,8 +144,7 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
         </button>
         <button
           type="button"
-          className="min-h-12 flex-1 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-          style={{ backgroundColor: accent }}
+          className="apex-btn-primary min-h-12 flex-1 text-[13px] font-medium"
           onClick={submit}
         >
           Save changes
@@ -172,11 +154,15 @@ function EditSetLogModalInner({ log, accent, unit, onClose, onSave }: InnerProps
   )
 }
 
-export function EditSetLogModal({ open, log, accent, unit, onClose, onSave }: Props) {
+export function EditSetLogModal({ open, log, unit, onClose, onSave }: Props) {
   if (!open || !log) return null
   return (
-    <div className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center bg-black/75 p-0 sm:p-4">
-      <EditSetLogModalInner key={log.id} log={log} accent={accent} unit={unit} onClose={onClose} onSave={onSave} />
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[95] flex items-end justify-center sm:items-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <EditSetLogModalInner key={log.id} log={log} unit={unit} onClose={onClose} onSave={onSave} />
     </div>
   )
 }

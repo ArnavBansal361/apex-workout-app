@@ -1,26 +1,35 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import type { Exercise } from '../types'
+import { ApexStepper } from './LogSetModal'
 
 type Props = {
-  accent: string
   onClose: () => void
+  /** When set, opens with this exercise selected (same flow as Today + FAB). */
+  initialExercise?: Exercise | null
 }
 
 const inp =
-  'rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#555]'
+  'rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
-export function QuickLogModal({ accent, onClose }: Props) {
+export function QuickLogModal({ onClose, initialExercise = null }: Props) {
   const { visibleExercises, addSetLog, notify, state } = useWorkout()
   const unit = state.settings.unit
 
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Exercise | null>(null)
+  const [search, setSearch] = useState(initialExercise?.name ?? '')
+  const [selected, setSelected] = useState<Exercise | null>(initialExercise ?? null)
   const [bodyweight, setBodyweight] = useState(false)
-  const [weight, setWeight] = useState('')
-  const [reps, setReps] = useState('8')
-  const [sets, setSets] = useState('1')
+  const [weight, setWeight] = useState('0')
+  const [reps, setReps] = useState(10)
+  const [sets, setSets] = useState(3)
   const [note, setNote] = useState('')
+
+  useEffect(() => {
+    if (initialExercise) {
+      setSelected(initialExercise)
+      setSearch(initialExercise.name)
+    }
+  }, [initialExercise?.id])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -40,8 +49,8 @@ export function QuickLogModal({ accent, onClose }: Props) {
     }
     const rawW = weight.trim() === '' ? null : Number(weight)
     const w = rawW != null && Number.isFinite(rawW) ? rawW : null
-    const r = Math.max(0, Math.floor(Number(reps) || 0))
-    const s = Math.max(1, Math.floor(Number(sets) || 1))
+    const r = Math.max(0, Math.floor(reps))
+    const s = Math.max(1, Math.floor(sets))
     try {
       addSetLog({
         kind: 'weighted',
@@ -61,15 +70,20 @@ export function QuickLogModal({ accent, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[93] flex items-end justify-center sm:items-center bg-black/80 p-0 sm:p-4">
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[93] flex items-end justify-center sm:items-center p-0 sm:p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg max-h-[min(92dvh,40rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
-        style={{ ['--accent' as string]: accent }}
+        
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[#1e1e1e]">
           <div>
             <p className="apex-section-label">Quick log</p>
-            <p className="mt-1 text-[12px] font-normal text-[#888] leading-relaxed">
+            <p className="mt-1 text-[12px] font-normal text-[#a0a0a8] leading-relaxed">
               Search any exercise, enter load and volume, save — no plan required.
             </p>
           </div>
@@ -98,7 +112,7 @@ export function QuickLogModal({ accent, onClose }: Props) {
             </label>
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border border-[#1e1e1e] bg-[#121212] divide-y divide-[#1e1e1e]">
               {filtered.length === 0 ? (
-                <li className="px-3 py-3 text-[13px] text-[#888]">No matches</li>
+                <li className="px-3 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
               ) : (
                 filtered.map((e) => (
                   <li key={e.id}>
@@ -109,11 +123,11 @@ export function QuickLogModal({ accent, onClose }: Props) {
                           ? 'bg-[#1a1a24] text-[#e0e0e0]'
                           : 'border-transparent text-[#e0e0e0] hover:bg-[#1e1e1e]'
                       }`}
-                      style={{ borderLeftColor: selected?.id === e.id ? accent : 'transparent' }}
+                      style={{ borderLeftColor: selected?.id === e.id ? 'rgba(255,255,255,0.35)' : 'transparent' }}
                       onClick={() => setSelected(e)}
                     >
                       <span>{e.name}</span>
-                      <span className="text-[#888]"> · {e.muscleGroup}</span>
+                      <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
                     </button>
                   </li>
                 ))
@@ -124,7 +138,7 @@ export function QuickLogModal({ accent, onClose }: Props) {
           {selected ? (
             <div className="space-y-3 rounded-[12px] border border-[#1e1e1e] bg-[#161616] p-4">
               <p className="text-[13px] font-normal text-[#e0e0e0]">
-                <span className="text-[#888]">Selected · </span>
+                <span className="text-[#a0a0a8]">Selected · </span>
                 {selected.name}
               </p>
               <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
@@ -132,8 +146,7 @@ export function QuickLogModal({ accent, onClose }: Props) {
                   type="checkbox"
                   checked={bodyweight}
                   onChange={(e) => setBodyweight(e.target.checked)}
-                  className="h-4 w-4"
-                  style={{ accentColor: accent }}
+                  className="apex-checkbox"
                 />
                 Bodyweight
               </label>
@@ -149,26 +162,8 @@ export function QuickLogModal({ accent, onClose }: Props) {
                   />
                 </label>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="apex-section-label block mb-2">Reps</span>
-                  <input
-                    inputMode="numeric"
-                    className={`w-full min-h-12 ${inp}`}
-                    value={reps}
-                    onChange={(e) => setReps(e.target.value)}
-                  />
-                </label>
-                <label className="block">
-                  <span className="apex-section-label block mb-2">Sets</span>
-                  <input
-                    inputMode="numeric"
-                    className={`w-full min-h-12 ${inp}`}
-                    value={sets}
-                    onChange={(e) => setSets(e.target.value)}
-                  />
-                </label>
-              </div>
+              <ApexStepper label="Reps" value={reps} onChange={setReps} min={0} />
+              <ApexStepper label="Sets" value={sets} onChange={(n) => setSets(Math.max(1, n))} min={1} />
               <label className="block">
                 <span className="apex-section-label block mb-2">Note (optional)</span>
                 <input
@@ -192,8 +187,7 @@ export function QuickLogModal({ accent, onClose }: Props) {
           </button>
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-            style={{ backgroundColor: accent }}
+            className="apex-btn-primary min-h-12 flex-1 text-[13px] font-medium"
             onClick={() => save()}
           >
             Save set

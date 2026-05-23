@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Apex — Train smarter. Track everything. Reach your peak.</title>
+    <meta
+      name="description"
+      content="Apex is the focused workout app for lifters who want AI coaching, a deep exercise library, smart scheduling, and honest progress tracking — all in one place."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0d0d0d;
+        --card: #1a1a1a;
+        --text: #ffffff;
+        --muted: rgba(255, 255, 255, 0.55);
+        --subtle: rgba(255, 255, 255, 0.35);
+        --border: rgba(255, 255, 255, 0.1);
+        --radius: 16px;
+        --app-url: https://apex-workout-app.vercel.app;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .wrap {
+        width: min(100% - 2rem, 68rem);
+        margin-inline: auto;
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.65s ease, transform 0.65s ease;
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+
+      /* Hero */
+      .hero {
+        min-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 5rem 0 4rem;
+        text-align: center;
+      }
+
+      .hero-wordmark {
+        font-size: clamp(3.5rem, 12vw, 6.5rem);
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        margin: 0 0 1.25rem;
+        line-height: 1;
+      }
+
+      .hero-tagline {
+        font-size: clamp(1.125rem, 3vw, 1.5rem);
+        font-weight: 500;
+        color: var(--muted);
+        max-width: 28rem;
+        margin: 0 auto 2.5rem;
+        line-height: 1.45;
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3rem;
+        padding: 0 1.75rem;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #0d0d0d;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .cta:hover {
+        opacity: 0.92;
+        transform: translateY(-1px);
+      }
+
+      .cta-secondary {
+        display: inline-block;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        color: var(--subtle);
+      }
+
+      .cta-secondary:hover {
+        color: var(--muted);
+      }
+
+      /* Sections */
+      section {
+        padding: 4.5rem 0;
+      }
+
+      .section-label {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        margin: 0 0 0.75rem;
+      }
+
+      h2 {
+        font-size: clamp(1.75rem, 4vw, 2.25rem);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin: 0 0 1rem;
+        line-height: 1.2;
+      }
+
+      .section-lead {
+        color: var(--muted);
+        font-size: 1.0625rem;
+        max-width: 36rem;
+        margin: 0 0 2.5rem;
+      }
+
+      /* Features */
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: 1rem;
+      }
+
+      .feature-card {
+        background: var(--card);
+        border: 0.5px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+      }
+
+      .feature-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        margin-bottom: 1rem;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .feature-card h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+      }
+
+      .feature-card p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* Screenshots */
+      .phones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        justify-content: center;
+        align-items: flex-end;
+      }
+
+      .phone {
+        width: min(100%, 11.5rem);
+        aspect-ratio: 9 / 19.5;
+        border-radius: 1.75rem;
+        border: 0.5px solid var(--border);
+        background: linear-gradient(180deg, #1a1a1a 0%, #121212 100%);
+        padding: 0.75rem 0.625rem 1rem;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+      }
+
+      .phone-notch {
+        width: 40%;
+        height: 4px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.12);
+        margin: 0 auto 0.75rem;
+      }
+
+      .phone-screen {
+        height: calc(100% - 1.25rem);
+        border-radius: 1.25rem;
+        background: #0d0d0d;
+        border: 0.5px solid rgba(255, 255, 255, 0.06);
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .phone-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .phone-bar.short {
+        width: 55%;
+      }
+
+      .phone-card {
+        flex: 1;
+        border-radius: 10px;
+        border: 0.5px solid var(--border);
+        background: #1a1a1a;
+        padding: 0.5rem;
+      }
+
+      .phone-card-label {
+        font-size: 6px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        margin-bottom: 4px;
+      }
+
+      .phone-card-line {
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.12);
+        margin-bottom: 3px;
+      }
+
+      .phone-nav {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        margin-top: auto;
+        padding-top: 4px;
+        border-top: 0.5px solid var(--border);
+      }
+
+      .phone-nav span {
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .phone-nav span:first-child {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      /* Footer */
+      footer {
+        padding: 3rem 0 4rem;
+        border-top: 0.5px solid var(--border);
+        text-align: center;
+      }
+
+      footer p {
+        margin: 0 0 1rem;
+        color: var(--muted);
+        font-size: 0.9375rem;
+      }
+
+      footer a.cta {
+        font-size: 0.875rem;
+        min-height: 2.75rem;
+        padding: 0 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero wrap reveal">
+      <p class="section-label">Workout tracking, refined</p>
+      <h1 class="hero-wordmark">APEX</h1>
+      <p class="hero-tagline">Train smarter. Track everything. Reach your peak.</p>
+      <a class="cta" href="https://apex-workout-app.vercel.app">Open Apex</a>
+      <br />
+      <a class="cta-secondary" href="#features">See what&apos;s inside</a>
+    </header>
+
+    <section id="features" class="wrap reveal">
+      <p class="section-label">Features</p>
+      <h2>Everything you need between warm-up and PR</h2>
+      <p class="section-lead">
+        Apex keeps your training organized without the clutter. Log fast, plan your week, and let the
+        numbers tell the truth.
+      </p>
+      <div class="features-grid">
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M12 3v3M8 6h8M6 10h12M7 14h10M9 18h6"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <h3>AI Coach</h3>
+          <p>
+            Ask for form cues, program tweaks, or help parsing messy gym notes — grounded in your
+            actual training history.
+          </p>
+        </article>
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5" />
+            <path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <h3>Exercise Library</h3>
+          <p>
+            180+ exercises with muscle-group tagging, favorites, and quick logging so you spend less
+            time searching and more time lifting.
+          </p>
+        </article>
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.5" />
+            <path d="M8 3v4M16 3v4M4 11h16" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <h3>Smart Schedule</h3>
+          <p>
+            Plan your week in one pass, drag days to reshuffle, and see muscle balance before you
+            walk into the gym.
+          </p>
+        </article>
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M4 18V6m0 12h16M8 18v-4m4 4V8m4 10v-6"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          <h3>Progress Tracking</h3>
+          <p>
+            Weekly volume charts, muscle balance radar, and session history that make trends obvious
+            — not buried in spreadsheets.
+          </p>
+        </article>
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M12 8l2 4h4l-3.2 2.4 1.2 4L12 16l-3.8 2.4 1.2-4L6 12h4l2-4z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <h3>Personal Records</h3>
+          <p>
+            Every PR is captured automatically with clear context — weight, reps, and exercise — so
+            you know exactly what to beat next time.
+          </p>
+        </article>
+        <article class="feature-card">
+          <svg class="feature-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M12 4c2 3 4 5 4 8a4 4 0 01-8 0c0-3 2-5 4-8z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <h3>Streak System</h3>
+          <p>
+            Stay consistent with streak tracking and level progression that rewards showing up — not
+            vanity metrics.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap reveal">
+      <p class="section-label">In the app</p>
+      <h2>Designed for focus on the floor</h2>
+      <p class="section-lead">
+        Dark, minimal, and fast. Every screen is built for thumbs, timers, and quick set entry —
+        not endless menus.
+      </p>
+      <div class="phones">
+        <div class="phone">
+          <div class="phone-notch" aria-hidden></div>
+          <div class="phone-screen">
+            <div class="phone-bar short"></div>
+            <div class="phone-card">
+              <p class="phone-card-label">Today</p>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line" style="width: 70%"></div>
+            </div>
+            <div class="phone-card">
+              <p class="phone-card-label">Weekly volume</p>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line" style="width: 40%"></div>
+            </div>
+            <nav class="phone-nav" aria-hidden>
+              <span></span><span></span><span></span><span></span>
+            </nav>
+          </div>
+        </div>
+        <div class="phone" style="transform: translateY(-12px)">
+          <div class="phone-notch" aria-hidden></div>
+          <div class="phone-screen">
+            <div class="phone-bar short"></div>
+            <div class="phone-card">
+              <p class="phone-card-label">Exercises</p>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line"></div>
+            </div>
+            <div class="phone-card">
+              <p class="phone-card-label">Log set</p>
+              <div class="phone-card-line" style="width: 80%"></div>
+              <div class="phone-card-line" style="width: 50%"></div>
+            </div>
+            <nav class="phone-nav" aria-hidden>
+              <span></span><span></span><span></span><span></span>
+            </nav>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-notch" aria-hidden></div>
+          <div class="phone-screen">
+            <div class="phone-bar short"></div>
+            <div class="phone-card">
+              <p class="phone-card-label">Schedule</p>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line" style="width: 65%"></div>
+            </div>
+            <div class="phone-card">
+              <p class="phone-card-label">Profile</p>
+              <div class="phone-card-line"></div>
+              <div class="phone-card-line" style="width: 45%"></div>
+            </div>
+            <nav class="phone-nav" aria-hidden>
+              <span></span><span></span><span></span><span></span>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="wrap reveal">
+      <p>Built for athletes who take their training seriously.</p>
+      <a class="cta" href="https://apex-workout-app.vercel.app">Launch Apex</a>
+    </footer>
+
+    <script>
+      ;(function () {
+        var els = document.querySelectorAll('.reveal')
+        if (!('IntersectionObserver' in window)) {
+          els.forEach(function (el) {
+            el.classList.add('visible')
+          })
+          return
+        }
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add('visible')
+                io.unobserve(e.target)
+              }
+            })
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+        )
+        els.forEach(function (el) {
+          io.observe(el)
+        })
+      })()
+    </script>
+  </body>
+</html>

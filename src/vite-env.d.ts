@@ -6,11 +6,13 @@ interface ImportMetaEnv {
    * Uses `anthropic-dangerous-direct-browser-access`; treat as personal/dev only.
    */
   readonly VITE_ANTHROPIC_API_KEY?: string
+  /** Alternate env name for the same key (some setups use this). */
+  readonly VITE_CLAUDE_API_KEY?: string
   readonly VITE_GOOGLE_CALENDAR_CLIENT_ID?: string
-  /** Optional; defaults to current origin + pathname (SPA). Must match Google Cloud OAuth client redirect URIs. */
+  /** Optional; defaults to `window.location.origin`. Must match Google Cloud OAuth redirect URIs. */
   readonly VITE_GOOGLE_CALENDAR_REDIRECT_URI?: string
-  /** Giphy API key from https://developers.giphy.com/dashboard/ — powers exercise form GIFs in the library modal. */
-  readonly VITE_GIPHY_API_KEY?: string
+  readonly VITE_SUPABASE_URL: string
+  readonly VITE_SUPABASE_ANON_KEY: string
 }
 
 interface ImportMeta {
@@ -41,4 +43,25 @@ declare const SpeechRecognition: {
 interface Window {
   SpeechRecognition: typeof SpeechRecognition
   webkitSpeechRecognition: typeof SpeechRecognition
+}
+
+declare module '*.svg?raw' {
+  const content: string
+  export default content
+}
+
+declare module 'bwip-js' {
+  export interface BwipRenderOptions {
+    bcid: string
+    text: string
+    scale?: number
+    height?: number
+    includetext?: boolean
+    backgroundcolor?: string
+    barcolor?: string
+  }
+  export function toCanvas(
+    canvas: HTMLCanvasElement,
+    opts: BwipRenderOptions,
+  ): HTMLCanvasElement
 }

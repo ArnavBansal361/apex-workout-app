@@ -1,8 +1,13 @@
 import { EXERCISE_BY_ID } from '../data/exercises'
 import type { AppPersisted, ScheduleDay } from '../types'
 
-const TOKEN_KEY = 'apex-google-calendar-tokens'
+const TOKEN_KEY = 'apex-gcal-token'
+const LEGACY_TOKEN_KEY = 'apex-google-calendar-tokens'
 const OAUTH_STATE_KEY = 'google_oauth_state'
+
+/** Registered in Google Cloud Console for this app. */
+const DEFAULT_CLIENT_ID =
+  '580975288146-id4cd7q2mpsde3gl6ufpo376eng38n76.apps.googleusercontent.com'
 
 export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
@@ -20,19 +25,27 @@ export type GoogleCalendarTokens = {
 }
 
 function getClientId(): string {
-  const id = import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID?.trim()
-  return id ?? ''
+  return import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID?.trim() || DEFAULT_CLIENT_ID
 }
 
 export function isGoogleCalendarConfigured(): boolean {
   return getClientId().length > 0
 }
 
+/** Must match Google Cloud “Authorized redirect URIs” (origin only, no path). */
 export function getRedirectUri(): string {
   const override = import.meta.env.VITE_GOOGLE_CALENDAR_REDIRECT_URI?.trim()
-  if (override) return override
-  const base = `${window.location.origin}${window.location.pathname || '/'}`
-  return base.replace(/\/$/, '') || window.location.origin
+  if (override) return override.replace(/\/$/, '')
+  return window.location.origin.replace(/\/$/, '')
+}
+
+/** Implicit OAuth return: `access_token` or `error` in the URL hash with matching state. */
+export function isGoogleCalendarOAuthReturn(): boolean {
+  const hp = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  if (!hp.has('access_token') && !hp.has('error')) return false
+  const expected = sessionStorage.getItem(OAUTH_STATE_KEY)
+  const state = hp.get('state')
+  return !!(expected && state && state === expected)
 }
 
 function pad2(n: number): string {
@@ -50,9 +63,30 @@ function randomString(len: number): string {
   return out.join('')
 }
 
+function tokensFromTokenResponse(data: {
+  access_token?: string
+  expires_in?: number
+  refresh_token?: string
+}): GoogleCalendarTokens {
+  if (!data.access_token) throw new Error('No access token from Google')
+  const expiresIn = typeof data.expires_in === 'number' ? data.expires_in : 3600
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + expiresIn * 1000 - 30_000,
+  }
+}
+
 export function readStoredTokens(): GoogleCalendarTokens | null {
   try {
-    const raw = localStorage.getItem(TOKEN_KEY)
+    let raw = localStorage.getItem(TOKEN_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_TOKEN_KEY)
+      if (raw) {
+        localStorage.setItem(TOKEN_KEY, raw)
+        localStorage.removeItem(LEGACY_TOKEN_KEY)
+      }
+    }
     if (!raw) return null
     const t = JSON.parse(raw) as GoogleCalendarTokens
     if (typeof t.access_token !== 'string' || typeof t.expires_at !== 'number') return null
@@ -64,16 +98,44 @@ export function readStoredTokens(): GoogleCalendarTokens | null {
 
 export function writeStoredTokens(tokens: GoogleCalendarTokens | null): void {
   try {
-    if (!tokens) localStorage.removeItem(TOKEN_KEY)
-    else localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens))
+    if (!tokens) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(LEGACY_TOKEN_KEY)
+    } else {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens))
+    }
   } catch {
     /* ignore */
   }
 }
 
+export function hasGoogleCalendarStorageToken(): boolean {
+  try {
+    return (
+      localStorage.getItem(TOKEN_KEY) != null || localStorage.getItem(LEGACY_TOKEN_KEY) != null
+    )
+  } catch {
+    return false
+  }
+}
+
 export function isGoogleCalendarConnected(): boolean {
   const t = readStoredTokens()
-  return !!(t?.access_token || t?.refresh_token)
+  if (!t?.access_token) return false
+  if (Date.now() < t.expires_at) return true
+  return !!t.refresh_token
+}
+
+/** Human-readable expiry for Settings UI, e.g. "expires in 45 min". */
+export function formatGoogleCalendarExpiryLabel(): string {
+  const t = readStoredTokens()
+  if (!t) return ''
+  const ms = t.expires_at - Date.now()
+  if (ms <= 0) return 'expired'
+  const minutes = Math.max(1, Math.ceil(ms / 60_000))
+  if (minutes < 60) return `expires in ${minutes} min`
+  const hours = Math.ceil(minutes / 60)
+  return `expires in ${hours} hr`
 }
 
 export function clearStoredTokens(): void {
@@ -81,8 +143,7 @@ export function clearStoredTokens(): void {
 }
 
 /**
- * OAuth 2.0 implicit grant: Google redirects back with `access_token` in the URL **hash**
- * (fragment), so it is handled entirely in the browser with no authorization-code exchange.
+ * OAuth 2.0 implicit grant: Google redirects with `access_token` in the URL hash (no token exchange).
  */
 export function startGoogleCalendarOAuth(): void {
   const clientId = getClientId()
@@ -90,17 +151,6 @@ export function startGoogleCalendarOAuth(): void {
     throw new Error('Add VITE_GOOGLE_CALENDAR_CLIENT_ID to your .env (Google Cloud OAuth client ID).')
   }
   const redirectUri = getRedirectUri()
-  console.log(
-    '[Apex Google Calendar] OAuth authorize redirect_uri (exact string — copy into Google Cloud “Authorized redirect URIs”):',
-    JSON.stringify(redirectUri),
-  )
-  console.log('[Apex Google Calendar] Same URI URL-encoded in query:', encodeURIComponent(redirectUri))
-  console.log('[Apex Google Calendar] window.location breakdown:', {
-    href: window.location.href,
-    origin: window.location.origin,
-    pathname: window.location.pathname,
-  })
-
   const state = randomString(32)
   sessionStorage.setItem(OAUTH_STATE_KEY, state)
 
@@ -116,8 +166,8 @@ export function startGoogleCalendarOAuth(): void {
 }
 
 /**
- * Reads `access_token` from the URL hash after implicit redirect; persists tokens.
- * @returns true if tokens were stored, false if the URL did not contain an implicit OAuth result.
+ * Reads `access_token` from the URL hash after implicit redirect and stores in `apex-gcal-token`.
+ * @returns true if tokens were stored, false if the URL had no implicit OAuth result.
  */
 export function completeOAuthFromCurrentUrl(): boolean {
   const raw = window.location.hash.startsWith('#')
@@ -138,11 +188,10 @@ export function completeOAuthFromCurrentUrl(): boolean {
     expiresInRaw != null && expiresInRaw !== '' ? Number.parseInt(expiresInRaw, 10) : Number.NaN
   const expiresSec = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600
 
-  const tokens: GoogleCalendarTokens = {
+  writeStoredTokens({
     access_token: accessToken,
     expires_at: Date.now() + expiresSec * 1000 - 30_000,
-  }
-  writeStoredTokens(tokens)
+  })
   sessionStorage.removeItem(OAUTH_STATE_KEY)
   return true
 }
@@ -160,17 +209,6 @@ export function stripOAuthParamsFromUrl(): void {
     }
   }
 
-  if (url.searchParams.has('code') || url.searchParams.has('error')) {
-    url.searchParams.delete('code')
-    url.searchParams.delete('state')
-    url.searchParams.delete('scope')
-    url.searchParams.delete('authuser')
-    url.searchParams.delete('prompt')
-    url.searchParams.delete('error')
-    url.searchParams.delete('error_description')
-    changed = true
-  }
-
   if (!changed) return
   const next = `${url.pathname}${url.search}${url.hash}`
   window.history.replaceState({}, '', next || url.pathname)
@@ -183,6 +221,7 @@ async function refreshAccessToken(refreshToken: string): Promise<GoogleCalendarT
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
   })
+
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -193,16 +232,56 @@ async function refreshAccessToken(refreshToken: string): Promise<GoogleCalendarT
     expires_in?: number
     refresh_token?: string
     error?: string
+    error_description?: string
   }
   if (!res.ok || !data.access_token) {
-    throw new Error(data.error || 'Could not refresh Google token — connect again.')
+    throw new Error(data.error_description || data.error || 'Could not refresh Google token — connect again.')
   }
-  const expiresIn = typeof data.expires_in === 'number' ? data.expires_in : 3600
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token ?? refreshToken,
-    expires_at: Date.now() + expiresIn * 1000 - 30_000,
+  const tokens = tokensFromTokenResponse(data)
+  tokens.refresh_token = data.refresh_token ?? refreshToken
+  return tokens
+}
+
+export type PrimaryCalendarEvent = {
+  summary: string
+  start: string
+  end: string
+}
+
+/** List primary-calendar events from now through the next 7 days. */
+export async function fetchPrimaryCalendarEventsNext7Days(): Promise<PrimaryCalendarEvent[]> {
+  const accessToken = await getValidAccessToken()
+  if (!accessToken) {
+    throw new Error('Google Calendar not connected — reconnect in Settings.')
   }
+  const timeMin = new Date()
+  timeMin.setHours(0, 0, 0, 0)
+  const timeMax = new Date(timeMin.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const params = new URLSearchParams({
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '250',
+  })
+  const res = await fetch(`${EVENTS_BASE}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    throw new Error((await res.text()) || 'Could not load Google Calendar events')
+  }
+  const data = (await res.json()) as {
+    items?: Array<{
+      summary?: string
+      start?: { dateTime?: string; date?: string }
+      end?: { dateTime?: string; date?: string }
+    }>
+  }
+  return (data.items ?? []).map((item) => ({
+    summary: item.summary?.trim() || '(No title)',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+  }))
 }
 
 export async function getValidAccessToken(): Promise<string | null> {

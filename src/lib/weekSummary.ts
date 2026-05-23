@@ -11,6 +11,12 @@ export function isSundayLocal(nowMs: number): boolean {
   return new Date(nowMs).getDay() === 0
 }
 
+/** Monday before noon — hide prior-week recap when a new week has started. */
+export function isMondayMorningLocal(nowMs: number): boolean {
+  const d = new Date(nowMs)
+  return d.getDay() === 1 && d.getHours() < 12
+}
+
 export type WeekSummary = {
   totalSets: number
   totalVolumeLbs: number

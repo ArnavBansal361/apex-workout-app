@@ -12,15 +12,43 @@ import {
 import { EXERCISES } from '../data/exercises'
 import { applyWorkoutHistorySeedIfNeeded } from '../data/seedWorkoutHistory'
 import { clearStoredTokens } from '../lib/googleCalendar'
-import { alignScheduleWeek, loadState, migrateCustomExercises, normalizeCoachChatMessages, normalizeImportedCardio, saveState } from '../lib/persist'
+import {
+  APEX_COACH_INIT_FLAG,
+  alignScheduleWeek,
+  clearAllAppData,
+  coachWelcomeMessages,
+  loadState,
+  migrateCustomExercises,
+  setOnboardingCompleteLocal,
+  normalizeCoachChatMessages,
+  normalizeImportedCardio,
+  redactLeakedApiMetadataFromText,
+  limitCoachReplySentences,
+  sanitizeCoachBubbleText,
+  isCoachUiPromptLine,
+  isAppOnline,
+  OFFLINE_SYNC_TOAST,
+  saveState,
+  stripNotificationMessage,
+} from '../lib/persist'
 import { dateKey, weekStartMonday } from '../lib/dates'
 import { computeWeekSummary } from '../lib/weekSummary'
 import { normalizeTodayLayout } from '../lib/todayLayout'
 import { showWeeklySummaryNotification } from '../lib/desktopNotifications'
 import { computeIsPr } from '../lib/pr'
-import { evaluateAchievements } from '../lib/achievements'
+import { evaluateAchievements, streakCurrent } from '../lib/achievements'
 import { cardioElapsedMs, gymElapsedMs } from '../lib/timers'
+import { currentWeekStartKey } from '../lib/volumeStats'
 import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
+import { applyTrainerShareToState } from '../lib/trainer'
+import {
+  fetchLatestCoachNoteForClient,
+  fetchUserWorkoutState,
+  pickWorkoutStateForHydrate,
+  supabase,
+  upsertLeaderboardEntry,
+  upsertUserWorkoutState,
+} from '../lib/supabase'
 import { XP_PER_PR, XP_PER_SET, XP_PER_WORKOUT_COMPLETE } from '../lib/xpLevel'
 import type {
   AppPersisted,
@@ -35,27 +63,38 @@ import type {
   Settings,
   TimedSetLog,
   TodayLayoutPersist,
+  TodaySupersetPair,
   WeightedSetLog,
   WorkoutTemplate,
 } from '../types'
 type Notification = { id: string; message: string }
 
+type TickCtx = {
+  clock: number
+  cardioElapsedMs: number
+  gymElapsedMs: number
+}
+
 type Ctx = {
+  userId: string
   state: AppPersisted
   visibleExercises: Exercise[]
   todayKey: string
-  clock: number
   notifications: Notification[]
-  notify: (message: string) => void
+  notify: (message: string, durationMs?: number) => void
   dismissNotification: (id: string) => void
-  cardioElapsedMs: number
-  gymElapsedMs: number
   dismissRestTimer: () => void
   prCelebration: { exerciseName: string } | null
   dismissPrCelebration: () => void
-  addSetLog: (partial: Omit<WeightedSetLog, 'id' | 'at' | 'isPr'> | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>) => void
+  addSetLog: (
+    partial: Omit<WeightedSetLog, 'id' | 'at' | 'isPr'> | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>,
+    options?: { deferRestTimer?: boolean },
+  ) => void
+  linkSuperset: (exerciseIdA: string, exerciseIdB: string) => void
+  getSupersetPartner: (exerciseId: string) => string | null
   addCardioEntry: (name: string, durationMinutes: number | null) => void
   completeOnboarding: () => void
+  resetAppData: () => Promise<void>
   startCardioTimer: () => void
   pauseCardioTimer: () => void
   resetCardioTimer: () => void
@@ -79,7 +118,13 @@ type Ctx = {
   clearChat: () => void
   hideExercise: (exerciseId: string) => void
   resolveExerciseById: (exerciseId: string) => Exercise | null
-  addCustomExercise: (name: string, muscleGroup: MuscleGroup, gifUrl?: string) => void
+  addCustomExercise: (
+    name: string,
+    muscleGroup: MuscleGroup,
+    gifUrl?: string,
+    help?: { formTips: string; commonMistakes: string; beginnerAdvice: string },
+  ) => void
+  dismissBurnoutWarnings: () => void
   toggleFavoriteExercise: (exerciseId: string) => void
   addBodyweight: (value: number) => void
   mergeImport: (partial: Partial<AppPersisted>, options?: { silent?: boolean }) => void
@@ -93,29 +138,63 @@ type Ctx = {
   setFriendWeeklySets: (id: string, weeklySets: number) => void
   updateTodayLayout: (layout: TodayLayoutPersist) => void
   completeNotificationPrompt: () => void
+  coachNote: string | null
+  refreshCoachNote: () => Promise<void>
 }
 
 const WorkoutContext = createContext<Ctx | null>(null)
+const WorkoutTickContext = createContext<TickCtx | null>(null)
 
 function withAchievements(prev: AppPersisted): AppPersisted {
   return { ...prev, achievements: evaluateAchievements(prev) }
 }
 
-export function WorkoutProvider({ children }: { children: ReactNode }) {
+export function WorkoutProvider({ children, userId }: { children: ReactNode; userId: string }) {
   const [state, setState] = useState<AppPersisted>(() => alignScheduleWeek(loadState()))
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [prCelebration, setPrCelebration] = useState<{ exerciseName: string } | null>(null)
   const [clock, setClock] = useState(() => Date.now())
+  const [coachNote, setCoachNote] = useState<string | null>(null)
   const stateRef = useRef(state)
   const notifyClearTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const cloudReadyRef = useRef(false)
+  const cloudSaveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const offlineSyncToastShownRef = useRef(false)
 
   useEffect(() => {
     stateRef.current = state
   }, [state])
 
+  useEffect(() => {
+    function onOnline() {
+      offlineSyncToastShownRef.current = false
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
+
   useLayoutEffect(() => {
     setState((s) => {
-      const next = normalizeCoachChatMessages(s.chatMessages)
+      let hasFlag = false
+      try {
+        hasFlag = localStorage.getItem(APEX_COACH_INIT_FLAG) === '1'
+      } catch {
+        /* ignore */
+      }
+
+      let next = normalizeCoachChatMessages(s.chatMessages)
+
+      if (!hasFlag) {
+        if (next.length === 0) {
+          next = coachWelcomeMessages()
+        }
+        try {
+          localStorage.setItem(APEX_COACH_INIT_FLAG, '1')
+        } catch {
+          /* ignore */
+        }
+      }
+
       const cur = JSON.stringify(s.chatMessages.map((x) => ({ id: x.id, role: x.role, text: x.text })))
       const norm = JSON.stringify(next.map((x) => ({ id: x.id, role: x.role, text: x.text })))
       if (cur === norm) return s
@@ -124,8 +203,69 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    cloudReadyRef.current = false
+    void (async () => {
+      const remote = await fetchUserWorkoutState(userId)
+      if (cancelled) return
+      let synced = stateRef.current
+      if (remote) {
+        synced = withAchievements(
+          alignScheduleWeek(
+            pickWorkoutStateForHydrate(synced, remote.state, remote.updatedAt),
+          ),
+        )
+        setState(synced)
+      } else if (isAppOnline()) {
+        await upsertUserWorkoutState(userId, applyTrainerShareToState(synced))
+      }
+      const { data: authData } = await supabase.auth.getUser()
+      await upsertLeaderboardEntry(userId, synced, authData.user)
+      cloudReadyRef.current = true
+      const note = await fetchLatestCoachNoteForClient(userId)
+      setCoachNote(note?.trim() ? note : null)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  useEffect(() => {
     saveState(state)
-  }, [state])
+    if (!cloudReadyRef.current) return
+    if (cloudSaveTimerRef.current != null) {
+      window.clearTimeout(cloudSaveTimerRef.current)
+    }
+    cloudSaveTimerRef.current = window.setTimeout(() => {
+      if (!isAppOnline()) {
+        if (!offlineSyncToastShownRef.current) {
+          offlineSyncToastShownRef.current = true
+          notify(OFFLINE_SYNC_TOAST)
+        }
+        return
+      }
+      void (async () => {
+        await upsertUserWorkoutState(userId, applyTrainerShareToState(stateRef.current))
+        const { data: authData } = await supabase.auth.getUser()
+        await upsertLeaderboardEntry(userId, stateRef.current, authData.user)
+      })()
+    }, 1200)
+    return () => {
+      if (cloudSaveTimerRef.current != null) {
+        window.clearTimeout(cloudSaveTimerRef.current)
+      }
+    }
+  }, [state, userId])
+
+  const refreshCoachNote = useCallback(async () => {
+    const note = await fetchLatestCoachNoteForClient(userId)
+    setCoachNote(note?.trim() ? note : null)
+  }, [userId])
+
+  useEffect(() => {
+    if (!cloudReadyRef.current) return
+    void refreshCoachNote()
+  }, [refreshCoachNote, state.setLogs.length])
 
   useEffect(() => {
     const id = window.setInterval(() => setClock(Date.now()), 1000)
@@ -134,18 +274,41 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   const todayKey = dateKey(new Date(clock))
 
-  const notify = useCallback((message: string) => {
+  useEffect(() => {
+    setState((s) => alignScheduleWeek(s))
+  }, [todayKey])
+
+  const notify = useCallback((message: string, durationMs = 3000) => {
     if (notifyClearTimeoutRef.current != null) {
       window.clearTimeout(notifyClearTimeoutRef.current)
       notifyClearTimeoutRef.current = null
     }
     const id = crypto.randomUUID()
-    setNotifications([{ id, message }])
+    setNotifications([{ id, message: stripNotificationMessage(message) }])
     notifyClearTimeoutRef.current = window.setTimeout(() => {
       setNotifications([])
       notifyClearTimeoutRef.current = null
-    }, 3000)
+    }, durationMs)
   }, [])
+
+  const streakMilestonePrevRef = useRef<number | null>(null)
+  useEffect(() => {
+    const s = streakCurrent(state, clock)
+    const prev = streakMilestonePrevRef.current
+    if (prev === null) {
+      streakMilestonePrevRef.current = s
+      return
+    }
+    if (s !== prev) {
+      for (const m of [3, 7, 14, 30]) {
+        if (s === m && prev < m) {
+          notify(`${m} day streak! Keep it up.`)
+          break
+        }
+      }
+      streakMilestonePrevRef.current = s
+    }
+  }, [state.setLogs, notify])
 
   useEffect(() => {
     return () => {
@@ -190,8 +353,14 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [state.customExercises, state.hiddenExerciseIds],
   )
 
-  const cardioMs = cardioElapsedMs(state.cardioTimer, clock)
-  const gymMs = gymElapsedMs(state.gymSession, clock)
+  const tickValue = useMemo<TickCtx>(
+    () => ({
+      clock,
+      cardioElapsedMs: cardioElapsedMs(state.cardioTimer, clock),
+      gymElapsedMs: gymElapsedMs(state.gymSession, clock),
+    }),
+    [clock, state.cardioTimer, state.gymSession],
+  )
 
   const dismissRestTimer = useCallback(() => {
     setState((s) => ({ ...s, restTimer: { ...s.restTimer, dismissed: true } }))
@@ -201,7 +370,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setPrCelebration(null)
   }, [])
 
-  const addSetLog: Ctx['addSetLog'] = useCallback((partial) => {
+  const addSetLog: Ctx['addSetLog'] = useCallback((partial, options) => {
     const at = Date.now()
     const id = crypto.randomUUID()
     let normalized = partial
@@ -227,9 +396,11 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       const log = { ...base, isPr } as SetLog
       const setLogs = [...s.setLogs, log]
       const sec = Math.max(1, Math.floor(s.settings.restTimerSeconds) || 90)
-      const rest = s.settings.restTimerEnabled
-        ? { endAt: at + sec * 1000, dismissed: false }
-        : { endAt: null, dismissed: true }
+      const deferRest = options?.deferRestTimer === true
+      const rest =
+        deferRest || !s.settings.restTimerEnabled
+          ? { endAt: null, dismissed: true }
+          : { endAt: at + sec * 1000, dismissed: false }
       const xpGain = XP_PER_SET + (isPr ? XP_PER_PR : 0)
       try {
         return withAchievements({
@@ -411,13 +582,53 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setState((s) => ({
       ...s,
       todayPlanExerciseIds: s.todayPlanExerciseIds.filter((id) => id !== exerciseId),
+      todaySupersetPairs: s.todaySupersetPairs.filter(([a, b]) => a !== exerciseId && b !== exerciseId),
     }))
   }, [])
 
   const clearTodayPlan = useCallback(() => {
-    setState((s) => ({ ...s, todayPlanExerciseIds: [] }))
+    setState((s) => ({ ...s, todayPlanExerciseIds: [], todaySupersetPairs: [] }))
     notify('Plan cleared')
   }, [notify])
+
+  const linkSuperset = useCallback(
+    (exerciseIdA: string, exerciseIdB: string) => {
+      if (exerciseIdA === exerciseIdB) return
+      setState((s) => {
+        if (
+          !s.todayPlanExerciseIds.includes(exerciseIdA) ||
+          !s.todayPlanExerciseIds.includes(exerciseIdB)
+        ) {
+          return s
+        }
+        const pairs = s.todaySupersetPairs.filter(
+          ([a, b]) =>
+            a !== exerciseIdA &&
+            b !== exerciseIdA &&
+            a !== exerciseIdB &&
+            b !== exerciseIdB,
+        )
+        const ordered: TodaySupersetPair =
+          s.todayPlanExerciseIds.indexOf(exerciseIdA) <= s.todayPlanExerciseIds.indexOf(exerciseIdB)
+            ? [exerciseIdA, exerciseIdB]
+            : [exerciseIdB, exerciseIdA]
+        return { ...s, todaySupersetPairs: [...pairs, ordered] }
+      })
+      notify('Superset linked')
+    },
+    [notify],
+  )
+
+  const getSupersetPartner = useCallback(
+    (exerciseId: string): string | null => {
+      for (const [a, b] of state.todaySupersetPairs) {
+        if (a === exerciseId) return b
+        if (b === exerciseId) return a
+      }
+      return null
+    },
+    [state.todaySupersetPairs],
+  )
 
   const saveTemplate = useCallback((name: string) => {
     const t: WorkoutTemplate = {
@@ -437,7 +648,11 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const loadTemplate = useCallback((id: string) => {
     const t = state.templates.find((x) => x.id === id)
     if (!t) return
-    setState((s) => ({ ...s, todayPlanExerciseIds: [...t.exerciseIds] }))
+    setState((s) => ({
+      ...s,
+      todayPlanExerciseIds: [...t.exerciseIds],
+      todaySupersetPairs: [],
+    }))
     notify('Template loaded into My Plan')
   }, [notify, state.templates])
 
@@ -447,7 +662,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setState((s) => {
       const hidden = new Set(s.hiddenExerciseIds)
       const plan = uniq.filter((id) => !hidden.has(id))
-      return { ...s, todayPlanExerciseIds: plan }
+      return { ...s, todayPlanExerciseIds: plan, todaySupersetPairs: [] }
     })
     notify('Preset loaded into My Plan')
   }, [notify])
@@ -488,7 +703,14 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const pushChat = useCallback((role: 'user' | 'model', text: string) => {
-    const msg: ChatMessage = { id: crypto.randomUUID(), role, text, at: Date.now() }
+    if (role === 'user' && isCoachUiPromptLine(text)) return
+    const cleanedModel =
+      role === 'model' ? limitCoachReplySentences(sanitizeCoachBubbleText(text)) : ''
+    if (role === 'model' && !cleanedModel.trim()) return
+    const body =
+      role === 'model' ? cleanedModel : redactLeakedApiMetadataFromText(text.trim())
+    if (role === 'user' && !body) return
+    const msg: ChatMessage = { id: crypto.randomUUID(), role, text: body, at: Date.now() }
     setState((s) => ({
       ...s,
       chatMessages: normalizeCoachChatMessages([...s.chatMessages, msg]),
@@ -496,22 +718,50 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const clearChat = useCallback(() => {
-    setState((s) => ({ ...s, chatMessages: normalizeCoachChatMessages([]) }))
+    try {
+      localStorage.removeItem(APEX_COACH_INIT_FLAG)
+    } catch {
+      /* ignore */
+    }
+    setState((s) => ({ ...s, chatMessages: coachWelcomeMessages() }))
   }, [])
 
-  const addCustomExercise = useCallback((name: string, muscleGroup: MuscleGroup, gifUrl?: string) => {
-    const trimmed = name.trim().slice(0, 120)
-    if (!trimmed) return
-    const id = `custom-${crypto.randomUUID()}`
-    let g: string | undefined
-    const rawG = gifUrl?.trim().slice(0, 2048)
-    if (rawG && /^https?:\/\//i.test(rawG)) g = rawG
-    setState((s) => ({
-      ...s,
-      customExercises: [...s.customExercises, { id, name: trimmed, muscleGroup, ...(g ? { gifUrl: g } : {}) }],
-    }))
-    notify('Custom exercise added')
-  }, [notify])
+  const addCustomExercise = useCallback(
+    (
+      name: string,
+      muscleGroup: MuscleGroup,
+      gifUrl?: string,
+      help?: { formTips: string; commonMistakes: string; beginnerAdvice: string },
+    ) => {
+      const trimmed = name.trim().slice(0, 120)
+      if (!trimmed) return
+      const id = `custom-${crypto.randomUUID()}`
+      let g: string | undefined
+      const rawG = gifUrl?.trim().slice(0, 2048)
+      if (rawG && /^https?:\/\//i.test(rawG)) g = rawG
+      const tips =
+        help?.formTips?.trim() && help.commonMistakes?.trim() && help.beginnerAdvice?.trim()
+          ? {
+              formTips: help.formTips.trim(),
+              commonMistakes: help.commonMistakes.trim(),
+              beginnerAdvice: help.beginnerAdvice.trim(),
+            }
+          : {}
+      setState((s) => ({
+        ...s,
+        customExercises: [
+          ...s.customExercises,
+          { id, name: trimmed, muscleGroup, ...(g ? { gifUrl: g } : {}), ...tips },
+        ],
+      }))
+      notify('Custom exercise added')
+    },
+    [notify],
+  )
+
+  const dismissBurnoutWarnings = useCallback(() => {
+    setState((s) => ({ ...s, burnoutDismissedWeekStart: currentWeekStartKey() }))
+  }, [])
 
   const hideExercise = useCallback((exerciseId: string) => {
     setState((s) => ({
@@ -520,6 +770,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
         ? s.hiddenExerciseIds
         : [...s.hiddenExerciseIds, exerciseId],
       todayPlanExerciseIds: s.todayPlanExerciseIds.filter((id) => id !== exerciseId),
+      todaySupersetPairs: s.todaySupersetPairs.filter(([a, b]) => a !== exerciseId && b !== exerciseId),
       favoriteExerciseIds: s.favoriteExerciseIds.filter((id) => id !== exerciseId),
       schedule: s.schedule.map((d) => ({
         ...d,
@@ -593,8 +844,29 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   }, [mergeImport])
 
   const completeOnboarding = useCallback(() => {
+    setOnboardingCompleteLocal(true)
     setState((s) => ({ ...s, onboardingComplete: true }))
   }, [])
+
+  const resetAppData = useCallback(async () => {
+    try {
+      localStorage.removeItem(APEX_COACH_INIT_FLAG)
+    } catch {
+      /* ignore */
+    }
+    const fresh = clearAllAppData()
+    setState(fresh)
+    setNotifications([])
+    setPrCelebration(null)
+    cloudReadyRef.current = true
+    try {
+      await upsertUserWorkoutState(userId, fresh)
+      const { data: authData } = await supabase.auth.getUser()
+      await upsertLeaderboardEntry(userId, fresh, authData.user)
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[Apex] resetAppData cloud sync', e)
+    }
+  }, [userId])
 
   const updateTodayLayout = useCallback((layout: TodayLayoutPersist) => {
     setState((s) => ({ ...s, todayLayout: normalizeTodayLayout(layout) }))
@@ -733,15 +1005,13 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = useMemo(
     () => ({
+      userId,
       state,
       visibleExercises,
       todayKey,
-      clock,
       notifications,
       notify,
       dismissNotification,
-      cardioElapsedMs: cardioMs,
-      gymElapsedMs: gymMs,
       dismissRestTimer,
       prCelebration,
       dismissPrCelebration,
@@ -757,6 +1027,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       stopGymSession,
       addPlanExercise,
       removePlanExercise,
+      linkSuperset,
+      getSupersetPartner,
       clearTodayPlan,
       saveTemplate,
       deleteTemplate,
@@ -771,6 +1043,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       hideExercise,
       resolveExerciseById,
       addCustomExercise,
+      dismissBurnoutWarnings,
       toggleFavoriteExercise,
       addBodyweight,
       mergeImport,
@@ -783,19 +1056,20 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       removeFriend,
       setFriendWeeklySets,
       completeOnboarding,
+      resetAppData,
       updateTodayLayout,
       completeNotificationPrompt,
+      coachNote,
+      refreshCoachNote,
     }),
     [
+      userId,
       state,
       visibleExercises,
       todayKey,
-      clock,
       notifications,
       notify,
       dismissNotification,
-      cardioMs,
-      gymMs,
       dismissRestTimer,
       prCelebration,
       dismissPrCelebration,
@@ -811,6 +1085,8 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       stopGymSession,
       addPlanExercise,
       removePlanExercise,
+      linkSuperset,
+      getSupersetPartner,
       clearTodayPlan,
       saveTemplate,
       deleteTemplate,
@@ -825,6 +1101,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       hideExercise,
       resolveExerciseById,
       addCustomExercise,
+      dismissBurnoutWarnings,
       toggleFavoriteExercise,
       addBodyweight,
       mergeImport,
@@ -837,17 +1114,32 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       removeFriend,
       setFriendWeeklySets,
       completeOnboarding,
+      resetAppData,
       updateTodayLayout,
       completeNotificationPrompt,
+      coachNote,
+      refreshCoachNote,
     ],
   )
 
-  return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>
+  return (
+    <WorkoutContext.Provider value={value}>
+      <WorkoutTickContext.Provider value={tickValue}>{children}</WorkoutTickContext.Provider>
+    </WorkoutContext.Provider>
+  )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- hook colocated with provider
 export function useWorkout(): Ctx {
   const c = useContext(WorkoutContext)
   if (!c) throw new Error('useWorkout outside provider')
+  return c
+}
+
+/** Live clock + running timers — isolated so charts and static views do not re-render every second. */
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with provider
+export function useWorkoutTick(): TickCtx {
+  const c = useContext(WorkoutTickContext)
+  if (!c) throw new Error('useWorkoutTick outside provider')
   return c
 }

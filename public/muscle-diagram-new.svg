@@ -1,0 +1,153 @@
+<svg width="100%" viewBox="0 0 680 520" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <style>
+    .muscle-chest, .muscle-shoulders, .muscle-back,
+    .muscle-arms, .muscle-core, .muscle-legs {
+      fill: rgba(255,255,255,0.06);
+      stroke: rgba(255,255,255,0.2);
+      stroke-width: 0.8;
+      transition: fill 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+    }
+    .muscle-chest.active, .muscle-shoulders.active, .muscle-back.active,
+    .muscle-arms.active, .muscle-core.active, .muscle-legs.active {
+      fill: rgba(99,153,220,0.55);
+      stroke: rgba(140,190,255,1);
+      stroke-width: 1.5;
+      filter: drop-shadow(0 0 5px rgba(99,153,220,0.7));
+    }
+  </style>
+</defs>
+
+<!-- ═══════ FRONT FIGURE ═══════ -->
+
+<!-- Head -->
+<ellipse cx="200" cy="50" rx="21" ry="24" fill="none" stroke="#666" stroke-width="1"/>
+<path d="M191 72 Q196 79 200 81 Q204 79 209 72 L210 90 Q205 93 200 94 Q195 93 190 88 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+
+<!-- Torso -->
+<path d="M163 108 Q148 120 144 148 Q140 174 140 202 Q140 228 144 250 Q149 266 165 274 L235 274 Q251 266 256 250 Q260 228 260 202 Q260 174 256 148 Q252 120 237 108 Q220 102 200 102 Q180 102 163 108 Z" fill="rgba(255,255,255,0.02)" stroke="#666" stroke-width="1"/>
+
+<!-- CHEST -->
+<path d="M163 116 Q176 108 195 114 Q208 120 209 135 Q210 152 198 160 Q185 166 172 160 Q159 153 158 138 Q156 123 163 116 Z" class="muscle-chest"/>
+<path d="M237 116 Q224 108 205 114 Q192 120 191 135 Q190 152 202 160 Q215 166 228 160 Q241 153 242 138 Q244 123 237 116 Z" class="muscle-chest"/>
+<line x1="200" y1="116" x2="200" y2="160" stroke="rgba(255,255,255,0.15)" stroke-width="0.6" stroke-dasharray="2 3"/>
+
+<!-- SHOULDERS FRONT -->
+<path d="M163 108 Q144 103 133 118 Q125 133 128 149 Q132 163 144 165 Q156 165 162 153 Q166 140 163 123 Z" class="muscle-shoulders"/>
+<path d="M237 108 Q256 103 267 118 Q275 133 272 149 Q268 163 256 165 Q244 165 238 153 Q234 140 237 123 Z" class="muscle-shoulders"/>
+
+<!-- SERRATUS -->
+<path d="M150 168 Q158 164 162 170" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+<path d="M149 180 Q157 175 162 182" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+<path d="M250 168 Q242 164 238 170" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+<path d="M251 180 Q243 175 238 182" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+
+<!-- CORE / ABS -->
+<path d="M183 163 Q192 161 197 166 Q199 173 197 181 Q192 185 183 183 Q179 178 179 171 Q179 165 183 163 Z" class="muscle-core"/>
+<path d="M203 163 Q212 161 217 166 Q219 173 217 181 Q212 185 203 183 Q199 178 199 171 Q199 165 203 163 Z" class="muscle-core"/>
+<path d="M183 186 Q192 184 197 189 Q199 196 197 204 Q192 208 183 206 Q179 201 179 194 Q179 188 183 186 Z" class="muscle-core"/>
+<path d="M203 186 Q212 184 217 189 Q219 196 217 204 Q212 208 203 206 Q199 201 199 194 Q199 188 203 186 Z" class="muscle-core"/>
+<path d="M184 209 Q192 207 196 212 Q198 218 196 224 Q192 227 184 225 Q180 221 180 215 Q180 210 184 209 Z" class="muscle-core"/>
+<path d="M204 209 Q212 207 216 212 Q218 218 216 224 Q212 227 204 225 Q200 221 200 215 Q200 210 204 209 Z" class="muscle-core"/>
+<line x1="200" y1="160" x2="200" y2="262" stroke="rgba(255,255,255,0.12)" stroke-width="0.5" stroke-dasharray="2 3"/>
+<path d="M147 196 Q155 214 159 236 Q161 253 163 270" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+<path d="M253 196 Q245 214 241 236 Q239 253 237 270" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/>
+
+<!-- LEFT ARM -->
+<path d="M129 148 Q112 157 106 184 Q102 207 104 230 Q106 250 113 260 Q118 267 124 263 Q130 257 130 236 Q128 211 130 186 L134 162 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M114 163 Q106 177 106 198 Q106 216 115 226 Q120 232 127 226 Q133 217 131 198 Q129 178 122 165 Z" class="muscle-arms"/>
+<path d="M105 234 Q100 256 104 271 L115 275 Q121 268 117 249 Q113 237 109 234 Z" fill="none" stroke="#666" stroke-width="0.8"/>
+
+<!-- RIGHT ARM -->
+<path d="M271 148 Q288 157 294 184 Q298 207 296 230 Q294 250 287 260 Q282 267 276 263 Q270 257 270 236 Q272 211 270 186 L266 162 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M286 163 Q294 177 294 198 Q294 216 285 226 Q280 232 273 226 Q267 217 269 198 Q271 178 278 165 Z" class="muscle-arms"/>
+<path d="M295 234 Q300 256 296 271 L285 275 Q279 268 283 249 Q287 237 291 234 Z" fill="none" stroke="#666" stroke-width="0.8"/>
+
+<!-- HIP -->
+<path d="M165 274 Q176 286 200 288 Q224 286 235 274" fill="none" stroke="#666" stroke-width="0.9"/>
+
+<!-- LEFT QUAD -->
+<path d="M165 288 Q153 306 149 358 Q147 396 151 432 Q155 452 163 456 Q171 456 175 446 Q179 428 177 392 Q173 356 169 312 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M151 310 Q143 336 143 370 Q143 402 152 426 Q157 440 165 438 Q173 436 175 421 Q178 394 176 362 Q173 330 164 312 Z" class="muscle-legs"/>
+
+<!-- RIGHT QUAD -->
+<path d="M235 288 Q247 306 251 358 Q253 396 249 432 Q245 452 237 456 Q229 456 225 446 Q221 428 223 392 Q227 356 231 312 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M249 310 Q257 336 257 370 Q257 402 248 426 Q243 440 235 438 Q227 436 225 421 Q222 394 224 362 Q227 330 236 312 Z" class="muscle-legs"/>
+
+<!-- Kneecaps -->
+<ellipse cx="163" cy="440" rx="11" ry="9" fill="rgba(255,255,255,0.03)" stroke="#555" stroke-width="0.8"/>
+<ellipse cx="237" cy="440" rx="11" ry="9" fill="rgba(255,255,255,0.03)" stroke="#555" stroke-width="0.8"/>
+
+<!-- Shins -->
+<path d="M151 448 Q147 471 149 484 Q152 496 163 498 Q174 496 176 484 Q178 471 175 448 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M249 448 Q253 471 251 484 Q248 496 237 498 Q226 496 224 484 Q222 471 225 448 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+
+<text x="200" y="514" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#555" letter-spacing="0.08em">FRONT</text>
+
+
+<!-- ═══════ BACK FIGURE ═══════ -->
+
+<!-- Head -->
+<ellipse cx="480" cy="50" rx="21" ry="24" fill="none" stroke="#666" stroke-width="1"/>
+<path d="M471 72 Q476 79 480 81 Q484 79 489 72 L490 90 Q485 93 480 94 Q475 93 470 88 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+
+<!-- Torso -->
+<path d="M443 108 Q428 120 424 150 Q420 176 420 204 Q420 230 424 252 Q429 268 445 276 L515 276 Q531 268 536 252 Q540 230 540 204 Q540 176 536 150 Q532 120 517 108 Q500 102 480 102 Q460 102 443 108 Z" fill="rgba(255,255,255,0.02)" stroke="#666" stroke-width="1"/>
+
+<!-- TRAPS -->
+<path d="M445 106 Q462 100 480 101 Q498 100 515 106 Q508 122 500 130 Q491 137 480 139 Q469 137 460 130 Q452 122 445 106 Z" class="muscle-back"/>
+
+<!-- REAR DELTS -->
+<path d="M443 108 Q424 103 413 120 Q405 135 409 150 Q413 163 424 165 Q435 165 441 153 Q445 141 443 124 Z" class="muscle-shoulders"/>
+<path d="M517 108 Q536 103 547 120 Q555 135 551 150 Q547 163 536 165 Q525 165 519 153 Q515 141 517 124 Z" class="muscle-shoulders"/>
+
+<!-- LATS -->
+<path d="M422 146 Q417 172 421 206 Q426 235 435 257 Q441 269 447 267 Q453 263 451 242 Q445 212 440 176 Q437 154 437 144 Z" class="muscle-back"/>
+<path d="M538 146 Q543 172 539 206 Q534 235 525 257 Q519 269 513 267 Q507 263 509 242 Q515 212 520 176 Q523 154 523 144 Z" class="muscle-back"/>
+
+<!-- RHOMBOIDS -->
+<path d="M449 144 Q464 138 480 136 Q496 138 511 144 L507 178 Q493 186 480 188 Q467 186 453 178 Z" class="muscle-back"/>
+
+<!-- SPINE -->
+<line x1="480" y1="139" x2="480" y2="258" stroke="rgba(255,255,255,0.12)" stroke-width="0.5" stroke-dasharray="2 3"/>
+
+<!-- ERECTORS -->
+<path d="M464 190 Q460 206 460 228 Q460 248 464 260 Q468 266 473 262 Q477 256 477 234 Q477 210 473 192 Z" class="muscle-back"/>
+<path d="M496 190 Q500 206 500 228 Q500 248 496 260 Q492 266 487 262 Q483 256 483 234 Q483 210 487 192 Z" class="muscle-back"/>
+
+<!-- LEFT BACK ARM -->
+<path d="M409 150 Q392 160 386 187 Q382 210 384 233 Q386 253 393 263 Q398 270 404 266 Q410 260 410 238 Q408 213 410 188 L414 164 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M393 167 Q385 182 385 203 Q385 221 394 231 Q399 237 406 231 Q411 222 409 203 Q407 182 400 169 Z" class="muscle-arms"/>
+<path d="M385 237 Q380 259 384 274 L395 278 Q401 271 397 252 Q393 240 389 237 Z" fill="none" stroke="#666" stroke-width="0.8"/>
+
+<!-- RIGHT BACK ARM -->
+<path d="M551 150 Q568 160 574 187 Q578 210 576 233 Q574 253 567 263 Q562 270 556 266 Q550 260 550 238 Q552 213 550 188 L546 164 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M567 167 Q575 182 575 203 Q575 221 566 231 Q561 237 554 231 Q549 222 551 203 Q553 182 560 169 Z" class="muscle-arms"/>
+<path d="M575 237 Q580 259 576 274 L565 278 Q559 271 563 252 Q567 240 571 237 Z" fill="none" stroke="#666" stroke-width="0.8"/>
+
+<!-- HIP BACK -->
+<path d="M445 276 Q459 288 480 290 Q501 288 515 276" fill="none" stroke="#666" stroke-width="0.9"/>
+
+<!-- GLUTES -->
+<path d="M445 278 Q438 298 440 318 Q445 336 458 342 Q469 346 480 344 Q491 346 502 342 Q515 336 520 318 Q522 298 515 278 Z" class="muscle-legs"/>
+<line x1="480" y1="278" x2="480" y2="342" stroke="rgba(255,255,255,0.12)" stroke-width="0.5" stroke-dasharray="2 3"/>
+
+<!-- LEFT HAMSTRING -->
+<path d="M444 292 Q432 312 428 364 Q426 402 430 436 Q434 456 443 460 Q452 460 456 450 Q460 432 458 394 Q454 356 448 314 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M432 314 Q423 342 423 376 Q423 408 432 432 Q437 446 445 444 Q453 442 455 428 Q458 400 456 367 Q453 334 444 316 Z" class="muscle-legs"/>
+
+<!-- RIGHT HAMSTRING -->
+<path d="M516 292 Q528 312 532 364 Q534 402 530 436 Q526 456 517 460 Q508 460 504 450 Q500 432 502 394 Q506 356 512 314 Z" fill="none" stroke="#666" stroke-width="0.9"/>
+<path d="M528 314 Q537 342 537 376 Q537 408 528 432 Q523 446 515 444 Q507 442 505 428 Q502 400 504 367 Q507 334 516 316 Z" class="muscle-legs"/>
+
+<!-- Knee backs -->
+<ellipse cx="443" cy="444" rx="11" ry="9" fill="rgba(255,255,255,0.03)" stroke="#555" stroke-width="0.8"/>
+<ellipse cx="517" cy="444" rx="11" ry="9" fill="rgba(255,255,255,0.03)" stroke="#555" stroke-width="0.8"/>
+
+<!-- CALVES -->
+<path d="M430 452 Q425 474 427 488 Q430 498 443 500 Q456 498 458 488 Q460 474 456 452 Z" class="muscle-legs"/>
+<path d="M530 452 Q535 474 533 488 Q530 498 517 500 Q504 498 502 488 Q500 474 504 452 Z" class="muscle-legs"/>
+
+<text x="480" y="514" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="#555" letter-spacing="0.08em">BACK</text>
+
+</svg>

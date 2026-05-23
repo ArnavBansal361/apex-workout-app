@@ -8,7 +8,6 @@ type Props = {
   destructive?: boolean
   onConfirm: () => void
   onCancel: () => void
-  accent: string
 }
 
 export function ConfirmDialog({
@@ -20,22 +19,26 @@ export function ConfirmDialog({
   destructive,
   onConfirm,
   onCancel,
-  accent,
 }: Props) {
   if (!open) return null
   const isDestructive = destructive ?? /delete|remove/i.test(confirmLabel)
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4 bg-black/75">
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4"
+      onClick={onCancel}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         className="w-full max-w-sm apex-card p-5"
+        onClick={(e) => e.stopPropagation()}
       >
         <h2 id="confirm-title" className="text-[13px] font-normal text-[#e0e0e0]">
           {title}
         </h2>
-        <p className="mt-2 text-[13px] font-normal text-[#555] leading-relaxed">{message}</p>
+        <p className="mt-2 text-[13px] font-normal text-[#a0a0a8] leading-relaxed">{message}</p>
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -46,10 +49,11 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-[12px] text-[13px] font-medium text-[#0c0c0c]"
-            style={{
-              backgroundColor: isDestructive ? '#b91c1c' : accent,
-            }}
+            className={`min-h-12 flex-1 rounded-[12px] text-[13px] font-medium ${
+              isDestructive
+                ? 'bg-[#c43c3c] text-white border border-[#e85d5d]/40'
+                : 'bg-white text-black'
+            }`}
             onClick={onConfirm}
           >
             {confirmLabel}

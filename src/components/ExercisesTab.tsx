@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { getExerciseHelp } from '../data/exercises'
-import { muscleGroupIcon } from '../lib/muscleIcons'
-import type { MuscleGroup } from '../types'
+import { claudeExerciseFormTips } from '../lib/anthropicCoach'
+import { strengthProgressSeries } from '../lib/overload'
+import type { Exercise, MuscleGroup, SetLog } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { ExerciseFormGif } from './ExerciseFormGif'
+import { ExerciseMuscleDiagram } from './ExerciseFormGif'
+import { QuickLogModal } from './QuickLogModal'
 
 const FILTERS: (MuscleGroup | 'All')[] = [
   'All',
@@ -18,10 +20,145 @@ const FILTERS: (MuscleGroup | 'All')[] = [
   'Stretches',
 ]
 
-export function ExercisesTab() {
+type ExercisesTabProps = {
+  gridCols?: 2 | 4
+}
+
+function StrengthProgressChart({
+  logs,
+  exerciseId,
+  unit,
+}: {
+  logs: SetLog[]
+  exerciseId: string
+  unit: 'lbs' | 'kg'
+}) {
+  const series = useMemo(() => strengthProgressSeries(logs, exerciseId), [logs, exerciseId])
+  const plotted = useMemo(() => series.filter((p) => p.weight != null), [series])
+  const weights = plotted.map((p) => p.weight as number)
+  const minW = weights.length ? Math.min(...weights) : 0
+  const maxW = weights.length ? Math.max(...weights) : 0
+  const pad = maxW === minW ? Math.max(5, maxW * 0.1) : (maxW - minW) * 0.12
+  const yMin = Math.max(0, minW - pad)
+  const yMax = maxW + pad
+  const w = 320
+  const h = 140
+  const left = 36
+  const right = 8
+  const top = 10
+  const bottom = 28
+  const plotW = w - left - right
+  const plotH = h - top - bottom
+  const n = series.length
+
+  function xAt(i: number) {
+    return left + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
+  }
+  function yAt(weight: number) {
+    if (yMax <= yMin) return top + plotH / 2
+    return top + plotH - ((weight - yMin) / (yMax - yMin)) * plotH
+  }
+
+  const yTicks = 4
+  const gridLines = Array.from({ length: yTicks + 1 }, (_, i) => {
+    const t = i / yTicks
+    const val = yMin + (1 - t) * (yMax - yMin)
+    const y = top + t * plotH
+    return { val, y }
+  })
+
+  const linePoints = plotted
+    .map((p) => {
+      const i = series.findIndex((s) => s.weekStartKey === p.weekStartKey)
+      return `${xAt(i)},${yAt(p.weight as number)}`
+    })
+    .join(' ')
+
+  if (plotted.length < 2) {
+    return (
+      <div className="mt-5">
+        <p
+          className="mb-3 text-[10px] font-normal uppercase tracking-[0.08em]"
+          style={{ color: 'rgba(255,255,255,0.3)' }}
+        >
+          Strength progress
+        </p>
+        <p className="text-center text-[12px] font-normal" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Log more sets to see your progress
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-5">
+      <p
+        className="mb-3 text-[10px] font-normal uppercase tracking-[0.08em]"
+        style={{ color: 'rgba(255,255,255,0.3)' }}
+      >
+        Strength progress
+      </p>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" aria-hidden>
+        {gridLines.map((g) => (
+          <line
+            key={g.y}
+            x1={left}
+            x2={w - right}
+            y1={g.y}
+            y2={g.y}
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={1}
+          />
+        ))}
+        {gridLines.map((g) => (
+          <text
+            key={`y-${g.y}`}
+            x={left - 6}
+            y={g.y + 3}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.3)"
+            fontSize={10}
+          >
+            {Math.round(g.val)}
+          </text>
+        ))}
+        {series.map((p, i) => (
+          <text
+            key={p.weekStartKey}
+            x={xAt(i)}
+            y={h - 6}
+            textAnchor="middle"
+            fill="rgba(255,255,255,0.3)"
+            fontSize={10}
+          >
+            {p.label}
+          </text>
+        ))}
+        {linePoints ? (
+          <polyline
+            fill="none"
+            stroke="rgba(255,255,255,0.8)"
+            strokeWidth={1.5}
+            points={linePoints}
+          />
+        ) : null}
+        {plotted.map((p) => {
+          const i = series.findIndex((s) => s.weekStartKey === p.weekStartKey)
+          const cx = xAt(i)
+          const cy = yAt(p.weight as number)
+          return <circle key={p.weekStartKey} cx={cx} cy={cy} r={2} fill="#ffffff" />
+        })}
+      </svg>
+      <p className="sr-only">
+        Strength progress for last 8 weeks in {unit}, peak weight per week.
+      </p>
+    </div>
+  )
+}
+
+export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
   const { visibleExercises, hideExercise, state, addPlanExercise, notify, toggleFavoriteExercise, addCustomExercise } =
     useWorkout()
-  const accent = state.settings.accentColor
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<MuscleGroup | 'All'>('All')
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -29,7 +166,24 @@ export function ExercisesTab() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createMuscle, setCreateMuscle] = useState<MuscleGroup>('Chest')
-  const [createGifUrl, setCreateGifUrl] = useState('')
+  const [createTipsGenerating, setCreateTipsGenerating] = useState(false)
+  const [createTipsError, setCreateTipsError] = useState<string | null>(null)
+  const [createFormTips, setCreateFormTips] = useState('')
+  const [createCommonMistakes, setCreateCommonMistakes] = useState('')
+  const [createBeginnerAdvice, setCreateBeginnerAdvice] = useState('')
+  const [createTipsReady, setCreateTipsReady] = useState(false)
+
+  function resetCreateForm() {
+    setCreateName('')
+    setCreateMuscle('Chest')
+    setCreateTipsGenerating(false)
+    setCreateTipsError(null)
+    setCreateFormTips('')
+    setCreateCommonMistakes('')
+    setCreateBeginnerAdvice('')
+    setCreateTipsReady(false)
+  }
+  const [quickLogExercise, setQuickLogExercise] = useState<Exercise | null>(null)
 
   const favoriteSet = useMemo(() => new Set(state.favoriteExerciseIds), [state.favoriteExerciseIds])
 
@@ -80,11 +234,11 @@ export function ExercisesTab() {
   const help = active ? getExerciseHelp(active) : null
 
   return (
-    <div className="space-y-8 pb-32" style={{ ['--accent' as string]: accent }}>
+    <div className="apex-tab-stack pb-28">
       <header>
         <p className="apex-page-sub">Library</p>
         <h1 className="apex-page-title mt-1">Exercises</h1>
-        <p className="mt-2 text-[13px] font-medium text-[#7c7c84] leading-relaxed max-w-[20rem]">
+        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed max-w-[20rem]">
           Search, filter by muscle, tap for form cues — add anything to today&apos;s plan.
         </p>
         <button
@@ -94,7 +248,6 @@ export function ExercisesTab() {
             setCreateOpen(true)
             setCreateName('')
             setCreateMuscle('Chest')
-            setCreateGifUrl('')
           }}
         >
           Create custom exercise
@@ -117,7 +270,7 @@ export function ExercisesTab() {
             <path d="M20 20l-4-4" strokeLinecap="round" />
           </svg>
           <input
-            className="min-h-10 flex-1 bg-transparent border-0 p-0 text-[15px] font-medium text-[#ececee] placeholder:text-[#5c5c64] placeholder:font-normal focus:outline-none focus:ring-0"
+            className="min-h-10 flex-1 bg-transparent border-0 p-0 text-[15px] font-medium text-[#ececee] placeholder:text-[#9898a0] placeholder:font-normal focus:outline-none focus:ring-0"
             placeholder="Search exercises…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -130,16 +283,9 @@ export function ExercisesTab() {
           <button
             key={f}
             type="button"
-            className={`shrink-0 min-h-10 px-4 rounded-full text-[13px] font-semibold border transition-all duration-200 active:scale-[0.97] touch-manipulation ${
-              filter === f
-                ? 'text-[#0a0a0c] border-transparent shadow-md'
-                : 'border-white/[0.08] bg-white/[0.03] text-[#8b8b93] hover:border-white/[0.12] hover:text-[#c4c4cc]'
+            className={`shrink-0 min-h-11 min-w-11 px-4 rounded-full text-[13px] font-semibold transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
+              filter === f ? 'text-white' : 'text-white/35 hover:text-white/55'
             }`}
-            style={
-              filter === f
-                ? { backgroundColor: accent, boxShadow: `0 6px 20px color-mix(in srgb, ${accent} 35%, transparent)` }
-                : undefined
-            }
             onClick={() => setFilter(f)}
           >
             {f}
@@ -150,23 +296,20 @@ export function ExercisesTab() {
       {favoritesFiltered.length ? (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-lg leading-none" aria-hidden>
-              ⭐
-            </span>
             <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">Favorites</h2>
-            <span className="text-[11px] font-semibold text-[#5c5c64] tabular-nums ml-auto">
+            <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
               {favoritesFiltered.length}
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
             {favoritesFiltered.map((e) => (
               <div
                 key={e.id}
-                className="relative min-h-[5.5rem] rounded-[16px] border border-amber-500/25 bg-gradient-to-b from-amber-500/[0.07] to-transparent overflow-hidden group apex-card-interactive"
+                className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
               >
                 <button
                   type="button"
-                  className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-amber-500/35 bg-black/50 text-amber-300 backdrop-blur-sm transition-all hover:bg-amber-500/15 active:scale-95"
+                  className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/10 text-white/70 transition-all hover:bg-white/10 active:scale-95"
                   aria-label={`Remove ${e.name} from favorites`}
                   onClick={(ev) => {
                     ev.stopPropagation()
@@ -179,7 +322,7 @@ export function ExercisesTab() {
                 </button>
                 <button
                   type="button"
-                  className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] bg-black/40 text-[18px] font-bold leading-none text-[#ececee] backdrop-blur-sm transition-all hover:bg-white/[0.12] active:scale-95"
+                  className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
                   aria-label={`Add ${e.name} to plan`}
                   onClick={(ev) => {
                     ev.stopPropagation()
@@ -191,13 +334,10 @@ export function ExercisesTab() {
                 </button>
                 <button
                   type="button"
-                  className="min-h-[5.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex flex-col justify-end"
+                  className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex items-end"
                   onClick={() => setActiveId(e.id)}
                 >
-                  <span className="text-xs mb-1 opacity-80" aria-hidden>
-                    {muscleGroupIcon(e.muscleGroup)}
-                  </span>
-                  <span className="text-[13px] font-semibold text-[#f0f0f2] leading-snug line-clamp-3 tracking-tight">
+                  <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-4 tracking-tight">
                     {e.name}
                   </span>
                 </button>
@@ -213,23 +353,20 @@ export function ExercisesTab() {
         return (
           <section key={mg} className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-lg leading-none" aria-hidden>
-                {muscleGroupIcon(mg)}
-              </span>
               <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{mg}</h2>
-              <span className="text-[11px] font-semibold text-[#5c5c64] tabular-nums ml-auto">
+              <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
                 {list.length}
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
               {list.map((e) => (
                 <div
                   key={e.id}
-                  className="relative min-h-[5.5rem] rounded-[16px] border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-transparent overflow-hidden group apex-card-interactive"
+                  className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
                 >
                   <button
                     type="button"
-                    className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] bg-black/40 text-[#8b8b93] backdrop-blur-sm transition-all hover:border-amber-500/40 hover:text-amber-200/90 hover:bg-amber-500/10 active:scale-95"
+                    className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[#a0a0a8] transition-all hover:border-white/20 hover:text-white hover:bg-white/[0.06] active:scale-95"
                     aria-label={`Add ${e.name} to favorites`}
                     onClick={(ev) => {
                       ev.stopPropagation()
@@ -242,7 +379,7 @@ export function ExercisesTab() {
                   </button>
                   <button
                     type="button"
-                    className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] bg-black/40 text-[18px] font-bold leading-none text-[#ececee] backdrop-blur-sm transition-all hover:bg-white/[0.12] active:scale-95"
+                    className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
                     aria-label={`Add ${e.name} to plan`}
                     onClick={(ev) => {
                       ev.stopPropagation()
@@ -254,13 +391,10 @@ export function ExercisesTab() {
                   </button>
                   <button
                     type="button"
-                    className="min-h-[5.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex flex-col justify-end"
+                    className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex items-end"
                     onClick={() => setActiveId(e.id)}
                   >
-                    <span className="text-xs mb-1 opacity-80" aria-hidden>
-                      {muscleGroupIcon(e.muscleGroup)}
-                    </span>
-                    <span className="text-[13px] font-semibold text-[#f0f0f2] leading-snug line-clamp-3 tracking-tight">
+                    <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-4 tracking-tight">
                       {e.name}
                     </span>
                   </button>
@@ -272,12 +406,19 @@ export function ExercisesTab() {
       })}
 
       {active && help ? (
-        <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg apex-card p-6 max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div
+          role="presentation"
+          className="apex-modal-overlay fixed inset-0 z-[65] flex items-end sm:items-center justify-center p-4"
+          onClick={() => setActiveId(null)}
+        >
+          <div
+            className="w-full max-w-lg apex-card p-6 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between gap-2 items-start">
               <div>
                 <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight">{active.name}</h3>
-                <p className="text-[12px] font-semibold text-[#7c7c84] uppercase tracking-wider mt-1">
+                <p className="text-[12px] font-semibold text-[#a0a0a8] uppercase tracking-wider mt-1">
                   {active.muscleGroup}
                 </p>
               </div>
@@ -290,30 +431,46 @@ export function ExercisesTab() {
               </button>
             </div>
             <div className="mt-5">
-              <ExerciseFormGif
-                exerciseId={active.id}
+              <ExerciseMuscleDiagram
+                muscleGroup={active.muscleGroup}
                 exerciseName={active.name}
-                pinnedGifUrl={active.gifUrl}
+               
                 className="w-full"
               />
             </div>
+            <button
+              type="button"
+              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[14px] text-[13px] font-semibold touch-manipulation"
+              onClick={() => {
+                const ex = active
+                setActiveId(null)
+                setQuickLogExercise(ex)
+              }}
+            >
+              Log set
+            </button>
             <div className="mt-5 space-y-4">
               <div>
                 <p className="apex-section-label mb-2">Form tips</p>
-                <p className="text-[13px] font-medium text-[#a1a1a8] leading-relaxed">{help.formTips}</p>
+                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.formTips}</p>
               </div>
+              <StrengthProgressChart
+                logs={state.setLogs}
+                exerciseId={active.id}
+                unit={state.settings.unit}
+              />
               <div>
                 <p className="apex-section-label mb-2">Common mistakes</p>
-                <p className="text-[13px] font-medium text-[#a1a1a8] leading-relaxed">{help.commonMistakes}</p>
+                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.commonMistakes}</p>
               </div>
               <div>
                 <p className="apex-section-label mb-2">Beginner advice</p>
-                <p className="text-[13px] font-medium text-[#a1a1a8] leading-relaxed">{help.beginnerAdvice}</p>
+                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.beginnerAdvice}</p>
               </div>
             </div>
             <button
               type="button"
-              className="mt-6 w-full min-h-12 rounded-[14px] border border-red-500/30 bg-red-950/25 text-[13px] font-semibold text-red-400 transition-colors hover:bg-red-950/40 active:scale-[0.99]"
+              className="apex-btn-muted mt-6 w-full min-h-12 text-[13px]"
               onClick={() => setConfirmId(active.id)}
             >
               Delete from library
@@ -323,21 +480,33 @@ export function ExercisesTab() {
       ) : null}
 
       {createOpen ? (
-        <div className="fixed inset-0 z-[68] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg apex-card p-6 shadow-2xl space-y-4">
+        <div
+          role="presentation"
+          className="apex-modal-overlay fixed inset-0 z-[68] flex items-end sm:items-center justify-center p-4"
+          onClick={() => {
+            setCreateOpen(false)
+            resetCreateForm()
+          }}
+        >
+          <div
+            className="w-full max-w-lg apex-card p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start gap-2">
               <div>
                 <p className="apex-page-sub">Library</p>
                 <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-0.5">New exercise</h3>
-                <p className="mt-2 text-[12px] font-medium text-[#6b6b73] leading-relaxed">
-                  Add your own movement. Optionally paste a direct https URL to a GIF or image for the demo; otherwise
-                  Giphy search runs when <code className="text-[#8b8b93]">VITE_GIPHY_API_KEY</code> is set.
+                <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                  Add your own movement to the library. It will show on the muscle diagram for its group.
                 </p>
               </div>
               <button
                 type="button"
                 className="apex-btn min-h-10 min-w-10 rounded-[12px] text-[#ececee] text-lg leading-none"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => {
+                  setCreateOpen(false)
+                  resetCreateForm()
+                }}
                 aria-label="Close"
               >
                 ✕
@@ -353,6 +522,78 @@ export function ExercisesTab() {
                 autoComplete="off"
               />
             </label>
+            {!createTipsReady ? (
+              <>
+                <button
+                  type="button"
+                  disabled={createTipsGenerating || !createName.trim()}
+                  className="w-full min-h-[40px] rounded-[8px] text-[13px] font-normal touch-manipulation disabled:opacity-40 flex items-center justify-center gap-2"
+                  style={{
+                    border: '0.5px solid rgba(255,255,255,0.2)',
+                    background: 'transparent',
+                    color: createTipsGenerating ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.6)',
+                  }}
+                  onClick={() => {
+                    const n = createName.trim()
+                    if (!n) return
+                    setCreateTipsGenerating(true)
+                    setCreateTipsError(null)
+                    void claudeExerciseFormTips(n)
+                      .then((h) => {
+                        setCreateFormTips(h.formTips)
+                        setCreateCommonMistakes(h.commonMistakes)
+                        setCreateBeginnerAdvice(h.beginnerAdvice)
+                        setCreateTipsReady(true)
+                      })
+                      .catch(() => {
+                        setCreateTipsError("Couldn't generate tips. You can add them manually.")
+                      })
+                      .finally(() => setCreateTipsGenerating(false))
+                  }}
+                >
+                  {createTipsGenerating ? (
+                    <>
+                      <i className="ti ti-loader-2 animate-spin text-[16px]" aria-hidden />
+                      <span>Generating…</span>
+                    </>
+                  ) : (
+                    'Generate form tips with AI'
+                  )}
+                </button>
+                {createTipsError ? (
+                  <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    {createTipsError}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="apex-section-label block mb-2">Form tips</span>
+                  <textarea
+                    className="apex-input w-full min-h-[4.5rem] px-3 py-2 text-[13px]"
+                    value={createFormTips}
+                    onChange={(e) => setCreateFormTips(e.target.value)}
+                  />
+                </label>
+                <label className="block">
+                  <span className="apex-section-label block mb-2">Common mistakes</span>
+                  <textarea
+                    className="apex-input w-full min-h-[4.5rem] px-3 py-2 text-[13px]"
+                    value={createCommonMistakes}
+                    onChange={(e) => setCreateCommonMistakes(e.target.value)}
+                  />
+                </label>
+                <label className="block">
+                  <span className="apex-section-label block mb-2">Beginner advice</span>
+                  <textarea
+                    className="apex-input w-full min-h-[4.5rem] px-3 py-2 text-[13px]"
+                    value={createBeginnerAdvice}
+                    onChange={(e) => setCreateBeginnerAdvice(e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
             <label className="block">
               <span className="apex-section-label block mb-2">Muscle group</span>
               <select
@@ -367,36 +608,40 @@ export function ExercisesTab() {
                 ))}
               </select>
             </label>
-            <label className="block">
-              <span className="apex-section-label block mb-2">GIF URL (optional)</span>
-              <input
-                className="apex-input w-full min-h-12 px-3"
-                value={createGifUrl}
-                onChange={(e) => setCreateGifUrl(e.target.value)}
-                placeholder="https://…"
-                autoComplete="off"
-              />
-            </label>
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 className="apex-btn flex-1 min-h-12 rounded-[14px] border-white/[0.1]"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => {
+                  setCreateOpen(false)
+                  resetCreateForm()
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="flex-1 min-h-12 rounded-[14px] text-[13px] font-semibold text-[#0c0c0c]"
-                style={{ backgroundColor: accent }}
+                className="apex-btn-primary flex-1 min-h-12 rounded-[14px] text-[13px] font-semibold"
                 onClick={() => {
                   const n = createName.trim()
                   if (!n) {
                     notify('Enter a name')
                     return
                   }
-                  addCustomExercise(n, createMuscle, createGifUrl)
+                  const help =
+                    createTipsReady &&
+                    createFormTips.trim() &&
+                    createCommonMistakes.trim() &&
+                    createBeginnerAdvice.trim()
+                      ? {
+                          formTips: createFormTips.trim(),
+                          commonMistakes: createCommonMistakes.trim(),
+                          beginnerAdvice: createBeginnerAdvice.trim(),
+                        }
+                      : undefined
+                  addCustomExercise(n, createMuscle, undefined, help)
                   setCreateOpen(false)
+                  resetCreateForm()
                 }}
               >
                 Save exercise
@@ -406,12 +651,20 @@ export function ExercisesTab() {
         </div>
       ) : null}
 
+      {quickLogExercise ? (
+        <QuickLogModal
+         
+          initialExercise={quickLogExercise}
+          onClose={() => setQuickLogExercise(null)}
+        />
+      ) : null}
+
       <ConfirmDialog
         open={!!confirmId}
         title="Remove exercise?"
         message="This hides the exercise from your library. History is kept."
         confirmLabel="Remove"
-        accent={accent}
+       
         onCancel={() => setConfirmId(null)}
         onConfirm={() => {
           if (confirmId) hideExercise(confirmId)
@@ -419,6 +672,7 @@ export function ExercisesTab() {
           setActiveId(null)
         }}
       />
+
     </div>
   )
 }

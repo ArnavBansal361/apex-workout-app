@@ -1,21 +1,34 @@
-import { useEffect, useRef } from 'react'
-import { useWorkout } from '../context/WorkoutContext'
+import { useEffect, useRef, useState } from 'react'
+import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
 import { showRestTimerCompleteNotification } from '../lib/desktopNotifications'
 
 export function RestBanner() {
-  const { state, dismissRestTimer, clock, notify } = useWorkout()
+  const { state, dismissRestTimer, notify } = useWorkout()
+  const { clock } = useWorkoutTick()
   const { restTimer, settings } = state
   const alertedRef = useRef(false)
+  const slideDismissRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const [slideOut, setSlideOut] = useState(false)
+  const [entered, setEntered] = useState(false)
 
   const visible = settings.restTimerEnabled && !restTimer.dismissed && restTimer.endAt != null
-  const totalSec = Math.max(1, Math.floor(settings.restTimerSeconds) || 90)
   const msLeft = visible && restTimer.endAt ? restTimer.endAt - clock : 0
   const done = visible && msLeft <= 0
   const left = !visible || done ? 0 : Math.max(0, Math.ceil(msLeft / 1000))
+  const pulse = visible && !done && left > 0 && left <= 10
 
   useEffect(() => {
     alertedRef.current = false
-  }, [restTimer.endAt])
+    setSlideOut(false)
+    setEntered(false)
+    if (slideDismissRef.current != null) {
+      window.clearTimeout(slideDismissRef.current)
+      slideDismissRef.current = null
+    }
+    if (!visible) return
+    const id = window.requestAnimationFrame(() => setEntered(true))
+    return () => window.cancelAnimationFrame(id)
+  }, [restTimer.endAt, visible])
 
   useEffect(() => {
     if (!visible || !done || restTimer.dismissed || !restTimer.endAt) return
@@ -24,77 +37,65 @@ export function RestBanner() {
     notify('Rest complete — time for your next set!')
     showRestTimerCompleteNotification()
     try {
-      void window.navigator?.vibrate?.(80)
+      void window.navigator?.vibrate?.([120, 60, 120])
     } catch {
       /* ignore */
     }
-  }, [visible, done, restTimer.dismissed, restTimer.endAt, notify])
+    setSlideOut(true)
+    slideDismissRef.current = window.setTimeout(() => {
+      dismissRestTimer()
+      setSlideOut(false)
+      setEntered(false)
+    }, 320)
+    return () => {
+      if (slideDismissRef.current != null) window.clearTimeout(slideDismissRef.current)
+    }
+  }, [visible, done, restTimer.dismissed, restTimer.endAt, notify, dismissRestTimer])
 
   if (!visible) return null
 
-  const frac = done ? 0 : Math.max(0, Math.min(1, left / totalSec))
-  const r = 36
-  const c = 2 * Math.PI * r
-  const arcLen = c * frac
-
-  const accent = settings.accentColor
+  const mm = String(Math.floor(left / 60)).padStart(2, '0')
+  const ss = String(left % 60).padStart(2, '0')
 
   return (
-    <div className="fixed top-3 inset-x-0 z-[55] flex justify-center px-3 pointer-events-none">
-      <div className="pointer-events-auto flex w-full max-w-lg items-center gap-4 apex-card px-5 py-3.5">
-        <div className="relative h-[5.5rem] w-[5.5rem] shrink-0">
-          <svg className="h-full w-full -rotate-90" viewBox="0 0 88 88">
-            <circle cx="44" cy="44" fill="none" r={r} stroke="#1e1e1e" strokeWidth="8" />
-            {!done ? (
-              <circle
-                cx="44"
-                cy="44"
-                fill="none"
-                r={r}
-                stroke={accent}
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={`${arcLen} ${c}`}
-                style={{ transition: 'stroke-dasharray 0.35s ease' }}
-              />
-            ) : (
-              <circle
-                cx="44"
-                cy="44"
-                fill="none"
-                r={r}
-                stroke="#22c55e"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={`${c} ${c}`}
-              />
-            )}
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {done ? (
-              <span className="text-2xl" aria-hidden>
-                ✓
-              </span>
-            ) : (
-              <>
-                <span className="apex-stat-num tabular-nums leading-none">{left}</span>
-                <span className="apex-section-label mt-1">sec</span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="apex-section-label">{done ? 'Rest done' : 'Rest'}</p>
-          <p className="mt-1 truncate text-[13px] font-normal text-[#bbb]">
-            {done ? 'Great work — ready when you are.' : 'Recover — breathe deep'}
-          </p>
+    <div
+      className="fixed inset-x-0 z-[55] pointer-events-none"
+      style={{ top: 'max(env(safe-area-inset-top, 0px), 0px)' }}
+    >
+      <div
+        className={`pointer-events-auto flex w-full items-center justify-between gap-3 px-4 transition-transform duration-300 ease-out ${
+          slideOut || !entered ? '-translate-y-full' : 'translate-y-0'
+        }`}
+        style={{
+          height: 44,
+          background: '#13181f',
+          borderBottom: '0.5px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Rest
+          </span>
+          <span
+            className={`text-[15px] font-medium tabular-nums text-white ${
+              pulse ? 'apex-rest-timer-pulse' : ''
+            }`}
+          >
+            {done ? '0:00' : `${mm}:${ss}`}
+          </span>
         </div>
         <button
           type="button"
-          className="min-h-11 shrink-0 rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-4 text-[13px] font-normal text-[#e0e0e0]"
-          onClick={dismissRestTimer}
+          className="flex items-center gap-1.5 shrink-0 touch-manipulation"
+          style={{ color: 'rgba(255,255,255,0.4)' }}
+          onClick={() => {
+            setSlideOut(true)
+            window.setTimeout(() => dismissRestTimer(), 280)
+          }}
+          aria-label="Skip rest"
         >
-          {done ? 'Dismiss' : 'Skip'}
+          <i className="ti ti-x text-[14px] leading-none" aria-hidden />
+          <span className="text-[12px] font-normal">Skip</span>
         </button>
       </div>
     </div>

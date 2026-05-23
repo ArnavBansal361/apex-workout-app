@@ -1,4 +1,15 @@
+import { dateKey } from './dates'
 import type { SetLog, TimedSetLog, WeightedSetLog } from '../types'
+
+/** PRs require the exercise on at least two separate calendar days (prior day + today). */
+function hasTwoSessionsForExercise(
+  prior: SetLog[],
+  entryAt: number,
+): boolean {
+  const sessionDays = new Set(prior.map((l) => dateKey(new Date(l.at))))
+  sessionDays.add(dateKey(new Date(entryAt)))
+  return sessionDays.size >= 2
+}
 
 export function computeIsPr(
   logs: SetLog[],
@@ -6,6 +17,7 @@ export function computeIsPr(
 ): boolean {
   const prior = logs.filter((l) => l.exerciseId === entry.exerciseId && l.at < entry.at)
   if (prior.length === 0) return false
+  if (!hasTwoSessionsForExercise(prior, entry.at)) return false
 
   if (entry.kind === 'timed') {
     const best = Math.max(

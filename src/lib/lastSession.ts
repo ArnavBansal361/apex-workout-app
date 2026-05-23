@@ -1,4 +1,28 @@
-import type { SetLog } from '../types'
+import type { SetLog, WeightedSetLog } from '../types'
+
+export type LastWeightedSetDefaults = {
+  bodyweight: boolean
+  weight: number | null
+  reps: number
+  sets: number
+}
+
+/** Most recent weighted log for quick-log / modal prefill. */
+export function getLastWeightedSetForExercise(
+  logs: SetLog[],
+  exerciseId: string,
+): LastWeightedSetDefaults | null {
+  const last = logs
+    .filter((l): l is WeightedSetLog => l.exerciseId === exerciseId && l.kind === 'weighted')
+    .sort((a, b) => b.at - a.at)[0]
+  if (!last) return null
+  return {
+    bodyweight: last.bodyweight,
+    weight: last.weight,
+    reps: last.reps,
+    sets: last.sets,
+  }
+}
 
 /** Summary line for “last time” in log modal — most recent prior log for exercise */
 export function formatLastSessionLine(

@@ -1,3 +1,28 @@
+/** Always read the real current moment (do not cache dates app-wide). */
+export function getNow(): Date {
+  return new Date()
+}
+
+export function todayDateKey(now: Date = getNow()): string {
+  return dateKey(now)
+}
+
+/** e.g. "Today is Wednesday, May 21, 2026" */
+export function formatCoachTodayLine(now: Date = getNow()): string {
+  return `Today is ${now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })}.`
+}
+
+/** Monday-first week grid column: 0 = Mon … 6 = Sun. */
+export function mondayFirstColumnIndex(d: Date = getNow()): number {
+  const day = d.getDay()
+  return day === 0 ? 6 : day - 1
+}
+
 export function dateKey(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
