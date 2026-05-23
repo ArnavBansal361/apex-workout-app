@@ -9,10 +9,10 @@ import type { SetLog } from '../types'
 
 type Props = { onClose: () => void }
 
-/** Matches app cards: #13181f, 12px radius, 0.5px white/8% border */
+/** Matches app cards via theme tokens */
 const historyCard =
-  'rounded-[12px] border-[0.5px] border-[rgba(255,255,255,0.08)] bg-[#13181f]'
-const historyField = `${historyCard} w-full min-h-12 px-3 py-2.5 text-[13px] font-normal text-[#e0e0e0] [color-scheme:dark]`
+  'rounded-[12px] border-[0.5px] bg-[var(--apex-surface-card)] [border-color:var(--apex-border)]'
+const historyField = `${historyCard} w-full min-h-12 px-3 py-2.5 text-[13px] font-normal text-[color:var(--apex-text-primary)] [color-scheme:light]`
 
 function downloadText(filename: string, text: string) {
   const blob = new Blob([text], { type: 'text/csv;charset=utf-8' })
@@ -55,7 +55,7 @@ export function FullHistory({ onClose }: Props) {
   }, [filtered])
 
   return (
-    <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[#090d14]">
+    <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)]">
       <header className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] shrink-0">
         <div className="flex items-center justify-between gap-2 mb-3">
           <ApexLogo size={48} />

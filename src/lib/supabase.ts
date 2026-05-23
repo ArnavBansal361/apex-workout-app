@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
-import { filterClientStateForTrainer } from './trainer'
+import { filterClientStateForTrainer, type TrainerSharePrefs } from './trainer'
 import type { AppPersisted } from '../types'
 import { streakCurrent, workoutDaysFromLogs } from './achievements'
 import { alignScheduleWeek, migrateCustomExercises } from './persist'
@@ -86,6 +86,15 @@ function stateRevision(state: AppPersisted): number {
   }
   for (const b of state.bodyweightLogs) {
     if (b.at > maxAt) maxAt = b.at
+  }
+  for (const w of state.waterLogs ?? []) {
+    if (w.at > maxAt) maxAt = w.at
+  }
+  for (const sl of state.sleepLogs ?? []) {
+    if (sl.at > maxAt) maxAt = sl.at
+  }
+  for (const m of state.mealLogs ?? []) {
+    if (m.at > maxAt) maxAt = m.at
   }
   return maxAt
 }
@@ -336,6 +345,7 @@ export type TrainerClientSummary = {
   lastActiveMs: number | null
   weeklyVolumeLbs: number
   currentStreak: number
+  sharePrefs: TrainerSharePrefs
 }
 
 export type TrainerNoteRow = {
@@ -384,25 +394,43 @@ export async function connectClientToTrainer(
   clientUserId: string,
   code: string,
 ): Promise<TrainerConnectionRow> {
-  const trainerId = await resolveTrainerIdByCode(code)
-  if (!trainerId) throw new Error('Invalid trainer code')
+  const normalized = code.trim().toUpperCase()
+  if (normalized.length !== 6) {
+    throw new Error('INVALID_TRAINER_CODE')
+  }
+
+  const existing = await fetchMyTrainerConnection(clientUserId)
+  if (existing) {
+    if (existing.trainer_code === normalized) {
+      return existing
+    }
+    throw new Error('ALREADY_CONNECTED')
+  }
+
+  const trainerId = await resolveTrainerIdByCode(normalized)
+  if (!trainerId) throw new Error('INVALID_TRAINER_CODE')
   if (trainerId === clientUserId) throw new Error('You cannot connect to yourself')
 
   const { data, error } = await supabase
     .from(TRAINER_CONNECTIONS_TABLE)
-    .upsert(
-      {
-        trainer_user_id: trainerId,
-        client_user_id: clientUserId,
-        trainer_code: code.trim().toUpperCase(),
-        connected_at: new Date().toISOString(),
-      },
-      { onConflict: 'client_user_id' },
-    )
+    .insert({
+      trainer_user_id: trainerId,
+      client_user_id: clientUserId,
+      trainer_code: normalized,
+      connected_at: new Date().toISOString(),
+    })
     .select('id, trainer_user_id, client_user_id, trainer_code, connected_at')
     .single()
 
-  if (error || !data) throw new Error(error?.message ?? 'Could not connect to trainer')
+  if (error) {
+    if (error.code === '23505') {
+      const again = await fetchMyTrainerConnection(clientUserId)
+      if (again?.trainer_code === normalized) return again
+      throw new Error('ALREADY_CONNECTED')
+    }
+    throw new Error(error.message ?? 'Could not connect to trainer')
+  }
+  if (!data) throw new Error('Could not connect to trainer')
   return data as TrainerConnectionRow
 }
 
@@ -461,6 +489,11 @@ export async function fetchTrainerClientSummaries(
         lastActiveMs: null,
         weeklyVolumeLbs: 0,
         currentStreak: 0,
+        sharePrefs: {
+          workoutLogs: true,
+          bodyweight: true,
+          personalRecords: true,
+        },
       })
       continue
     }
@@ -481,6 +514,7 @@ export async function fetchTrainerClientSummaries(
       lastActiveMs: lastActiveMs > 0 ? lastActiveMs : null,
       weeklyVolumeLbs: stats.weekly_volume_lbs,
       currentStreak: stats.current_streak,
+      sharePrefs: state.trainerShare,
     })
   }
   return summaries

@@ -17,6 +17,9 @@ export type TodaySectionId =
   | 'muscle-balance'
   | 'gym-tracker'
   | 'cardio-tracker'
+  | 'water-tracker'
+  | 'sleep-tracker'
+  | 'nutrition-tracker'
   | 'my-plan'
   | 'todays-log'
 
@@ -83,6 +86,12 @@ export interface TimedSetLog {
 
 export type SetLog = WeightedSetLog | TimedSetLog
 
+export type PrCelebrationData = {
+  exerciseName: string
+  detail: string
+  dateLabel: string
+}
+
 /** User-editable fields when updating an existing set (`id` / `at` unchanged). */
 export type SetLogEditPayload =
   | Pick<WeightedSetLog, 'kind' | 'weight' | 'bodyweight' | 'reps' | 'sets' | 'note'>
@@ -100,6 +109,34 @@ export interface BodyweightEntry {
   id: string
   at: number
   value: number
+}
+
+export interface WaterLogEntry {
+  id: string
+  /** Calendar day the intake counts toward (YYYY-MM-DD). */
+  dateKey: string
+  oz: number
+  at: number
+}
+
+export interface SleepLogEntry {
+  id: string
+  /** Morning date after the sleep night (YYYY-MM-DD). */
+  dateKey: string
+  durationMinutes: number
+  quality: 1 | 2 | 3 | 4 | 5
+  at: number
+}
+
+export interface MealLogEntry {
+  id: string
+  dateKey: string
+  name: string
+  calories: number
+  proteinG: number
+  carbsG: number
+  fatG: number
+  at: number
 }
 
 export interface ScheduleDay {
@@ -137,6 +174,12 @@ export interface Settings {
   trainerNotes: string
   /** Selected profile icon; null shows initials. */
   profileAvatarId: ProfileAvatarId | null
+  /** Daily water intake goal in fluid ounces. */
+  waterGoalOz: number
+  macroGoalCalories: number
+  macroGoalProteinG: number
+  macroGoalCarbsG: number
+  macroGoalFatG: number
 }
 
 export interface GymSessionPersist {
@@ -185,6 +228,9 @@ export interface AppPersisted {
   templates: WorkoutTemplate[]
   settings: Settings
   bodyweightLogs: BodyweightEntry[]
+  waterLogs: WaterLogEntry[]
+  sleepLogs: SleepLogEntry[]
+  mealLogs: MealLogEntry[]
   cardioEntries: CardioEntry[]
   gymSession: GymSessionPersist
   cardioTimer: CardioTimerPersist
@@ -214,6 +260,14 @@ export interface AppPersisted {
   }
 }
 
+export const DEFAULT_WATER_GOAL_OZ = 64
+export const WATER_LOG_INCREMENT_OZ = 8
+
+export const DEFAULT_MACRO_GOAL_CALORIES = 2200
+export const DEFAULT_MACRO_GOAL_PROTEIN_G = 150
+export const DEFAULT_MACRO_GOAL_CARBS_G = 200
+export const DEFAULT_MACRO_GOAL_FAT_G = 65
+
 export const DEFAULT_SETTINGS: Settings = {
   displayName: '',
   fitnessGoals: '',
@@ -223,6 +277,11 @@ export const DEFAULT_SETTINGS: Settings = {
   trainerMode: false,
   trainerNotes: '',
   profileAvatarId: null,
+  waterGoalOz: DEFAULT_WATER_GOAL_OZ,
+  macroGoalCalories: DEFAULT_MACRO_GOAL_CALORIES,
+  macroGoalProteinG: DEFAULT_MACRO_GOAL_PROTEIN_G,
+  macroGoalCarbsG: DEFAULT_MACRO_GOAL_CARBS_G,
+  macroGoalFatG: DEFAULT_MACRO_GOAL_FAT_G,
 }
 
 export const ACHIEVEMENT_DEFS = [

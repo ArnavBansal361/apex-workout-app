@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { AppPersisted, CardioEntry, CardioTimerPersist, Exercise, MuscleGroup, SetLog, ChatMessage } from '../types'
-import { DEFAULT_SETTINGS } from '../types'
+import { DEFAULT_SETTINGS, DEFAULT_WATER_GOAL_OZ, DEFAULT_MACRO_GOAL_CALORIES, DEFAULT_MACRO_GOAL_PROTEIN_G, DEFAULT_MACRO_GOAL_CARBS_G, DEFAULT_MACRO_GOAL_FAT_G } from '../types'
 import { dateKey, weekStartMonday } from './dates'
 import { normalizeTodayLayout } from './todayLayout'
 
@@ -346,9 +346,116 @@ function migrateSetLogs(logs: SetLog[]): SetLog[] {
   )
 }
 
+function migrateSleepLogs(raw: unknown): AppPersisted['sleepLogs'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item: unknown) => {
+      const e = item as Record<string, unknown>
+      const dateKeyVal = typeof e.dateKey === 'string' ? e.dateKey : ''
+      const durationMinutes =
+        typeof e.durationMinutes === 'number' && Number.isFinite(e.durationMinutes)
+          ? Math.max(0, Math.round(e.durationMinutes))
+          : 0
+      const qRaw =
+        typeof e.quality === 'number' && Number.isFinite(e.quality) ? Math.round(e.quality) : 3
+      const quality = Math.min(5, Math.max(1, qRaw)) as 1 | 2 | 3 | 4 | 5
+      if (!dateKeyVal || durationMinutes <= 0) return null
+      return {
+        id: typeof e.id === 'string' ? e.id : crypto.randomUUID(),
+        dateKey: dateKeyVal,
+        durationMinutes,
+        quality,
+        at: typeof e.at === 'number' ? e.at : Date.now(),
+      }
+    })
+    .filter((x): x is AppPersisted['sleepLogs'][number] => x != null)
+}
+
+function migrateWaterLogs(raw: unknown): AppPersisted['waterLogs'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item: unknown) => {
+      const e = item as Record<string, unknown>
+      const dateKeyVal = typeof e.dateKey === 'string' ? e.dateKey : ''
+      const oz = typeof e.oz === 'number' && Number.isFinite(e.oz) ? Math.max(0, e.oz) : 0
+      if (!dateKeyVal || oz <= 0) return null
+      return {
+        id: typeof e.id === 'string' ? e.id : crypto.randomUUID(),
+        dateKey: dateKeyVal,
+        oz,
+        at: typeof e.at === 'number' ? e.at : Date.now(),
+      }
+    })
+    .filter((x): x is AppPersisted['waterLogs'][number] => x != null)
+}
+
+function migrateMealLogs(raw: unknown): AppPersisted['mealLogs'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item: unknown) => {
+      const e = item as Record<string, unknown>
+      const dateKeyVal = typeof e.dateKey === 'string' ? e.dateKey : ''
+      const name = typeof e.name === 'string' ? e.name.trim().slice(0, 120) : ''
+      const num = (k: string) => {
+        const v = e[k]
+        return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0
+      }
+      if (!dateKeyVal || !name) return null
+      return {
+        id: typeof e.id === 'string' ? e.id : crypto.randomUUID(),
+        dateKey: dateKeyVal,
+        name,
+        calories: num('calories'),
+        proteinG: num('proteinG'),
+        carbsG: num('carbsG'),
+        fatG: num('fatG'),
+        at: typeof e.at === 'number' ? e.at : Date.now(),
+      }
+    })
+    .filter((x): x is AppPersisted['mealLogs'][number] => x != null)
+}
+
 function migrateAppState(s: AppPersisted): AppPersisted {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    ...s.settings,
+    waterGoalOz:
+      typeof s.settings.waterGoalOz === 'number' &&
+      Number.isFinite(s.settings.waterGoalOz) &&
+      s.settings.waterGoalOz > 0
+        ? Math.round(s.settings.waterGoalOz)
+        : DEFAULT_WATER_GOAL_OZ,
+    macroGoalCalories:
+      typeof s.settings.macroGoalCalories === 'number' &&
+      Number.isFinite(s.settings.macroGoalCalories) &&
+      s.settings.macroGoalCalories > 0
+        ? Math.round(s.settings.macroGoalCalories)
+        : DEFAULT_MACRO_GOAL_CALORIES,
+    macroGoalProteinG:
+      typeof s.settings.macroGoalProteinG === 'number' &&
+      Number.isFinite(s.settings.macroGoalProteinG) &&
+      s.settings.macroGoalProteinG > 0
+        ? Math.round(s.settings.macroGoalProteinG)
+        : DEFAULT_MACRO_GOAL_PROTEIN_G,
+    macroGoalCarbsG:
+      typeof s.settings.macroGoalCarbsG === 'number' &&
+      Number.isFinite(s.settings.macroGoalCarbsG) &&
+      s.settings.macroGoalCarbsG > 0
+        ? Math.round(s.settings.macroGoalCarbsG)
+        : DEFAULT_MACRO_GOAL_CARBS_G,
+    macroGoalFatG:
+      typeof s.settings.macroGoalFatG === 'number' &&
+      Number.isFinite(s.settings.macroGoalFatG) &&
+      s.settings.macroGoalFatG > 0
+        ? Math.round(s.settings.macroGoalFatG)
+        : DEFAULT_MACRO_GOAL_FAT_G,
+  }
   return {
     ...s,
+    settings,
+    waterLogs: migrateWaterLogs(s.waterLogs),
+    sleepLogs: migrateSleepLogs(s.sleepLogs),
+    mealLogs: migrateMealLogs(s.mealLogs),
     setLogs: migrateSetLogs(s.setLogs),
     friends: s.friends ?? [],
     cardioEntries: migrateCardioEntries(s.cardioEntries),
@@ -413,6 +520,9 @@ export function defaultState(): AppPersisted {
     templates: [],
     settings: { ...DEFAULT_SETTINGS },
     bodyweightLogs: [],
+    waterLogs: [],
+    sleepLogs: [],
+    mealLogs: [],
     cardioEntries: [],
     gymSession: {
       active: false,
@@ -493,6 +603,9 @@ export function loadState(): AppPersisted {
       setLogs: migrateSetLogs(parsed.setLogs ?? []),
       friends: parsed.friends ?? [],
       cardioEntries: migrateCardioEntries(parsed.cardioEntries ?? []),
+      waterLogs: migrateWaterLogs(parsed.waterLogs ?? []),
+      sleepLogs: migrateSleepLogs(parsed.sleepLogs ?? []),
+      mealLogs: migrateMealLogs(parsed.mealLogs ?? []),
       lifetimeXp:
         typeof parsed.lifetimeXp === 'number' && Number.isFinite(parsed.lifetimeXp)
           ? Math.max(0, parsed.lifetimeXp)

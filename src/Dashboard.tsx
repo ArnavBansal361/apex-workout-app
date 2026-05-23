@@ -76,7 +76,7 @@ export function DashboardShell() {
   }
 
   return (
-    <div className="apex-dashboard apex-theme-shell min-h-[100dvh] bg-[#090d14]">
+    <div className="apex-dashboard apex-theme-shell min-h-[100dvh]">
       {notifications[0] ? (
         <div className="apex-dashboard-toast fixed top-4 left-1/2 z-[100] -translate-x-1/2 px-4 pointer-events-none">
           <div className="apex-card text-[13px] font-medium text-[#e8e8ea] pointer-events-auto max-w-md">
@@ -95,10 +95,8 @@ export function DashboardShell() {
             <button
               key={item.id}
               type="button"
-              className={`min-h-11 rounded-[12px] px-3 text-left text-[13px] font-medium transition-colors ${
-                nav === item.id
-                  ? 'bg-[#13181f] text-[#ececee] border border-white/[0.1]'
-                  : 'text-[#a0a0a8] hover:text-[#e0e0e0] hover:bg-white/[0.04]'
+              className={`apex-dashboard-nav-btn ${
+                nav === item.id ? 'apex-dashboard-nav-btn--active' : ''
               }`}
               onClick={() => setNav(item.id)}
             >

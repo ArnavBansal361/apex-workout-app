@@ -284,8 +284,8 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
             role="tab"
             aria-selected={slide === i}
             aria-label={label}
-            className={`h-2 w-2 rounded-full transition-opacity ${
-              slide === i ? 'bg-white opacity-100' : 'bg-white opacity-30'
+            className={`h-2 w-2 rounded-full transition-opacity apex-week-chart-dot ${
+              slide === i ? 'apex-week-chart-dot--active' : ''
             }`}
             onClick={() => goTo(i)}
           />

@@ -449,6 +449,73 @@ export async function fetchDailyMotivation(input: DailyMotivationInput): Promise
   return text
 }
 
+export type ParsedMeal = {
+  name: string
+  calories: number
+  proteinG: number
+  carbsG: number
+  fatG: number
+}
+
+function normalizeParsedMeal(raw: unknown): ParsedMeal {
+  const o = raw as Record<string, unknown>
+  const name = typeof o.name === 'string' ? o.name.trim().slice(0, 120) : ''
+  const num = (k: string) => {
+    const v = o[k]
+    return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0
+  }
+  if (!name) throw new Error('Could not parse meal name')
+  return {
+    name,
+    calories: num('calories'),
+    proteinG: num('proteinG'),
+    carbsG: num('carbsG'),
+    fatG: num('fatG'),
+  }
+}
+
+export async function claudeParseMeal(rawText: string): Promise<ParsedMeal> {
+  const apiKey = getAnthropicApiKey()
+  const text = rawText.trim().slice(0, 2000)
+  if (!text) throw new Error('Describe what you ate first')
+  const user = `Estimate nutrition for what the user ate. Return ONLY valid JSON:
+{"name":string,"calories":number,"proteinG":number,"carbsG":number,"fatG":number}
+
+Use reasonable estimates for typical portions. Round macros to whole grams and calories to whole numbers.
+Meal description:
+${text}`
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 512,
+      system: 'You return only valid JSON, no markdown fences. Estimate macros realistically.',
+      messages: [{ role: 'user', content: user }],
+    }),
+  })
+  const raw = await res.text()
+  let data: unknown = {}
+  try {
+    data = raw ? JSON.parse(raw) : {}
+  } catch {
+    /* fall through */
+  }
+  if (!res.ok) {
+    throw new Error(formatAnthropicApiError(res.status, data, raw))
+  }
+  const assistant = extractAssistantText(data)
+  const jsonStart = assistant.indexOf('{')
+  const jsonEnd = assistant.lastIndexOf('}')
+  if (jsonStart < 0 || jsonEnd < jsonStart) throw new Error('No JSON in model response')
+  return normalizeParsedMeal(JSON.parse(assistant.slice(jsonStart, jsonEnd + 1)))
+}
+
 export async function claudeOneSentenceWorkoutSummary(
   state: AppPersisted,
   sessionPayload: string,

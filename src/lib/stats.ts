@@ -32,17 +32,17 @@ export function readApexThemeMode(): ApexThemeMode {
 export function apexChartColors(theme: ApexThemeMode): ApexChartColors {
   if (theme === 'light') {
     return {
-      tick: 'rgba(0,0,0,0.4)',
-      grid: 'rgba(0,0,0,0.06)',
-      bar: 'rgba(0,0,0,0.7)',
+      tick: 'rgba(0,0,0,0.45)',
+      grid: 'rgba(0,0,0,0.08)',
+      bar: 'rgba(0,0,0,0.88)',
       line: 'rgba(0,0,0,0.55)',
       radarStroke: 'rgba(0,0,0,0.55)',
-      radarFill: 'rgba(0,0,0,0.1)',
+      radarFill: 'rgba(0,0,0,0.12)',
       radarFillOpacity: 1,
-      label: 'rgba(0,0,0,0.4)',
-      tooltipBg: '#f5f9f7',
+      label: 'rgba(0,0,0,0.45)',
+      tooltipBg: '#f5f5f5',
       tooltipBorder: 'rgba(0,0,0,0.08)',
-      tooltipText: 'rgba(0,0,0,0.9)',
+      tooltipText: 'rgba(0,0,0,0.88)',
     }
   }
   return {
@@ -168,4 +168,88 @@ export function muscleCountsToday(state: AppPersisted, dayKey: string): Record<s
     m[l.muscleGroup] = (m[l.muscleGroup] ?? 0) + 1
   }
   return m
+}
+
+function last7DateKeys(nowMs: number): string[] {
+  const keys: string[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(nowMs)
+    d.setDate(d.getDate() - i)
+    keys.push(dateKey(d))
+  }
+  return keys
+}
+
+export function waterOzForDateKey(state: AppPersisted, dayKey: string): number {
+  let total = 0
+  for (const log of state.waterLogs ?? []) {
+    if (log.dateKey === dayKey) total += log.oz
+  }
+  return total
+}
+
+export function waterWeeklyAverageOz(state: AppPersisted, nowMs = Date.now()): number {
+  const keys = last7DateKeys(nowMs)
+  let total = 0
+  for (const k of keys) total += waterOzForDateKey(state, k)
+  return Math.round(total / 7)
+}
+
+export function sleepLogForDateKey(
+  state: AppPersisted,
+  dayKey: string,
+): AppPersisted['sleepLogs'][number] | null {
+  const logs = (state.sleepLogs ?? []).filter((l) => l.dateKey === dayKey)
+  if (!logs.length) return null
+  return [...logs].sort((a, b) => b.at - a.at)[0] ?? null
+}
+
+export function sleepWeeklyAverages(
+  state: AppPersisted,
+  nowMs = Date.now(),
+): { durationMinutes: number; quality: number } | null {
+  const keys = last7DateKeys(nowMs)
+  const logs = keys
+    .map((k) => sleepLogForDateKey(state, k))
+    .filter((l): l is NonNullable<typeof l> => l != null)
+  if (!logs.length) return null
+  const durationMinutes =
+    logs.reduce((sum, l) => sum + l.durationMinutes, 0) / logs.length
+  const quality = logs.reduce((sum, l) => sum + l.quality, 0) / logs.length
+  return { durationMinutes, quality }
+}
+
+export function formatSleepDuration(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes))
+  const h = Math.floor(m / 60)
+  const min = m % 60
+  if (h === 0) return `${min}m`
+  if (min === 0) return `${h}h`
+  return `${h}h ${min}m`
+}
+
+export type MacroTotals = {
+  calories: number
+  proteinG: number
+  carbsG: number
+  fatG: number
+}
+
+export function mealLogsForDateKey(state: AppPersisted, dayKey: string): AppPersisted['mealLogs'] {
+  return (state.mealLogs ?? []).filter((m) => m.dateKey === dayKey)
+}
+
+export function macroTotalsForDateKey(state: AppPersisted, dayKey: string): MacroTotals {
+  const meals = mealLogsForDateKey(state, dayKey)
+  let calories = 0
+  let proteinG = 0
+  let carbsG = 0
+  let fatG = 0
+  for (const m of meals) {
+    calories += m.calories
+    proteinG += m.proteinG
+    carbsG += m.carbsG
+    fatG += m.fatG
+  }
+  return { calories, proteinG, carbsG, fatG }
 }

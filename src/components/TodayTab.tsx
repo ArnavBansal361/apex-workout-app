@@ -23,7 +23,24 @@ import { TodayWeekChartsSection, TodayWeekChartsSideBySide } from './TodayVolume
 import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
-import { buildDailyMotivationInput, fetchDailyMotivation } from '../lib/anthropicCoach'
+import {
+  formatSleepDuration,
+  macroTotalsForDateKey,
+  mealLogsForDateKey,
+  sleepLogForDateKey,
+  sleepWeeklyAverages,
+  waterOzForDateKey,
+  waterWeeklyAverageOz,
+} from '../lib/stats'
+import {
+  DEFAULT_MACRO_GOAL_CALORIES,
+  DEFAULT_MACRO_GOAL_CARBS_G,
+  DEFAULT_MACRO_GOAL_FAT_G,
+  DEFAULT_MACRO_GOAL_PROTEIN_G,
+  DEFAULT_WATER_GOAL_OZ,
+  WATER_LOG_INCREMENT_OZ,
+} from '../types'
+import { buildDailyMotivationInput, claudeParseMeal, fetchDailyMotivation } from '../lib/anthropicCoach'
 import {
   readGymBarcode,
   renderGymBarcodeToCanvas,
@@ -393,6 +410,11 @@ export function TodayTab({
     updateTodayLayout,
     completeNotificationPrompt,
     coachNote,
+    refreshCoachNote,
+    addWaterOz,
+    logSleep,
+    addMealLog,
+    deleteMealLog,
   } = useWorkout()
   const { clock, gymElapsedMs, cardioElapsedMs } = useWorkoutTick()
 
@@ -450,6 +472,10 @@ export function TodayTab({
     }
   }, [todayKey, streakDays, state.setLogs, state.settings.unit, fallbackQuote])
 
+  useEffect(() => {
+    void refreshCoachNote()
+  }, [refreshCoachNote])
+
   const [planSearch, setPlanSearch] = useState('')
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
@@ -462,6 +488,94 @@ export function TodayTab({
   const [cardioName, setCardioName] = useState('')
   const [cardioManualMin, setCardioManualMin] = useState('')
   const [confirmCardioId, setConfirmCardioId] = useState<string | null>(null)
+  const [sleepHoursDraft, setSleepHoursDraft] = useState('')
+  const [sleepQualityDraft, setSleepQualityDraft] = useState<1 | 2 | 3 | 4 | 5>(3)
+
+  const waterGoalOz = state.settings.waterGoalOz ?? DEFAULT_WATER_GOAL_OZ
+  const waterTodayOz = useMemo(
+    () => waterOzForDateKey(state, todayKey),
+    [state.waterLogs, todayKey],
+  )
+  const waterWeeklyAvgOz = useMemo(() => waterWeeklyAverageOz(state, clock), [state.waterLogs, clock])
+  const waterProgress = Math.min(1, waterGoalOz > 0 ? waterTodayOz / waterGoalOz : 0)
+
+  const sleepTodayLog = useMemo(
+    () => sleepLogForDateKey(state, todayKey),
+    [state.sleepLogs, todayKey],
+  )
+  const sleepWeekly = useMemo(() => sleepWeeklyAverages(state, clock), [state.sleepLogs, clock])
+
+  useEffect(() => {
+    if (sleepTodayLog) {
+      setSleepHoursDraft(String(Math.round((sleepTodayLog.durationMinutes / 60) * 100) / 100))
+      setSleepQualityDraft(sleepTodayLog.quality)
+      return
+    }
+    setSleepHoursDraft('')
+    setSleepQualityDraft(3)
+  }, [sleepTodayLog?.id, sleepTodayLog?.durationMinutes, sleepTodayLog?.quality, todayKey])
+
+  const [mealNameDraft, setMealNameDraft] = useState('')
+  const [mealCalDraft, setMealCalDraft] = useState('')
+  const [mealProteinDraft, setMealProteinDraft] = useState('')
+  const [mealCarbsDraft, setMealCarbsDraft] = useState('')
+  const [mealFatDraft, setMealFatDraft] = useState('')
+  const [mealAiText, setMealAiText] = useState('')
+  const [mealAiBusy, setMealAiBusy] = useState(false)
+  const [confirmMealDeleteId, setConfirmMealDeleteId] = useState<string | null>(null)
+
+  const macroGoals = useMemo(
+    () => ({
+      calories: state.settings.macroGoalCalories ?? DEFAULT_MACRO_GOAL_CALORIES,
+      proteinG: state.settings.macroGoalProteinG ?? DEFAULT_MACRO_GOAL_PROTEIN_G,
+      carbsG: state.settings.macroGoalCarbsG ?? DEFAULT_MACRO_GOAL_CARBS_G,
+      fatG: state.settings.macroGoalFatG ?? DEFAULT_MACRO_GOAL_FAT_G,
+    }),
+    [state.settings],
+  )
+  const macroToday = useMemo(
+    () => macroTotalsForDateKey(state, todayKey),
+    [state.mealLogs, todayKey],
+  )
+  const mealsToday = useMemo(
+    () =>
+      [...mealLogsForDateKey(state, todayKey)].sort((a, b) => b.at - a.at),
+    [state.mealLogs, todayKey],
+  )
+
+  function submitMealDraft() {
+    const name = mealNameDraft.trim()
+    const calories = Number(mealCalDraft)
+    if (!name || !Number.isFinite(calories) || calories < 0) return
+    addMealLog({
+      name,
+      calories,
+      proteinG: Number(mealProteinDraft) || 0,
+      carbsG: Number(mealCarbsDraft) || 0,
+      fatG: Number(mealFatDraft) || 0,
+    })
+    setMealNameDraft('')
+    setMealCalDraft('')
+    setMealProteinDraft('')
+    setMealCarbsDraft('')
+    setMealFatDraft('')
+    notify('Meal logged')
+  }
+
+  function applyParsedMeal(parsed: {
+    name: string
+    calories: number
+    proteinG: number
+    carbsG: number
+    fatG: number
+  }) {
+    setMealNameDraft(parsed.name)
+    setMealCalDraft(String(parsed.calories))
+    setMealProteinDraft(String(parsed.proteinG))
+    setMealCarbsDraft(String(parsed.carbsG))
+    setMealFatDraft(String(parsed.fatG))
+  }
+
   const [templateDeleteId, setTemplateDeleteId] = useState<string | null>(null)
   const [planRemoveId, setPlanRemoveId] = useState<string | null>(null)
   const [editLog, setEditLog] = useState<SetLog | null>(null)
@@ -887,6 +1001,238 @@ export function TodayTab({
             </section>
           </div>
         )
+      case 'water-tracker':
+        return (
+          <button
+            type="button"
+            className="apex-card p-5 w-full text-left touch-manipulation hover:border-white/[0.14] active:scale-[0.99] transition-transform"
+            onClick={() => addWaterOz(WATER_LOG_INCREMENT_OZ)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="apex-section-label">Water</p>
+                <p className="mt-2 text-[28px] font-black tabular-nums text-[#f4f4f5] leading-none">
+                  {waterTodayOz}
+                  <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">/ {waterGoalOz} oz</span>
+                </p>
+              </div>
+              <span className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-[12px] font-semibold text-[#ececee] shrink-0">
+                +{WATER_LOG_INCREMENT_OZ} oz
+              </span>
+            </div>
+            <div className="mt-4 h-2 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
+              <div
+                className="h-full rounded-full bg-[#ececee] transition-all duration-300"
+                style={{ width: `${Math.round(waterProgress * 100)}%` }}
+              />
+            </div>
+            <p className="mt-3 text-[12px] font-medium text-[#a0a0a8]">
+              Tap to log {WATER_LOG_INCREMENT_OZ} oz · Avg {waterWeeklyAvgOz} oz/day this week
+            </p>
+          </button>
+        )
+      case 'sleep-tracker':
+        return (
+          <div className="apex-card p-5 space-y-4">
+            <div>
+              <p className="apex-section-label">Sleep</p>
+              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Log last night&apos;s rest</p>
+            </div>
+            {sleepTodayLog ? (
+              <p className="text-[14px] font-medium text-[#ececee]">
+                Logged · {formatSleepDuration(sleepTodayLog.durationMinutes)} · {sleepTodayLog.quality}/5 quality
+              </p>
+            ) : null}
+            <div className="flex gap-2">
+              <input
+                inputMode="decimal"
+                className={`min-h-11 flex-1 ${inp}`}
+                placeholder="Hours slept"
+                value={sleepHoursDraft}
+                onChange={(e) => setSleepHoursDraft(e.target.value)}
+              />
+              <button
+                type="button"
+                className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
+                onClick={() => {
+                  const hours = Number(sleepHoursDraft)
+                  if (!Number.isFinite(hours) || hours <= 0) return
+                  logSleep(Math.round(hours * 60), sleepQualityDraft)
+                  notify('Sleep logged')
+                }}
+              >
+                Save
+              </button>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-[#7d7d88] mb-2 uppercase tracking-wide">Quality</p>
+              <div className="flex gap-2">
+                {([1, 2, 3, 4, 5] as const).map((q) => {
+                  const active = sleepQualityDraft === q
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      aria-label={`Sleep quality ${q} of 5`}
+                      aria-pressed={active}
+                      className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-semibold tabular-nums touch-manipulation ${
+                        active
+                          ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
+                          : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
+                      }`}
+                      onClick={() => setSleepQualityDraft(q)}
+                    >
+                      {q}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <p className="text-[12px] font-medium text-[#a0a0a8] pt-1 border-t border-white/[0.06]">
+              {sleepWeekly
+                ? `Avg ${formatSleepDuration(sleepWeekly.durationMinutes)} · ${sleepWeekly.quality.toFixed(1)}/5 quality this week`
+                : 'Log sleep to see your weekly average'}
+            </p>
+          </div>
+        )
+      case 'nutrition-tracker': {
+        const macroRows = [
+          { key: 'calories', label: 'Calories', current: macroToday.calories, goal: macroGoals.calories, unit: '' },
+          { key: 'protein', label: 'Protein', current: macroToday.proteinG, goal: macroGoals.proteinG, unit: 'g' },
+          { key: 'carbs', label: 'Carbs', current: macroToday.carbsG, goal: macroGoals.carbsG, unit: 'g' },
+          { key: 'fat', label: 'Fat', current: macroToday.fatG, goal: macroGoals.fatG, unit: 'g' },
+        ] as const
+        return (
+          <div className="apex-card p-5 space-y-4">
+            <div>
+              <p className="apex-section-label">Nutrition</p>
+              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Today&apos;s macros</p>
+            </div>
+            <div className="space-y-3">
+              {macroRows.map((row) => {
+                const pct = row.goal > 0 ? Math.min(1, row.current / row.goal) : 0
+                return (
+                  <div key={row.key}>
+                    <div className="flex justify-between gap-2 text-[12px] font-medium mb-1.5">
+                      <span className="text-[#a0a0a8]">{row.label}</span>
+                      <span className="text-[#ececee] tabular-nums">
+                        {row.current}
+                        {row.unit} / {row.goal}
+                        {row.unit}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
+                      <div
+                        className="h-full rounded-full bg-[#ececee] transition-all duration-300"
+                        style={{ width: `${Math.round(pct * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+              <p className="text-[11px] font-medium text-[#7d7d88] uppercase tracking-wide">AI meal parser</p>
+              <textarea
+                className={`w-full min-h-16 px-3 py-2.5 resize-y ${inp}`}
+                placeholder="e.g. 2 eggs, toast with butter, black coffee"
+                value={mealAiText}
+                onChange={(e) => setMealAiText(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={!mealAiText.trim() || mealAiBusy}
+                className="apex-btn w-full min-h-10 text-[13px] font-semibold disabled:opacity-50"
+                onClick={() => {
+                  setMealAiBusy(true)
+                  void claudeParseMeal(mealAiText)
+                    .then((parsed) => {
+                      applyParsedMeal(parsed)
+                      setMealAiText('')
+                      notify('Macros filled — review and save')
+                    })
+                    .catch((e) =>
+                      notify(e instanceof Error ? e.message : 'Could not parse meal'),
+                    )
+                    .finally(() => setMealAiBusy(false))
+                }}
+              >
+                {mealAiBusy ? 'Parsing…' : 'Parse with AI'}
+              </button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium text-[#7d7d88] uppercase tracking-wide">Log meal</p>
+              <input
+                className={inp}
+                placeholder="Meal name"
+                value={mealNameDraft}
+                onChange={(e) => setMealNameDraft(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  inputMode="numeric"
+                  className={inp}
+                  placeholder="Calories"
+                  value={mealCalDraft}
+                  onChange={(e) => setMealCalDraft(e.target.value)}
+                />
+                <input
+                  inputMode="numeric"
+                  className={inp}
+                  placeholder="Protein (g)"
+                  value={mealProteinDraft}
+                  onChange={(e) => setMealProteinDraft(e.target.value)}
+                />
+                <input
+                  inputMode="numeric"
+                  className={inp}
+                  placeholder="Carbs (g)"
+                  value={mealCarbsDraft}
+                  onChange={(e) => setMealCarbsDraft(e.target.value)}
+                />
+                <input
+                  inputMode="numeric"
+                  className={inp}
+                  placeholder="Fat (g)"
+                  value={mealFatDraft}
+                  onChange={(e) => setMealFatDraft(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="apex-btn-primary w-full min-h-11 text-[13px] font-semibold rounded-[14px]"
+                onClick={submitMealDraft}
+              >
+                Add meal
+              </button>
+            </div>
+            {mealsToday.length > 0 ? (
+              <ul className="space-y-2 pt-2 border-t border-white/[0.06]">
+                {mealsToday.map((m) => (
+                  <li
+                    key={m.id}
+                    className="flex items-start justify-between gap-2 rounded-[14px] border border-white/[0.07] px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium text-[#ececee] truncate">{m.name}</p>
+                      <p className="text-[11px] font-medium text-[#a0a0a8] mt-1 tabular-nums">
+                        {m.calories} cal · P {m.proteinG}g · C {m.carbsG}g · F {m.fatG}g
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-[12px] border border-red-900/50 bg-[#161616] min-h-9 px-3 text-[12px] text-red-500 shrink-0"
+                      onClick={() => setConfirmMealDeleteId(m.id)}
+                    >
+                      Delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        )
+      }
       case 'my-plan':
         return (
           <section className="apex-card overflow-hidden">
@@ -933,7 +1279,7 @@ export function TodayTab({
                     autoComplete="off"
                   />
                   {planSearch.trim() ? (
-                    <ul className="absolute z-20 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-[#13181f]">
+                    <ul className="absolute z-20 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-[var(--apex-surface-card)]">
                       {filteredAdd.length === 0 ? (
                         <li className="px-4 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
                       ) : (
@@ -1002,7 +1348,7 @@ export function TodayTab({
                         key={`${row.ids[0]}-${row.ids[1]}`}
                         className="rounded-[12px] p-3"
                         style={{
-                          background: '#1a2028',
+                          background: '#1a1a1a',
                           border: '0.5px solid rgba(255,255,255,0.1)',
                         }}
                       >
@@ -1236,6 +1582,18 @@ export function TodayTab({
         )}
       </header>
 
+      {coachNote ? (
+        <div className="apex-coach-note-card">
+          <div className="apex-coach-note-card__icon" aria-hidden>
+            <i className="ti ti-message-2" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="apex-coach-note-card__label">From your coach</p>
+            <p className="apex-coach-note-card__body">{coachNote}</p>
+          </div>
+        </div>
+      ) : null}
+
       {sectionBody('daily-motivation')}
 
       {!isDesktop ? (
@@ -1338,7 +1696,7 @@ export function TodayTab({
           <div className="flex flex-wrap gap-2 shrink-0">
             <button
               type="button"
-              className={`${btnNeutral} min-h-11 px-4`}
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[14px]"
               onClick={async () => {
                 await requestNotificationPermission()
                 completeNotificationPrompt()
@@ -1411,13 +1769,6 @@ export function TodayTab({
           )
         })}
       </div>
-        </div>
-      ) : null}
-
-      {coachNote ? (
-        <div className="apex-card p-5">
-          <p className="apex-section-label mb-2">Coach note</p>
-          <p className="apex-lead text-[14px]">{coachNote}</p>
         </div>
       ) : null}
 
@@ -1570,6 +1921,19 @@ export function TodayTab({
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={!!confirmMealDeleteId}
+        title="Delete meal?"
+        message="This removes the meal from today's log."
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setConfirmMealDeleteId(null)}
+        onConfirm={() => {
+          if (confirmMealDeleteId) deleteMealLog(confirmMealDeleteId)
+          setConfirmMealDeleteId(null)
+        }}
+      />
 
       <ConfirmDialog
         open={confirmClearAllPlan}

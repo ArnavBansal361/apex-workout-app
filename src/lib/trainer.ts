@@ -108,6 +108,41 @@ export function applyTrainerShareToState(state: AppPersisted): AppPersisted {
   return { ...state, trainerShare: trainerShareForCloud() }
 }
 
+/** After cloud hydrate, align localStorage share toggles with persisted state. */
+export function syncTrainerShareFromState(state: AppPersisted): void {
+  const share = state.trainerShare
+  if (!share) return
+  writeTrainerSharePref('workout_logs', share.workoutLogs)
+  writeTrainerSharePref('bodyweight', share.bodyweight)
+  writeTrainerSharePref('personal_records', share.personalRecords)
+}
+
+export function trainerConnectErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    const msg = err.message
+    if (msg === 'ALREADY_CONNECTED') {
+      return 'You are already connected to a trainer. Disconnect in Settings before using a new code.'
+    }
+    if (msg === 'ALREADY_CONNECTED_SAME') {
+      return 'You are already connected with this trainer code.'
+    }
+    if (msg === 'INVALID_TRAINER_CODE') {
+      return 'That code is not valid. Check the 6 characters and try again.'
+    }
+    if (msg.includes('cannot connect to yourself') || msg.includes('You cannot connect to yourself')) {
+      return 'You cannot connect to your own trainer code.'
+    }
+    if (msg.includes('Invalid trainer code')) {
+      return 'That code is not valid. Check the 6 characters and try again.'
+    }
+    if (/duplicate|unique|23505/i.test(msg)) {
+      return 'You are already connected to a trainer.'
+    }
+    return msg
+  }
+  return 'Could not connect. Try again.'
+}
+
 export function lastActiveFromState(state: AppPersisted): number | null {
   let max = 0
   for (const l of state.setLogs) {

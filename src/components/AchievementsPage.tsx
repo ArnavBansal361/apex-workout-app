@@ -123,7 +123,7 @@ export function AchievementsPage({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[20px] sm:rounded-[20px] bg-[#0a0e14] border border-white/[0.08] overflow-hidden"
+        className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[20px] sm:rounded-[20px] bg-[#0a0a0a] border border-white/[0.08] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-4 py-4 border-b border-[#1e1e1e] shrink-0">

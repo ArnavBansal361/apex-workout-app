@@ -40,7 +40,7 @@ import { evaluateAchievements, streakCurrent } from '../lib/achievements'
 import { cardioElapsedMs, gymElapsedMs } from '../lib/timers'
 import { currentWeekStartKey } from '../lib/volumeStats'
 import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
-import { applyTrainerShareToState } from '../lib/trainer'
+import { applyTrainerShareToState, syncTrainerShareFromState } from '../lib/trainer'
 import {
   fetchLatestCoachNoteForClient,
   fetchUserWorkoutState,
@@ -57,6 +57,7 @@ import type {
   Exercise,
   FriendEntry,
   MuscleGroup,
+  PrCelebrationData,
   ScheduleDay,
   SetLog,
   SetLogEditPayload,
@@ -84,7 +85,7 @@ type Ctx = {
   notify: (message: string, durationMs?: number) => void
   dismissNotification: (id: string) => void
   dismissRestTimer: () => void
-  prCelebration: { exerciseName: string } | null
+  prCelebration: PrCelebrationData | null
   dismissPrCelebration: () => void
   addSetLog: (
     partial: Omit<WeightedSetLog, 'id' | 'at' | 'isPr'> | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>,
@@ -127,6 +128,16 @@ type Ctx = {
   dismissBurnoutWarnings: () => void
   toggleFavoriteExercise: (exerciseId: string) => void
   addBodyweight: (value: number) => void
+  addWaterOz: (oz?: number) => void
+  logSleep: (durationMinutes: number, quality: number) => void
+  addMealLog: (meal: {
+    name: string
+    calories: number
+    proteinG: number
+    carbsG: number
+    fatG: number
+  }) => void
+  deleteMealLog: (id: string) => void
   mergeImport: (partial: Partial<AppPersisted>, options?: { silent?: boolean }) => void
   deleteSetLog: (id: string) => void
   updateSetLog: (id: string, payload: SetLogEditPayload) => void
@@ -149,10 +160,34 @@ function withAchievements(prev: AppPersisted): AppPersisted {
   return { ...prev, achievements: evaluateAchievements(prev) }
 }
 
+function buildPrCelebration(
+  partial:
+    | Omit<WeightedSetLog, 'id' | 'at' | 'isPr'>
+    | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>,
+  unit: 'lbs' | 'kg',
+): PrCelebrationData {
+  const dateLabel = new Date().toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  if (partial.kind === 'weighted') {
+    const detail = partial.bodyweight
+      ? `BW × ${partial.reps} reps · ${partial.sets} sets`
+      : `${partial.weight ?? 0} ${unit} × ${partial.reps} reps · ${partial.sets} sets`
+    return { exerciseName: partial.exerciseName, detail, dateLabel }
+  }
+  return {
+    exerciseName: partial.exerciseName,
+    detail: `${partial.durationSec}s hold`,
+    dateLabel,
+  }
+}
+
 export function WorkoutProvider({ children, userId }: { children: ReactNode; userId: string }) {
   const [state, setState] = useState<AppPersisted>(() => alignScheduleWeek(loadState()))
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [prCelebration, setPrCelebration] = useState<{ exerciseName: string } | null>(null)
+  const [prCelebration, setPrCelebration] = useState<PrCelebrationData | null>(null)
   const [clock, setClock] = useState(() => Date.now())
   const [coachNote, setCoachNote] = useState<string | null>(null)
   const stateRef = useRef(state)
@@ -216,6 +251,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
           ),
         )
         setState(synced)
+        syncTrainerShareFromState(synced)
       } else if (isAppOnline()) {
         await upsertUserWorkoutState(userId, applyTrainerShareToState(synced))
       }
@@ -266,6 +302,14 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     if (!cloudReadyRef.current) return
     void refreshCoachNote()
   }, [refreshCoachNote, state.setLogs.length])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshCoachNote()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [refreshCoachNote])
 
   useEffect(() => {
     const id = window.setInterval(() => setClock(Date.now()), 1000)
@@ -422,8 +466,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     }
     requestAnimationFrame(() => {
       if (isPrFlag) {
-        const name = 'exerciseName' in normalized ? normalized.exerciseName : 'Exercise'
-        setPrCelebration({ exerciseName: name })
+        const unit = stateRef.current.settings.unit
+        setPrCelebration(buildPrCelebration(normalized, unit))
       }
     })
   }, [notify])
@@ -803,6 +847,80 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     )
   }, [])
 
+  const addWaterOz = useCallback((oz = 8) => {
+    const amount = Math.max(0, Math.round(oz))
+    if (amount <= 0) return
+    const dk = dateKey(new Date())
+    setState((s) => ({
+      ...s,
+      waterLogs: [
+        ...(s.waterLogs ?? []),
+        { id: crypto.randomUUID(), dateKey: dk, oz: amount, at: Date.now() },
+      ],
+    }))
+  }, [])
+
+  const logSleep = useCallback((durationMinutes: number, quality: number) => {
+    const minutes = Math.max(0, Math.round(durationMinutes))
+    if (minutes <= 0) return
+    const q = Math.min(5, Math.max(1, Math.round(quality))) as 1 | 2 | 3 | 4 | 5
+    const dk = dateKey(new Date())
+    setState((s) => {
+      const rest = (s.sleepLogs ?? []).filter((l) => l.dateKey !== dk)
+      return {
+        ...s,
+        sleepLogs: [
+          ...rest,
+          {
+            id: crypto.randomUUID(),
+            dateKey: dk,
+            durationMinutes: minutes,
+            quality: q,
+            at: Date.now(),
+          },
+        ],
+      }
+    })
+  }, [])
+
+  const addMealLog = useCallback(
+    (meal: {
+      name: string
+      calories: number
+      proteinG: number
+      carbsG: number
+      fatG: number
+    }) => {
+      const name = meal.name.trim().slice(0, 120)
+      if (!name) return
+      const dk = dateKey(new Date())
+      setState((s) => ({
+        ...s,
+        mealLogs: [
+          ...(s.mealLogs ?? []),
+          {
+            id: crypto.randomUUID(),
+            dateKey: dk,
+            name,
+            calories: Math.max(0, Math.round(meal.calories)),
+            proteinG: Math.max(0, Math.round(meal.proteinG)),
+            carbsG: Math.max(0, Math.round(meal.carbsG)),
+            fatG: Math.max(0, Math.round(meal.fatG)),
+            at: Date.now(),
+          },
+        ],
+      }))
+    },
+    [],
+  )
+
+  const deleteMealLog = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      mealLogs: (s.mealLogs ?? []).filter((m) => m.id !== id),
+    }))
+  }, [])
+
   const mergeImport = useCallback((partial: Partial<AppPersisted>, options?: { silent?: boolean }) => {
     setState((s) => {
       const importedCardio = partial.cardioEntries
@@ -1046,6 +1164,10 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissBurnoutWarnings,
       toggleFavoriteExercise,
       addBodyweight,
+      addWaterOz,
+      logSleep,
+      addMealLog,
+      deleteMealLog,
       mergeImport,
       deleteSetLog,
       updateSetLog,
@@ -1104,6 +1226,10 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissBurnoutWarnings,
       toggleFavoriteExercise,
       addBodyweight,
+      addWaterOz,
+      logSleep,
+      addMealLog,
+      deleteMealLog,
       mergeImport,
       deleteSetLog,
       updateSetLog,

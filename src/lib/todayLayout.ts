@@ -6,6 +6,9 @@ export const ALL_TODAY_SECTION_IDS: TodaySectionId[] = [
   'muscle-balance',
   'gym-tracker',
   'cardio-tracker',
+  'water-tracker',
+  'sleep-tracker',
+  'nutrition-tracker',
   'my-plan',
   'todays-log',
 ]
@@ -16,6 +19,9 @@ export const TODAY_SECTION_LABELS: Record<TodaySectionId, string> = {
   'muscle-balance': 'Muscle balance',
   'gym-tracker': 'Gym tracker',
   'cardio-tracker': 'Cardio tracker',
+  'water-tracker': 'Water',
+  'sleep-tracker': 'Sleep',
+  'nutrition-tracker': 'Nutrition',
   'my-plan': 'My plan',
   'todays-log': "Today's log",
 }

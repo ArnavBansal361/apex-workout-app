@@ -9,9 +9,9 @@
 html {
   --font-scale: 1;
   --apex-font-scale: 1;
-  --apex-surface-page: #090d14;
-  --apex-surface-card: #13181f;
-  --apex-surface-nested: #1a2028;
+  --apex-surface-page: #0a0a0a;
+  --apex-surface-card: #141414;
+  --apex-surface-nested: #1a1a1a;
   --apex-text-primary: rgba(255, 255, 255, 1);
   --apex-text-secondary: rgba(255, 255, 255, 0.5);
   --apex-text-tertiary: rgba(255, 255, 255, 0.3);
@@ -35,9 +35,9 @@ html {
 .apex-theme-shell {
   --apex-nav-icon-active: rgba(255, 255, 255, 1);
   --apex-nav-icon-inactive: rgba(255, 255, 255, 0.3);
-  --apex-surface-page: #090d14;
-  --apex-surface-card: #13181f;
-  --apex-surface-nested: #1a2028;
+  --apex-surface-page: #0a0a0a;
+  --apex-surface-card: #141414;
+  --apex-surface-nested: #1a1a1a;
   --apex-text-primary: rgba(255, 255, 255, 1);
   --apex-text-secondary: rgba(255, 255, 255, 0.5);
   --apex-text-tertiary: rgba(255, 255, 255, 0.3);
@@ -49,9 +49,9 @@ html {
 
 html[data-apex-theme='light'] {
   color-scheme: light;
-  --apex-surface-page: #eef2f8;
-  --apex-surface-card: #f5f9f7;
-  --apex-surface-nested: #edf4f1;
+  --apex-surface-page: #f0f0f0;
+  --apex-surface-card: #f5f5f5;
+  --apex-surface-nested: #ebebeb;
   --apex-text-primary: rgba(0, 0, 0, 0.88);
   --apex-text-secondary: rgba(0, 0, 0, 0.45);
   --apex-text-tertiary: rgba(0, 0, 0, 0.3);
@@ -59,14 +59,14 @@ html[data-apex-theme='light'] {
   --apex-nav-icon-active: rgba(0, 0, 0, 1);
   --apex-nav-icon-inactive: rgba(0, 0, 0, 0.3);
   --apex-btn-primary-bg: rgba(0, 0, 0, 0.88);
-  --apex-btn-primary-text: #eef2f8;
+  --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(0, 0, 0, 0.15);
 }
 
 html[data-apex-theme='light'] .apex-theme-shell {
-  --apex-surface-page: #eef2f8;
-  --apex-surface-card: #f5f9f7;
-  --apex-surface-nested: #edf4f1;
+  --apex-surface-page: #f0f0f0;
+  --apex-surface-card: #f5f5f5;
+  --apex-surface-nested: #ebebeb;
   --apex-text-primary: rgba(0, 0, 0, 0.88);
   --apex-text-secondary: rgba(0, 0, 0, 0.45);
   --apex-text-tertiary: rgba(0, 0, 0, 0.3);
@@ -74,7 +74,7 @@ html[data-apex-theme='light'] .apex-theme-shell {
   --apex-nav-icon-active: rgba(0, 0, 0, 1);
   --apex-nav-icon-inactive: rgba(0, 0, 0, 0.3);
   --apex-btn-primary-bg: rgba(0, 0, 0, 0.88);
-  --apex-btn-primary-text: #eef2f8;
+  --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(0, 0, 0, 0.15);
 }
 
@@ -102,7 +102,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: var(--apex-surface-page, #090d14);
+  background: var(--apex-surface-page, #0a0a0a);
   color: var(--apex-text-primary, rgba(255, 255, 255, 1));
   font-size: calc(16px * var(--font-scale, 1));
   font-weight: 400;
@@ -309,11 +309,11 @@ textarea {
 @keyframes apex-pr-badge-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 22px 3px rgba(251, 191, 36, 0.35);
+    box-shadow: 0 0 22px 3px rgba(255, 255, 255, 0.2);
     transform: scale(1.06);
   }
 }
@@ -325,11 +325,11 @@ textarea {
 }
 
 .apex-app-shell {
-  background: var(--apex-surface-page, #090d14);
+  background: var(--apex-surface-page, #0a0a0a);
 }
 
 .apex-phone-column {
-  background: var(--apex-surface-page, #090d14);
+  background: var(--apex-surface-page, #0a0a0a);
 }
 
 .apex-phone-column {
@@ -505,11 +505,11 @@ html[data-apex-theme='light'] .apex-settings-section .apex-section-label {
 }
 
 html[data-apex-theme='light'] .apex-settings-panel {
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--apex-text-primary);
 }
 
 html[data-apex-theme='light'] .apex-settings-panel .apex-section-label {
-  color: rgba(0, 0, 0, 0.4) !important;
+  color: var(--apex-text-secondary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel :is(
@@ -519,7 +519,7 @@ html[data-apex-theme='light'] .apex-settings-panel :is(
   .text-\[\#f4f4f5\],
   .text-\[\#d4d4d8\]
 ) {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel :is(
@@ -527,27 +527,27 @@ html[data-apex-theme='light'] .apex-settings-panel :is(
   .text-\[\#7d7d88\],
   .text-\[\#b4b4bc\]
 ) {
-  color: rgba(0, 0, 0, 0.4) !important;
+  color: var(--apex-text-secondary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel label {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel .apex-card,
 html[data-apex-theme='light'] .apex-settings-panel .apex-input,
 html[data-apex-theme='light'] .apex-settings-panel textarea.apex-input {
-  background: #f5f9f7 !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
-  color: rgba(0, 0, 0, 0.7) !important;
+  background: var(--apex-surface-card) !important;
+  border-color: var(--apex-border) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel .apex-settings-avatar-btn svg {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-settings-panel .bg-white\/\[0\.12\] {
-  background-color: rgba(0, 0, 0, 0.06) !important;
+  background-color: var(--apex-surface-nested) !important;
 }
 
 .apex-sign-out-btn {
@@ -635,7 +635,7 @@ html[data-apex-theme='light'] .apex-sign-out-btn {
 
 .apex-btn-muted {
   border-radius: 14px;
-  background: #1a2028;
+  background: #1a1a1a;
   color: rgba(255, 255, 255, 0.5);
   border: 0.5px solid rgba(255, 255, 255, 0.08);
   font-weight: 500;
@@ -651,13 +651,13 @@ html[data-apex-theme='light'] .apex-sign-out-btn {
 }
 
 html[data-apex-theme='light'] .apex-btn-muted {
-  background: #edf4f1 !important;
-  color: rgba(0, 0, 0, 0.4) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
+  background: var(--apex-surface-nested) !important;
+  color: var(--apex-text-secondary) !important;
+  border-color: var(--apex-border) !important;
 }
 
 html[data-apex-theme='light'] .apex-btn-muted:hover {
-  color: rgba(0, 0, 0, 0.55) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 .apex-muscle-diagram {
@@ -714,8 +714,8 @@ html[data-apex-theme='light'] .apex-btn-delete {
 }
 
 html[data-apex-theme='light'] .apex-chart-empty {
-  border-color: rgba(13, 13, 13, 0.12);
-  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--apex-border);
+  background: var(--apex-surface-nested);
 }
 
 .apex-chart-empty-icon {
@@ -727,7 +727,7 @@ html[data-apex-theme='light'] .apex-chart-empty {
 }
 
 html[data-apex-theme='light'] .apex-chart-empty-icon {
-  color: #555555;
+  color: var(--apex-text-secondary);
 }
 
 .apex-chart-empty-text {
@@ -736,6 +736,10 @@ html[data-apex-theme='light'] .apex-chart-empty-icon {
   color: #a0a0a8;
   max-width: 16rem;
   line-height: 1.45;
+}
+
+html[data-apex-theme='light'] .apex-chart-empty-text {
+  color: var(--apex-text-secondary);
 }
 
 html[data-apex-theme='light'] .apex-chart-empty-text {
@@ -760,7 +764,7 @@ html[data-apex-theme='light'] .apex-chart-empty-text {
 }
 
 html[data-apex-theme='light'] .apex-coach-dots span {
-  background: #555555;
+  background: var(--apex-text-secondary);
 }
 
 .apex-coach-dots span:nth-child(2) {
@@ -953,7 +957,7 @@ details summary::-webkit-details-marker {
   padding: 0.625rem 0.75rem;
   border-radius: 14px;
   border: 0.5px solid rgba(255, 255, 255, 0.1);
-  background: #13181f;
+  background: #141414;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -973,7 +977,7 @@ details summary::-webkit-details-marker {
   border-radius: 10px;
   border: none;
   background: #f4f4f5;
-  color: #090d14;
+  color: #0a0a0a;
   font-size: 12px;
   font-weight: 600;
   touch-action: manipulation;
@@ -1002,7 +1006,7 @@ details summary::-webkit-details-marker {
 }
 
 html[data-apex-theme='light'] .apex-pwa-install-banner__inner {
-  background: #f5f9f7;
+  background: #f5f5f5;
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
@@ -1307,6 +1311,53 @@ html[data-apex-theme='light'] .apex-week-chart-dot--active {
   background: var(--apex-text-primary);
 }
 
+.apex-coach-note-card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 0.5px solid var(--apex-border);
+  background: var(--apex-surface-card);
+  box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.22);
+}
+
+.apex-coach-note-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 0.5px solid var(--apex-border);
+  background: var(--apex-surface-nested, rgba(255, 255, 255, 0.04));
+  color: var(--apex-text-secondary);
+  font-size: 18px;
+}
+
+.apex-coach-note-card__label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--apex-text-secondary);
+}
+
+.apex-coach-note-card__body {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--apex-text-primary);
+  white-space: pre-wrap;
+}
+
+html[data-apex-theme='light'] .apex-coach-note-card {
+  box-shadow: inset 3px 0 0 rgba(0, 0, 0, 0.12);
+}
+
 .apex-coach-chat-scroll {
   flex: 1;
   min-height: 0;
@@ -1330,7 +1381,7 @@ html[data-apex-theme='light'] .apex-week-chart-dot--active {
 }
 .apex-coach-bubble-ai,
 .apex-coach-bubble--model {
-  background-color: #13181f !important;
+  background-color: #141414 !important;
   color: #ffffff !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
@@ -1384,19 +1435,19 @@ html[data-apex-theme='light'] .apex-profile-subtabs {
 }
 
 html[data-apex-theme='light'] .apex-profile-subtab-inactive {
-  color: #888888 !important;
+  color: var(--apex-text-tertiary) !important;
 }
 
 html[data-apex-theme='light'] .apex-profile-subtab-inactive:hover {
-  color: #555555 !important;
+  color: var(--apex-text-secondary) !important;
 }
 
 html[data-apex-theme='light'] .apex-profile-subtab-active {
-  color: #0d0d0d !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-profile-subtab-indicator {
-  background: rgba(0, 0, 0, 0.9) !important;
+  background: var(--apex-text-primary) !important;
 }
 
 /* Hardcoded dark-mode text utilities → light hierarchy */
@@ -1473,12 +1524,14 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   .bg-\[\#1a1a1a\],
   .bg-\[\#1a1a1e\],
   .bg-\[\#1a1a24\],
-  .bg-\[\#13181f\]
+  .bg-\[\#141414\],
+  .bg-\[\#0a0e14\]
 ) {
   background-color: var(--apex-surface-card) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .bg-\[\#090d14\] {
+html[data-apex-theme='light'] .apex-theme-shell .bg-\[\#090d14\],
+html[data-apex-theme='light'] .apex-theme-shell .bg-\[\#0a0a0a\] {
   background-color: var(--apex-surface-page) !important;
 }
 

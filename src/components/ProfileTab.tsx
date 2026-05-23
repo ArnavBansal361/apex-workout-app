@@ -55,6 +55,8 @@ import {
   writeTrainerModeEnabled,
   writeTrainerSharePref,
   applyTrainerShareToState,
+  syncTrainerShareFromState,
+  trainerConnectErrorMessage,
   type TrainerShareType,
 } from '../lib/trainer'
 import {
@@ -85,6 +87,13 @@ import {
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
 import type { AppPersisted, SetLog, ChatMessage } from '../types'
+import { DEFAULT_WATER_GOAL_OZ, WATER_LOG_INCREMENT_OZ } from '../types'
+import {
+  DEFAULT_MACRO_GOAL_CALORIES,
+  DEFAULT_MACRO_GOAL_CARBS_G,
+  DEFAULT_MACRO_GOAL_FAT_G,
+  DEFAULT_MACRO_GOAL_PROTEIN_G,
+} from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PROFILE_AVATAR_IDS, ProfileAvatarGlyph } from './ProfileAvatarIcons'
 type Sub = 'stats' | 'settings' | 'ai'
@@ -227,7 +236,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
         >
           <i className="ti ti-trash" aria-hidden />
         </button>
-        <div className="apex-coach-chat-scroll flex-1 min-h-0 overflow-y-auto space-y-3 rounded-[16px] border border-white/[0.08] bg-[#13181f] p-4 pt-10 mb-2">
+        <div className="apex-coach-chat-scroll flex-1 min-h-0 overflow-y-auto space-y-3 rounded-[16px] p-4 pt-10 mb-2">
           {state.chatMessages.length === 0 ? (
             <p className="apex-coach-empty-hint font-normal text-[#a8a8b0] leading-relaxed">
               Ask for form cues, programming ideas, or recovery tips. Your goals, this week&apos;s logged work,
@@ -482,7 +491,7 @@ function AiInsightsPanel() {
           key={w.muscle}
           className="rounded-[12px]"
           style={{
-            background: '#1a2028',
+            background: '#1a1a1a',
             border: '0.5px solid rgba(255,255,255,0.15)',
             padding: '14px 16px',
           }}
@@ -712,6 +721,7 @@ export function ProfileTab({
   const [clientConnection, setClientConnection] = useState<TrainerConnectionRow | null>(null)
   const [sharePrefs, setSharePrefs] = useState(readTrainerSharePrefs)
   const [connectCodeInput, setConnectCodeInput] = useState('')
+  const [connectCodeError, setConnectCodeError] = useState('')
   const [clients, setClients] = useState<TrainerClientSummary[]>([])
   const [clientsLoading, setClientsLoading] = useState(false)
   const [selectedClient, setSelectedClient] = useState<TrainerClientSummary | null>(null)
@@ -763,6 +773,9 @@ export function ProfileTab({
       setClients([])
       return
     }
+    const showProfileStats =
+      (isDesktop && desktopSection === 'profile') || (!isDesktop && sub === 'stats')
+    if (!showProfileStats) return
     let cancelled = false
     setClientsLoading(true)
     void fetchTrainerClientSummaries(userId).then((rows) => {
@@ -774,7 +787,14 @@ export function ProfileTab({
     return () => {
       cancelled = true
     }
-  }, [trainerMode, userId, state.setLogs.length])
+  }, [trainerMode, userId, sub, isDesktop, desktopSection, state.setLogs.length])
+
+  useEffect(() => {
+    if (state.trainerShare) {
+      syncTrainerShareFromState(state)
+      setSharePrefs(readTrainerSharePrefs())
+    }
+  }, [state.trainerShare?.workoutLogs, state.trainerShare?.bodyweight, state.trainerShare?.personalRecords])
 
   const persistSharePrefs = () => {
     void upsertUserWorkoutState(userId, applyTrainerShareToState(state)).catch(() => {})
@@ -878,6 +898,14 @@ export function ProfileTab({
   const streakDays = useMemo(
     () => streakCurrent(state, Date.now()),
     [state.setLogs, state.cardioEntries],
+  )
+
+  const clientDetailShare = clientDetailState?.trainerShare
+  const clientAllSharingOff = Boolean(
+    clientDetailShare &&
+      !clientDetailShare.workoutLogs &&
+      !clientDetailShare.bodyweight &&
+      !clientDetailShare.personalRecords,
   )
 
   const gcalConfigured = isGoogleCalendarConfigured()
@@ -1000,6 +1028,71 @@ export function ProfileTab({
           >
             Achievements
           </button>
+          {trainerMode ? (
+            <>
+              <div className={`apex-card p-5 space-y-3 ${isDesktop ? 'col-span-2' : ''}`}>
+                <p className="apex-section-label">Your trainer code</p>
+                <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                  Share this code with clients so they can connect in Settings.
+                </p>
+                <div className="flex items-center gap-3">
+                  <p className="flex-1 text-[26px] font-bold tracking-[0.22em] text-[#ececee] tabular-nums">
+                    {trainerCode || ensureTrainerCode()}
+                  </p>
+                  <button
+                    type="button"
+                    className="apex-btn min-h-11 px-5 text-[13px] font-semibold shrink-0"
+                    onClick={() => {
+                      const code = trainerCode || ensureTrainerCode()
+                      void navigator.clipboard.writeText(code).then(
+                        () => notify('Trainer code copied'),
+                        () => notify('Could not copy code'),
+                      )
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <div className={`space-y-3 ${isDesktop ? 'col-span-2' : ''}`}>
+                <p className="apex-section-label">My Clients</p>
+                {clientsLoading ? (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">Loading clients…</p>
+                ) : clients.length === 0 ? (
+                  <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+                    No clients connected yet. Share your trainer code so they can connect in Settings.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {clients.map((c) => (
+                      <li key={c.connection.id}>
+                        <button
+                          type="button"
+                          className="apex-card w-full p-4 text-left touch-manipulation hover:border-white/[0.14]"
+                          onClick={() => openClientDetail(c)}
+                        >
+                          <p className="text-[15px] font-semibold text-[#ececee]">{c.displayName}</p>
+                          <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
+                            Last active · {formatLastActive(c.lastActiveMs)}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-medium text-[#7d7d88]">
+                            {c.sharePrefs.workoutLogs ? (
+                              <>
+                                <span>This week · {formatLeaderboardVolume(c.weeklyVolumeLbs)}</span>
+                                <span>Streak · {c.currentStreak}d</span>
+                              </>
+                            ) : (
+                              <span>Workout data hidden by client</span>
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : null}
           <div className="apex-card p-5">
             <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-2">Muscle groups</p>
             <p className="text-[15px] font-semibold text-[#ececee] leading-relaxed">
@@ -1212,6 +1305,93 @@ export function ProfileTab({
             </label>
           </section>
           <div className="apex-settings-divider" aria-hidden />
+          <section className="apex-settings-section">
+            <label className="block">
+              <span className="apex-section-label block mb-2">Daily water goal (oz)</span>
+              <input
+                type="number"
+                min={8}
+                step={8}
+                className={`w-full min-h-12 ${inp}`}
+                value={state.settings.waterGoalOz ?? DEFAULT_WATER_GOAL_OZ}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (!Number.isFinite(v) || v < 8) return
+                  updateSettings({ waterGoalOz: Math.round(v) })
+                }}
+              />
+            </label>
+            <p className="text-[12px] font-medium text-[#a0a0a8] mt-2 leading-relaxed">
+              Tap the Water card in Today → More to log {WATER_LOG_INCREMENT_OZ} oz at a time.
+            </p>
+          </section>
+          <div className="apex-settings-divider" aria-hidden />
+          <section className="apex-settings-section space-y-3">
+            <span className="apex-section-label block">Daily macro goals</span>
+            <label className="block">
+              <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Calories</span>
+              <input
+                type="number"
+                min={500}
+                step={50}
+                className={`w-full min-h-12 ${inp}`}
+                value={state.settings.macroGoalCalories ?? DEFAULT_MACRO_GOAL_CALORIES}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (!Number.isFinite(v) || v < 500) return
+                  updateSettings({ macroGoalCalories: Math.round(v) })
+                }}
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="block">
+                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Protein (g)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className={`w-full min-h-12 ${inp}`}
+                  value={state.settings.macroGoalProteinG ?? DEFAULT_MACRO_GOAL_PROTEIN_G}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    if (!Number.isFinite(v) || v < 1) return
+                    updateSettings({ macroGoalProteinG: Math.round(v) })
+                  }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Carbs (g)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className={`w-full min-h-12 ${inp}`}
+                  value={state.settings.macroGoalCarbsG ?? DEFAULT_MACRO_GOAL_CARBS_G}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    if (!Number.isFinite(v) || v < 1) return
+                    updateSettings({ macroGoalCarbsG: Math.round(v) })
+                  }}
+                />
+              </label>
+              <label className="block">
+                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Fat (g)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className={`w-full min-h-12 ${inp}`}
+                  value={state.settings.macroGoalFatG ?? DEFAULT_MACRO_GOAL_FAT_G}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    if (!Number.isFinite(v) || v < 1) return
+                    updateSettings({ macroGoalFatG: Math.round(v) })
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+          <div className="apex-settings-divider" aria-hidden />
           <section className="apex-settings-section space-y-2">
             <span className="apex-section-label block">Profile</span>
             <button
@@ -1326,24 +1506,36 @@ export function ProfileTab({
                   value={connectCodeInput}
                   maxLength={6}
                   autoCapitalize="characters"
-                  onChange={(e) => setConnectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  aria-invalid={connectCodeError ? true : undefined}
+                  onChange={(e) => {
+                    setConnectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                    if (connectCodeError) setConnectCodeError('')
+                  }}
                 />
+                {connectCodeError ? (
+                  <p className="text-[12px] font-medium text-[#e85d5d] leading-relaxed" role="alert">
+                    {connectCodeError}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   disabled={connectCodeInput.length !== 6 || busy}
                   className="apex-btn-primary w-full min-h-11 text-[13px] font-semibold disabled:opacity-50"
                   onClick={() => {
+                    setConnectCodeError('')
                     setBusy(true)
-                    void connectClientToTrainer(userId, connectCodeInput)
+                    const codeAttempt = connectCodeInput
+                    void connectClientToTrainer(userId, codeAttempt)
                       .then((row) => {
+                        const wasSame = clientConnection?.trainer_code === row.trainer_code
                         setClientConnection(row)
                         setConnectCodeInput('')
                         persistSharePrefs()
-                        notify('Connected to trainer')
+                        notify(
+                          wasSame ? 'Already connected to this trainer' : 'Connected to trainer',
+                        )
                       })
-                      .catch((e) =>
-                        notify(e instanceof Error ? e.message : 'Could not connect'),
-                      )
+                      .catch((e) => setConnectCodeError(trainerConnectErrorMessage(e)))
                       .finally(() => setBusy(false))
                   }}
                 >
@@ -1511,7 +1703,7 @@ export function ProfileTab({
               {gcalConfigured && gcalConnected ? (
                 <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[12px] font-medium">
                   <span className="inline-flex items-center gap-1.5 text-[#e0e0e0]">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#34d399]" aria-hidden />
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-white/70" aria-hidden />
                     Connected
                   </span>
                   {gcalExpiryLabel ? (
@@ -1568,42 +1760,6 @@ export function ProfileTab({
         <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="tab" />
       ) : null}
 
-      {trainerMode ? (
-        <div className="space-y-3 mt-2">
-          <p className="apex-section-label">Clients</p>
-          {clientsLoading ? (
-            <p className="text-[13px] font-medium text-[#a0a0a8]">Loading clients…</p>
-          ) : clients.length === 0 ? (
-            <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
-              No clients connected yet. Share your trainer code so they can connect in Settings.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {clients.map((c) => (
-                <li key={c.connection.id}>
-                  <button
-                    type="button"
-                    className="apex-card w-full p-4 text-left touch-manipulation hover:border-white/[0.14]"
-                    onClick={() => openClientDetail(c)}
-                  >
-                    <p className="text-[15px] font-semibold text-[#ececee]">{c.displayName}</p>
-                    <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
-                      Last active · {formatLastActive(c.lastActiveMs)}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-medium text-[#7d7d88]">
-                      <span>
-                        This week · {formatLeaderboardVolume(c.weeklyVolumeLbs)}
-                      </span>
-                      <span>Streak · {c.currentStreak}d</span>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
       {!isDesktop || desktopSection === 'settings' ? (
         <button
           type="button"
@@ -1642,25 +1798,36 @@ export function ProfileTab({
               <p className="text-[13px] font-medium text-[#a0a0a8]">
                 No shared data yet. Ask your client to enable sharing in Settings.
               </p>
+            ) : clientAllSharingOff ? (
+              <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+                This client has turned off all sharing. Workout logs, bodyweight, and personal records
+                are hidden until they enable them in Settings.
+              </p>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-[18px] border border-white/[0.055] p-4">
-                    <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sessions</p>
-                    <p className="apex-stat-num mt-2 tabular-nums">
-                      {sessionsThisWeek(clientDetailState)}
-                    </p>
-                    <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
+                {clientDetailShare?.workoutLogs ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-[18px] border border-white/[0.055] p-4">
+                      <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sessions</p>
+                      <p className="apex-stat-num mt-2 tabular-nums">
+                        {sessionsThisWeek(clientDetailState)}
+                      </p>
+                      <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
+                    </div>
+                    <div className="rounded-[18px] border border-white/[0.055] p-4">
+                      <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
+                      <p className="apex-stat-num mt-2 tabular-nums">
+                        {streakCurrent(clientDetailState)}d
+                      </p>
+                      <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Current</p>
+                    </div>
                   </div>
-                  <div className="rounded-[18px] border border-white/[0.055] p-4">
-                    <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
-                    <p className="apex-stat-num mt-2 tabular-nums">
-                      {streakCurrent(clientDetailState)}d
-                    </p>
-                    <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Current</p>
-                  </div>
-                </div>
-                {clientDetailPr.length > 0 ? (
+                ) : (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                    Workout logs are hidden by this client.
+                  </p>
+                )}
+                {clientDetailShare?.personalRecords && clientDetailPr.length > 0 ? (
                   <div className="apex-card p-5">
                     <p className="apex-section-label mb-3">Personal records</p>
                     <ul className="space-y-2">
@@ -1675,8 +1842,15 @@ export function ProfileTab({
                       ))}
                     </ul>
                   </div>
-                ) : null}
-                {clientDetailState.bodyweightLogs.length > 0 ? (
+                ) : clientDetailShare?.personalRecords ? (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">No personal records logged yet.</p>
+                ) : (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                    Personal records are hidden by this client.
+                  </p>
+                )}
+                {clientDetailShare?.bodyweight ? (
+                clientDetailState.bodyweightLogs.length > 0 ? (
                   <div className="apex-card p-5">
                     <p className="apex-section-label mb-2">Bodyweight</p>
                     <p className="text-[15px] font-semibold text-[#ececee] tabular-nums">
@@ -1691,10 +1865,21 @@ export function ProfileTab({
                     </p>
                     <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Latest log</p>
                   </div>
-                ) : null}
+                ) : (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">No bodyweight logs yet.</p>
+                )
+                ) : (
+                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                    Bodyweight is hidden by this client.
+                  </p>
+                )}
                 <div>
                   <p className="apex-section-label mb-2">Workout history</p>
-                  {clientDetailGrouped.length === 0 ? (
+                  {!clientDetailShare?.workoutLogs ? (
+                    <p className="text-[13px] font-medium text-[#a0a0a8]">
+                      Workout logs are hidden by this client.
+                    </p>
+                  ) : clientDetailGrouped.length === 0 ? (
                     <p className="text-[13px] font-medium text-[#a0a0a8]">
                       No workout logs shared.
                     </p>

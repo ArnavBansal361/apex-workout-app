@@ -232,7 +232,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="apex-safe-top min-h-[100dvh] bg-[#090d14] flex flex-col items-center justify-center gap-4">
+      <div className="apex-safe-top min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--apex-surface-page)]">
         <ApexLogo />
         <p className="text-[14px] font-normal text-white/50">Loading…</p>
       </div>

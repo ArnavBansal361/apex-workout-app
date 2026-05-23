@@ -90,18 +90,28 @@ function applyVoiceTranscript(
     setBodyweight(true)
   }
 
+  const setsOfRepsM = t.match(/(\d+)\s*sets?\s*of\s*(\d+)/)
   const setsM = t.match(/(\d+)\s*(?:set|sets)\b/)
   const repsM = t.match(/(\d+)\s*(?:rep|reps)\b/)
-  if (setsM) setSets(Math.max(1, Number(setsM[1]) || 1))
-  if (repsM) setReps(Math.max(0, Number(repsM[1]) || 0))
+  if (setsOfRepsM) {
+    setSets(Math.max(1, Number(setsOfRepsM[1]) || 1))
+    setReps(Math.max(0, Number(setsOfRepsM[2]) || 0))
+  } else {
+    if (setsM) setSets(Math.max(1, Number(setsM[1]) || 1))
+    if (repsM) setReps(Math.max(0, Number(repsM[1]) || 0))
+  }
 
   if (!/\bbody\s*weight|bodyweight|\bbw\b/.test(t)) {
     const kgM = t.match(/(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilos)\b/)
     const lbM = t.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pound|pounds)\b/)
+    const atM = t.match(/\bat\s+(\d+(?:\.\d+)?)\b/)
     if (kgM || lbM) {
       setBodyweight(false)
       const w = kgM?.[1] ?? lbM?.[1]
       if (w) setWeight(w)
+    } else if (atM?.[1]) {
+      setBodyweight(false)
+      setWeight(atM[1])
     } else {
       const afterReps = t.match(/(?:rep|reps)[^\d]*(\d+(?:\.\d+)?)\s*(?:lb|lbs|kg)?/)
       if (afterReps) {
@@ -111,6 +121,17 @@ function applyVoiceTranscript(
     }
   }
 }
+
+export function matchExerciseFromTranscript(text: string, exercises: Exercise[]): Exercise | null {
+  const t = text.toLowerCase()
+  const sorted = [...exercises].sort((a, b) => b.name.length - a.name.length)
+  for (const ex of sorted) {
+    if (t.includes(ex.name.toLowerCase())) return ex
+  }
+  return null
+}
+
+export { applyVoiceTranscript }
 
 export function LogSetModal({
   open,
@@ -189,8 +210,8 @@ export function LogSetModal({
     r.interimResults = false
     r.maxAlternatives = 1
     r.onresult = (ev) => {
-      const t = ev.results[0]?.[0]?.transcript
-      if (t) applyVoice(t)
+      const transcript = ev.results[0]?.[0]?.transcript
+      if (transcript) applyVoice(transcript)
     }
     r.onerror = () => setListening(false)
     r.onend = () => setListening(false)

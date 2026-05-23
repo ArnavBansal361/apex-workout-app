@@ -68,7 +68,7 @@ export function RestBanner() {
         }`}
         style={{
           height: 44,
-          background: '#13181f',
+          background: '#141414',
           borderBottom: '0.5px solid rgba(255,255,255,0.08)',
         }}
       >

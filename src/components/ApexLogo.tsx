@@ -1,4 +1,4 @@
-/** App icon mark — geometric mountain (matches profile avatar glyph). */
+/** App icon mark — geometric white mountain from /public/apex-logo.svg */
 export function ApexLogo({
   className,
   size = 80,
@@ -8,30 +8,14 @@ export function ApexLogo({
   size?: number
 }) {
   return (
-    <div
-      className={className}
+    <img
+      src="/apex-logo.svg"
+      alt=""
       aria-hidden
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 16,
-        background: '#13181f',
-        border: '0.5px solid rgba(255, 255, 255, 0.08)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width={Math.round(size * 0.5)}
-        height={Math.round(size * 0.5)}
-        fill="none"
-        aria-hidden
-      >
-        <path d="M3 18l6-8 4 5 3-4 5 7H3z" fill="#ffffff" />
-      </svg>
-    </div>
+      width={size}
+      height={size}
+      className={className}
+      style={{ flexShrink: 0, display: 'block' }}
+    />
   )
 }

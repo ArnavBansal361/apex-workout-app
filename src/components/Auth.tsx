@@ -5,7 +5,7 @@ import { ApexLogo } from './ApexLogo'
 type Mode = 'sign-in' | 'sign-up'
 
 const inp =
-  'w-full min-h-12 px-3 py-2.5 rounded-[8px] text-[14px] font-normal bg-[#13181f] border-[0.5px] border-white/[0.08] text-white placeholder:text-white/30 focus:outline-none focus:border-white/[0.15]'
+  'w-full min-h-12 px-3 py-2.5 rounded-[8px] text-[14px] font-normal bg-[#141414] border-[0.5px] border-white/[0.08] text-white placeholder:text-white/30 focus:outline-none focus:border-white/[0.15]'
 
 export function Auth() {
   const [mode, setMode] = useState<Mode>('sign-in')
@@ -63,14 +63,14 @@ export function Auth() {
   return (
     <div
       data-apex-theme="dark"
-      className="apex-safe-top min-h-[100dvh] bg-[#0a0e14] text-white px-4 py-6 pb-12 flex flex-col"
+      className="apex-safe-top min-h-[100dvh] bg-[#0a0a0a] text-white px-4 py-6 pb-12 flex flex-col"
     >
       <div className="w-full max-w-[480px] mx-auto flex-1 flex flex-col justify-center">
         <div className="mb-8 flex justify-center">
           <ApexLogo />
         </div>
 
-        <div className="rounded-[12px] border-[0.5px] border-white/[0.08] bg-[#13181f] p-5 space-y-5">
+        <div className="rounded-[12px] border-[0.5px] border-white/[0.08] bg-[#141414] p-5 space-y-5">
           <div>
             <h1 className="text-[26px] font-medium tracking-tight text-white leading-tight">
               {mode === 'sign-in' ? 'Sign in' : 'Create account'}
