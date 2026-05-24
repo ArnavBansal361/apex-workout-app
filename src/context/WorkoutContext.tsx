@@ -67,10 +67,12 @@ import type {
   SetLog,
   SetLogEditPayload,
   Settings,
+  ReadinessLogEntry,
   TimedSetLog,
   TodayLayoutPersist,
   TodaySupersetPair,
   WeightedSetLog,
+  WorkoutMoodLogEntry,
   WorkoutTemplate,
 } from '../types'
 type Notification = { id: string; message: string }
@@ -144,6 +146,8 @@ type Ctx = {
   addBodyweight: (value: number) => void
   addWaterOz: (oz?: number) => void
   logSleep: (durationMinutes: number, quality: number) => void
+  logReadinessCheck: (entry: Omit<ReadinessLogEntry, 'at'> & { at?: number }) => void
+  logWorkoutMoodCheckin: (entry: Omit<WorkoutMoodLogEntry, 'at'> & { at?: number }) => void
   addMealLog: (meal: {
     name: string
     calories: number
@@ -924,6 +928,41 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     }))
   }, [])
 
+  const logReadinessCheck = useCallback(
+    (entry: Omit<ReadinessLogEntry, 'at'> & { at?: number }) => {
+      setState((s) => {
+        const rest = (s.readinessLogs ?? []).filter((l) => l.dateKey !== entry.dateKey)
+        return {
+          ...s,
+          readinessLogs: [
+            ...rest,
+            {
+              ...entry,
+              at: entry.at ?? Date.now(),
+            },
+          ],
+        }
+      })
+    },
+    [],
+  )
+
+  const logWorkoutMoodCheckin = useCallback(
+    (entry: Omit<WorkoutMoodLogEntry, 'at'> & { at?: number }) => {
+      setState((s) => ({
+        ...s,
+        workoutMoodLogs: [
+          ...(s.workoutMoodLogs ?? []),
+          {
+            ...entry,
+            at: entry.at ?? Date.now(),
+          },
+        ],
+      }))
+    },
+    [],
+  )
+
   const logSleep = useCallback((durationMinutes: number, quality: number) => {
     const minutes = Math.max(0, Math.round(durationMinutes))
     if (minutes <= 0) return
@@ -1237,6 +1276,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       addBodyweight,
       addWaterOz,
       logSleep,
+      logReadinessCheck,
+      logWorkoutMoodCheckin,
       addMealLog,
       deleteMealLog,
       mergeImport,
@@ -1300,6 +1341,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       addBodyweight,
       addWaterOz,
       logSleep,
+      logReadinessCheck,
+      logWorkoutMoodCheckin,
       addMealLog,
       deleteMealLog,
       mergeImport,

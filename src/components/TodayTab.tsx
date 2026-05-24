@@ -29,7 +29,11 @@ import { ReadinessCheckModal } from './ReadinessCheckModal'
 import { TrainingModeModal } from './TrainingModeModal'
 import { WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
 import { trainingModeDef, type TrainingMode } from '../lib/trainingMode'
-import { TodayWeekChartsSection, TodayWeekChartsSideBySide } from './TodayVolumeCharts'
+import {
+  TodayMuscleBalanceSection,
+  TodayWeekChartsSection,
+  TodayWeekChartsSideBySide,
+} from './TodayVolumeCharts'
 import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
@@ -59,6 +63,7 @@ import {
   requestGymCardScreenWakeLock,
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
+import { PostWorkoutStretchesCard, stretchSuggestionsForSummary } from './PostWorkoutStretchesCard'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
 import { SpotifyPlayerCard } from './SpotifyPlayerCard'
 import type { Exercise, SetLog, TodaySectionId, TodaySupersetPair } from '../types'
@@ -947,6 +952,7 @@ export function TodayTab({
       exerciseNames: names,
       totalSets: logsToday.length,
       prCount,
+      stretchSuggestions: stretchSuggestionsForSummary(state.setLogs, todayKey),
       ...extras,
     })
     if (extras.comebackMessage) {
@@ -1014,7 +1020,7 @@ export function TodayTab({
       case 'weekly-volume':
         return isDesktop ? <TodayWeekChartsSideBySide /> : <TodayWeekChartsSection />
       case 'muscle-balance':
-        return isDesktop ? null : null
+        return <TodayMuscleBalanceSection />
       case 'gym-tracker':
         return (
           <div className="apex-card flex flex-col gap-3 min-h-[158px]">
@@ -1634,6 +1640,11 @@ export function TodayTab({
             <button type="button" className={`${btnNeutral} w-full min-h-12 mb-4`} onClick={onOpenHistory}>
               Full history
             </button>
+            {todaysLogs.length > 0 ? (
+              <div className="mb-4">
+                <PostWorkoutStretchesCard setLogs={state.setLogs} todayKey={todayKey} />
+              </div>
+            ) : null}
             <ul className="space-y-3">
               {todaysLogs.map((l) => (
                 <li key={l.id} className="apex-card apex-card-interactive p-4">

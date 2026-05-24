@@ -382,10 +382,23 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
 /** @deprecated Use TodayWeekChartsSection — volume only slice */
 export const TodayWeeklyVolumeSection = TodayWeekChartsSection
 
-/** Muscle balance is included in TodayWeekChartsSection */
-export function TodayMuscleBalanceSection() {
-  return null
-}
+/** Standalone muscle balance card (Today layout section). Includes injury risk warnings. */
+export const TodayMuscleBalanceSection = memo(function TodayMuscleBalanceSection() {
+  const { state } = useWorkout()
+  const weekKey = weekAnchorKey()
+  const sessionDays = workoutDaysFromLogs(state.setLogs).size
+
+  if (sessionDays < MIN_SESSIONS_FOR_VOLUME_CHART) {
+    return null
+  }
+
+  return (
+    <div className="apex-card min-w-0 overflow-visible">
+      <p className="apex-section-label mb-2">Muscle balance</p>
+      <MuscleBalancePanel state={state} weekKey={weekKey} />
+    </div>
+  )
+})
 
 /** Combined week charts (single card). */
 export function TodayVolumeCharts() {

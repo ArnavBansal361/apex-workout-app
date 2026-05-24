@@ -5,6 +5,7 @@ import {
   type ReadinessResult,
 } from '../lib/readiness'
 import { insertReadinessCheck } from '../lib/supabase'
+import { useWorkout } from '../context/WorkoutContext'
 
 type Props = {
   open: boolean
@@ -68,6 +69,7 @@ function ScaleRow({
 }
 
 export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplete }: Props) {
+  const { logReadinessCheck } = useWorkout()
   const [responses, setResponses] = useState<Partial<ReadinessResponses>>({})
   const [result, setResult] = useState<ReadinessResult | null>(null)
   const [saving, setSaving] = useState(false)
@@ -113,6 +115,14 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
     } catch {
       /* proceed even if cloud save fails */
     }
+    logReadinessCheck({
+      dateKey: todayKey,
+      recovery: payload.recovery,
+      stress: payload.stress,
+      sleepQuality: payload.sleepQuality,
+      combinedScore: result.combinedScore,
+      recommendation: result.tier,
+    })
     setSaving(false)
     onComplete()
     onClose()

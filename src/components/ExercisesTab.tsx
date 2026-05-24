@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { getExerciseHelp } from '../data/exercises'
+import {
+  getStretchDefinition,
+  STRETCH_DEFINITIONS,
+  STRETCH_SECTION_ORDER,
+  type StretchSection,
+} from '../data/stretches'
 import { claudeExerciseFormTips } from '../lib/anthropicCoach'
 import { strengthProgressSeries, computeStrengthProgressProjection, STRENGTH_PROJECTION_WEEKS } from '../lib/overload'
 import { formatLong } from '../lib/dates'
@@ -253,9 +259,79 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
     return m
   }, [filtered])
 
+  const stretchSections = useMemo(() => {
+    if (filter !== 'Stretches') return null
+    const m = new Map<StretchSection, typeof filtered>()
+    for (const e of filtered) {
+      const sec = getStretchDefinition(e.id)?.section ?? 'Spine & core'
+      const arr = m.get(sec) ?? []
+      arr.push(e)
+      m.set(sec, arr)
+    }
+    return m
+  }, [filtered, filter])
+
   const order = FILTERS.filter((f) => f !== 'All') as MuscleGroup[]
   const active = activeId ? visibleExercises.find((e) => e.id === activeId) : null
   const help = active ? getExerciseHelp(active) : null
+  const activeStretch = active ? getStretchDefinition(active.id) : null
+
+  function renderExerciseCard(e: Exercise, favoriteStar: boolean) {
+    const stretch = getStretchDefinition(e.id)
+    return (
+      <div
+        key={e.id}
+        className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
+      >
+        <button
+          type="button"
+          className={`absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border transition-all active:scale-95 ${
+            favoriteStar
+              ? 'border-white/10 text-white/70 hover:bg-white/10'
+              : 'border-white/[0.1] text-[#a0a0a8] hover:border-white/20 hover:text-white hover:bg-white/[0.06]'
+          }`}
+          aria-label={
+            favoriteStar ? `Remove ${e.name} from favorites` : `Add ${e.name} to favorites`
+          }
+          onClick={(ev) => {
+            ev.stopPropagation()
+            toggleFavoriteExercise(e.id)
+          }}
+        >
+          <span className="text-[15px] leading-none" aria-hidden>
+            {favoriteStar ? '★' : '☆'}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
+          aria-label={`Add ${e.name} to plan`}
+          onClick={(ev) => {
+            ev.stopPropagation()
+            addPlanExercise(e.id)
+            notify('Added to today’s plan')
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex flex-col justify-end"
+          onClick={() => setActiveId(e.id)}
+        >
+          <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-3 tracking-tight">
+            {e.name}
+          </span>
+          {stretch ? (
+            <span className="text-[10px] font-medium text-[#9898a0] mt-1 line-clamp-2">
+              {stretch.targets[0]}
+              {stretch.targets.length > 1 ? ` +${stretch.targets.length - 1}` : ''} · {stretch.hold}
+            </span>
+          ) : null}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="apex-tab-stack pb-28">
@@ -263,7 +339,9 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
         <p className="apex-page-sub">Library</p>
         <h1 className="apex-page-title mt-1">Exercises</h1>
         <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed max-w-[20rem]">
-          Search, filter by muscle, tap for form cues — add anything to today&apos;s plan.
+          {filter === 'Stretches'
+            ? `${STRETCH_DEFINITIONS.length} stretches with hold times, target muscles, and step-by-step instructions.`
+            : 'Search, filter by muscle, tap for form cues — add anything to today’s plan.'}
         </p>
         <button
           type="button"
@@ -326,108 +404,46 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
             </span>
           </div>
           <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-            {favoritesFiltered.map((e) => (
-              <div
-                key={e.id}
-                className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
-              >
-                <button
-                  type="button"
-                  className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/10 text-white/70 transition-all hover:bg-white/10 active:scale-95"
-                  aria-label={`Remove ${e.name} from favorites`}
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    toggleFavoriteExercise(e.id)
-                  }}
-                >
-                  <span className="text-[15px] leading-none" aria-hidden>
-                    ★
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
-                  aria-label={`Add ${e.name} to plan`}
-                  onClick={(ev) => {
-                    ev.stopPropagation()
-                    addPlanExercise(e.id)
-                    notify('Added to today’s plan')
-                  }}
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex items-end"
-                  onClick={() => setActiveId(e.id)}
-                >
-                  <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-4 tracking-tight">
-                    {e.name}
-                  </span>
-                </button>
-              </div>
-            ))}
+            {favoritesFiltered.map((e) => renderExerciseCard(e, true))}
           </div>
         </section>
       ) : null}
 
-      {order.map((mg) => {
-        const list = grouped.get(mg)
-        if (!list?.length) return null
-        return (
-          <section key={mg} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{mg}</h2>
-              <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
-                {list.length}
-              </span>
-            </div>
-            <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-              {list.map((e) => (
-                <div
-                  key={e.id}
-                  className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
-                >
-                  <button
-                    type="button"
-                    className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[#a0a0a8] transition-all hover:border-white/20 hover:text-white hover:bg-white/[0.06] active:scale-95"
-                    aria-label={`Add ${e.name} to favorites`}
-                    onClick={(ev) => {
-                      ev.stopPropagation()
-                      toggleFavoriteExercise(e.id)
-                    }}
-                  >
-                    <span className="text-[15px] leading-none" aria-hidden>
-                      ☆
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
-                    aria-label={`Add ${e.name} to plan`}
-                    onClick={(ev) => {
-                      ev.stopPropagation()
-                      addPlanExercise(e.id)
-                      notify('Added to today’s plan')
-                    }}
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex items-end"
-                    onClick={() => setActiveId(e.id)}
-                  >
-                    <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-4 tracking-tight">
-                      {e.name}
-                    </span>
-                  </button>
+      {filter === 'Stretches' && stretchSections
+        ? STRETCH_SECTION_ORDER.map((sec) => {
+            const list = stretchSections.get(sec)
+            if (!list?.length) return null
+            return (
+              <section key={sec} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{sec}</h2>
+                  <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
+                    {list.length}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </section>
-        )
-      })}
+                <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
+                  {list.map((e) => renderExerciseCard(e, false))}
+                </div>
+              </section>
+            )
+          })
+        : order.map((mg) => {
+            const list = grouped.get(mg)
+            if (!list?.length) return null
+            return (
+              <section key={mg} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{mg}</h2>
+                  <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
+                    {list.length}
+                  </span>
+                </div>
+                <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
+                  {list.map((e) => renderExerciseCard(e, false))}
+                </div>
+              </section>
+            )
+          })}
 
       {active && help ? (
         <div
@@ -443,7 +459,9 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
               <div>
                 <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight">{active.name}</h3>
                 <p className="text-[12px] font-semibold text-[#a0a0a8] uppercase tracking-wider mt-1">
-                  {active.muscleGroup}
+                  {activeStretch
+                    ? `${activeStretch.targets.join(' · ')} · ${activeStretch.hold}`
+                    : active.muscleGroup}
                 </p>
               </div>
               <button
@@ -467,30 +485,73 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
               className="apex-btn-primary mt-4 w-full min-h-12 rounded-[14px] text-[13px] font-semibold touch-manipulation"
               onClick={() => {
                 const ex = active
+                if (activeStretch) {
+                  addPlanExercise(ex.id)
+                  notify('Added to today’s plan')
+                  setActiveId(null)
+                  return
+                }
                 setActiveId(null)
                 setQuickLogExercise(ex)
               }}
             >
-              Log set
+              {activeStretch ? 'Add to today’s plan' : 'Log set'}
             </button>
             <div className="mt-5 space-y-4">
-              <div>
-                <p className="apex-section-label mb-2">Form tips</p>
-                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.formTips}</p>
-              </div>
-              <StrengthProgressChart
-                logs={state.setLogs}
-                exerciseId={active.id}
-                unit={state.settings.unit}
-              />
-              <div>
-                <p className="apex-section-label mb-2">Common mistakes</p>
-                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.commonMistakes}</p>
-              </div>
-              <div>
-                <p className="apex-section-label mb-2">Beginner advice</p>
-                <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{help.beginnerAdvice}</p>
-              </div>
+              {activeStretch ? (
+                <>
+                  <div>
+                    <p className="apex-section-label mb-2">Hold</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {activeStretch.hold}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="apex-section-label mb-2">Target muscles</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {activeStretch.targets.join(', ')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="apex-section-label mb-2">Instructions</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {activeStretch.instructions}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="apex-section-label mb-2">Avoid</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {help.commonMistakes}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="apex-section-label mb-2">Form tips</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {help.formTips}
+                    </p>
+                  </div>
+                  <StrengthProgressChart
+                    logs={state.setLogs}
+                    exerciseId={active.id}
+                    unit={state.settings.unit}
+                  />
+                  <div>
+                    <p className="apex-section-label mb-2">Common mistakes</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {help.commonMistakes}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="apex-section-label mb-2">Beginner advice</p>
+                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                      {help.beginnerAdvice}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
             <button
               type="button"

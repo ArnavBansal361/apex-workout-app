@@ -3,6 +3,14 @@ import html2canvas from 'html2canvas'
 import { formatDuration } from '../lib/timers'
 import type { SessionBadge } from '../lib/streakShield'
 
+export type SessionStretchSuggestion = {
+  id: string
+  name: string
+  hold: string
+  targets: string
+  instructions: string
+}
+
 export type SessionSummaryData = {
   dateLabel: string
   durationSec: number
@@ -12,6 +20,7 @@ export type SessionSummaryData = {
   headline: string
   badges: SessionBadge[]
   comebackMessage: string | null
+  stretchSuggestions?: SessionStretchSuggestion[]
 }
 
 type Props = {
@@ -108,6 +117,22 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
               <ul className="text-[13px] font-normal text-[#bbb] space-y-1 max-h-32 overflow-y-auto">
                 {data.exerciseNames.map((n) => (
                   <li key={n}>· {n}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {data.stretchSuggestions && data.stretchSuggestions.length > 0 ? (
+            <div className="mt-5 rounded-[12px] border border-[#1e1e1e] bg-[#121212] p-3">
+              <p className="apex-section-label mb-2">Cooldown stretches</p>
+              <ul className="space-y-2.5 max-h-48 overflow-y-auto">
+                {data.stretchSuggestions.map((s) => (
+                  <li key={s.id} className="text-[12px] leading-relaxed">
+                    <p className="font-semibold text-[#e8e8ea]">{s.name}</p>
+                    <p className="text-[#9898a0] mt-0.5">
+                      {s.targets} · {s.hold}
+                    </p>
+                    <p className="text-[#a8a8b0] mt-1">{s.instructions}</p>
+                  </li>
                 ))}
               </ul>
             </div>

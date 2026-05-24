@@ -161,8 +161,16 @@ type AiCoachPanelProps = {
 }
 
 export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanelProps) {
-  const { state, pushChat, clearChat, notify, todayKey, applyCoachPlanToToday, resolveExerciseById } =
-    useWorkout()
+  const {
+    state,
+    userId,
+    pushChat,
+    clearChat,
+    notify,
+    todayKey,
+    applyCoachPlanToToday,
+    resolveExerciseById,
+  } = useWorkout()
   const [chatInput, setChatInput] = useState('')
   const [pendingImage, setPendingImage] = useState<CoachChatImage | null>(null)
   const [busy, setBusy] = useState(false)
@@ -209,6 +217,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           const reply = await claudeCoachComplete(state, planHistory, {
             mode: 'workout_plan',
             planAnswers: flow.answers,
+            userId,
           })
           pushChat('model', reply, { workoutPlan: true })
         } catch (e) {
@@ -234,7 +243,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
     if (pushUser) pushChat('user', msg, image ? { image } : undefined)
     setBusy(true)
     try {
-      const reply = await claudeCoachComplete(state, historyForApi)
+      const reply = await claudeCoachComplete(state, historyForApi, { userId })
       pushChat('model', reply)
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Coach error')

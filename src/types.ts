@@ -214,6 +214,26 @@ export type CoachChatImage = {
   data: string
 }
 
+/** Local copy of a readiness check (also stored in Supabase when signed in). */
+export type ReadinessLogEntry = {
+  dateKey: string
+  recovery: number
+  stress: number
+  sleepQuality: number
+  combinedScore: number
+  recommendation: 'full' | 'moderate' | 'recovery'
+  at: number
+}
+
+/** Local copy of a post-workout mood check-in. */
+export type WorkoutMoodLogEntry = {
+  dateKey: string
+  moodBefore: number
+  moodAfter: number
+  moodLift: number
+  at: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'model'
@@ -245,6 +265,8 @@ export interface AppPersisted {
   bodyweightLogs: BodyweightEntry[]
   waterLogs: WaterLogEntry[]
   sleepLogs: SleepLogEntry[]
+  readinessLogs: ReadinessLogEntry[]
+  workoutMoodLogs: WorkoutMoodLogEntry[]
   mealLogs: MealLogEntry[]
   cardioEntries: CardioEntry[]
   gymSession: GymSessionPersist

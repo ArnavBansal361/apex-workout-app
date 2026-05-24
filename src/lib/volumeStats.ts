@@ -121,14 +121,23 @@ export function detectInjuryRiskWarnings(state: AppPersisted, nowMs: number): In
     (pullVol < INJURY_MIN_PUSH_PULL_VOL || pushVol > pullVol * INJURY_PUSH_PULL_RATIO)
 
   if (pushHeavy) {
+    const ratioLabel =
+      pullVol >= INJURY_MIN_PUSH_PULL_VOL
+        ? `${Math.round((pushVol / pullVol - 1) * 100)}% more push than pull volume`
+        : 'much more push than pull volume'
     warnings.push({
       kind: 'push-pull-imbalance',
-      message: pushPullImbalanceSuggestion(thisWeek, pushVol),
+      message: `Chest and shoulder volume is ${ratioLabel} this week. ${pushPullImbalanceSuggestion(thisWeek, pushVol)}`,
     })
   }
 
+  const spikes = warnings.filter((w) => w.kind === 'volume-spike')
+  const other = warnings.filter((w) => w.kind !== 'volume-spike')
+  spikes.sort((a, b) => (b.pctSpike ?? 0) - (a.pctSpike ?? 0))
+  const topSpikes = spikes.slice(0, 2)
+
   const seen = new Set<string>()
-  return warnings.filter((w) => {
+  return [...topSpikes, ...other].filter((w) => {
     if (seen.has(w.message)) return false
     seen.add(w.message)
     return true

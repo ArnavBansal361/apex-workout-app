@@ -1,8 +1,7 @@
-import { EXERCISE_BY_ID } from '../data/exercises'
 import type { AppPersisted, ChatMessage, ExerciseHelp } from '../types'
-import { dateKey, formatCoachTodayLine, parseDateKey, weekStartMonday } from './dates'
-import { streakCurrent } from './achievements'
-import { trainingModeCoachInstruction, trainingModeDef } from './trainingMode'
+import { resolveCoachContextBlock } from './coachContext'
+import { formatCoachTodayLine, parseDateKey } from './dates'
+import { trainingModeCoachInstruction } from './trainingMode'
 import { weeklyVolumeSeries } from './stats'
 import type { PrimaryCalendarEvent } from './googleCalendar'
 import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
@@ -19,14 +18,6 @@ function getAnthropicApiKey(): string {
       'Missing Anthropic API key. Add VITE_ANTHROPIC_API_KEY (or VITE_CLAUDE_API_KEY) to `.env` in the project root (same folder as vite.config.ts), then restart `npm run dev`.',
     )
   return k
-}
-
-/** Keep coach system block under a safe size so requests don’t fail on huge weekly logs. */
-const COACH_CONTEXT_CHAR_CAP = 14_000
-
-function truncateCoachContextBlock(ctx: string): string {
-  if (ctx.length <= COACH_CONTEXT_CHAR_CAP) return ctx
-  return `${ctx.slice(0, COACH_CONTEXT_CHAR_CAP)}\n\n(truncated — oldest lines omitted to stay within API limits.)`
 }
 
 type AnthropicContentBlock = { type: string; text?: string }
@@ -123,76 +114,8 @@ export function chatHistoryToAnthropicMessages(messages: ChatMessage[]): Anthrop
   return out
 }
 
-function inThisWeek(at: number, weekStart: Date): boolean {
-  const we = new Date(weekStart)
-  we.setDate(weekStart.getDate() + 7)
-  const t = new Date(at)
-  return t >= weekStart && t < we
-}
-
-function resolveExerciseName(state: AppPersisted, id: string): string {
-  const custom = state.customExercises?.find((e) => e.id === id)
-  if (custom) return custom.name
-  return EXERCISE_BY_ID[id]?.name ?? id
-}
-
 function coachTodaySystemPrefix(nowMs: number): string {
   return formatCoachTodayLine(new Date(nowMs))
-}
-
-/** Coach context: goals, this week’s strength/timed & cardio logs, schedule, streak. */
-export function buildApexCoachContext(state: AppPersisted, nowMs: number = Date.now()): string {
-  const now = new Date(nowMs)
-  const todayKey = dateKey(now)
-  const goals = state.settings.fitnessGoals?.trim() || '(not set)'
-  const name = state.settings.displayName?.trim() || 'Athlete'
-  const ws = weekStartMonday(now)
-  const weekSets = [...state.setLogs]
-    .filter((l) => inThisWeek(l.at, ws))
-    .sort((a, b) => a.at - b.at)
-  const setLines = weekSets.map((l) => {
-    if (l.kind === 'weighted') {
-      const load = l.bodyweight ? 'bodyweight' : `${l.weight ?? 0} ${state.settings.unit}`
-      return `${dateKey(new Date(l.at))} | ${l.muscleGroup} | ${l.exerciseName} | ${load} | reps:${l.reps} sets:${l.sets}${l.isPr ? ' PR' : ''}`
-    }
-    return `${dateKey(new Date(l.at))} | ${l.muscleGroup} | ${l.exerciseName} | timed:${l.durationSec}s${l.isPr ? ' PR' : ''}`
-  })
-  const cardioWeek = [...state.cardioEntries]
-    .filter((c) => inThisWeek(c.at, ws))
-    .sort((a, b) => a.at - b.at)
-  const cardioLines = cardioWeek.map(
-    (c) =>
-      `${dateKey(new Date(c.at))} | ${c.name} | ${c.durationMinutes != null ? `${c.durationMinutes} min` : 'no duration'}`,
-  )
-  const sched = state.schedule
-    .map((d) => {
-      const planned = d.plannedExerciseIds
-        .map((id) => resolveExerciseName(state, id))
-        .filter(Boolean)
-        .join(', ')
-      const planPart = planned ? ` | planned: ${planned}` : ''
-      return `${d.dateKey}: ${d.workoutName.trim() || 'Rest'}${planPart}${d.notes?.trim() ? ` — ${d.notes.trim()}` : ''}`
-    })
-    .join('\n')
-  const streak = streakCurrent(state, nowMs)
-  const trainingMode = state.gymSession.trainingMode
-  const modeLine = trainingMode
-    ? `Today's training mode: ${trainingModeDef(trainingMode).label} — ${trainingModeDef(trainingMode).framing}`
-    : null
-  return [
-    formatCoachTodayLine(now),
-    `Calendar date key: ${todayKey}`,
-    `Athlete name: ${name}`,
-    `Fitness goals: ${goals}`,
-    `Current training streak: ${streak} day(s)`,
-    ...(modeLine ? [modeLine] : []),
-    `Full weekly schedule (all days in current week plan):`,
-    sched || '(empty)',
-    `Strength / timed sets logged this week (Mon–Sun, ${dateKey(ws)} week start):`,
-    setLines.length ? setLines.join('\n') : '(none yet)',
-    `Cardio logged this week:`,
-    cardioLines.length ? cardioLines.join('\n') : '(none)',
-  ].join('\n')
 }
 
 const COACH_SYSTEM = `- Respond in plain conversational text only. Never use markdown, bullet points, numbered lists, headers, tables, dividers, or emoji.
@@ -200,7 +123,7 @@ const COACH_SYSTEM = `- Respond in plain conversational text only. Never use mar
 - Sound like a knowledgeable friend, not a formal coach or essay writer.
 - Always end with exactly one specific actionable suggestion the athlete can do next (training, recovery, or scheduling).
 
-You are the Apex AI Coach in the Apex workout app. Use the athlete context below (today's date, full weekly schedule, goals, this week's logged work, streak). If data is sparse, say so briefly and still help.`
+You are the Apex AI Coach in the Apex workout app. The athlete context block is refreshed on every message. It includes today's date, training mode, goals, streak, full workout history for the past 4 weeks, all personal records, current-week volume by muscle group, readiness scores (7 days), mood check-ins, sleep and water averages, and the weekly schedule. Reference specific numbers and trends from that data — never give generic advice when the context has detail. If a section is empty, say so briefly and still help.`
 
 const COACH_VISION_HINT = `- The athlete attached a photo in their latest message. Analyze the image (form, equipment setup, meals, body composition cues, etc.) and connect your answer to their goals and logged training.`
 
@@ -348,6 +271,8 @@ export type CoachCompleteOptions = {
   mode?: 'default' | 'workout_plan'
   planAnswers?: Record<PlanPersonalizationKey, string>
   maxTokens?: number
+  /** When set, merges Supabase readiness/mood with local logs for coach context. */
+  userId?: string
 }
 
 export async function claudeCoachComplete(
@@ -368,7 +293,10 @@ export async function claudeCoachComplete(
   const isPlan = options.mode === 'workout_plan' && isCompletePlanAnswers(planAnswers)
   const nowMs = Date.now()
   const todayLine = coachTodaySystemPrefix(nowMs)
-  const coachContext = truncateCoachContextBlock(buildApexCoachContext(state, nowMs))
+  const coachContext = await resolveCoachContextBlock(state, {
+    userId: options.userId,
+    nowMs,
+  })
   const planBlock = formatPlanAnswersForSystem(planAnswers)
   const modeInstruction = trainingModeCoachInstruction(state.gymSession.trainingMode)
   const visionBlock = lastHasImage && !isPlan ? `\n${COACH_VISION_HINT}` : ''
@@ -587,7 +515,7 @@ export async function claudeOneSentenceWorkoutSummary(
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 256,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${buildApexCoachContext(state, Date.now())}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
       messages: [{ role: 'user', content: user }],
     }),
   })
@@ -635,7 +563,7 @@ ${rawText.slice(0, 12000)}`
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 8192,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${buildApexCoachContext(state, Date.now())}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
       messages: [{ role: 'user', content: user }],
     }),
   })

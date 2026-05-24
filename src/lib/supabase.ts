@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 import { filterClientStateForTrainer, type TrainerSharePrefs } from './trainer'
-import type { AppPersisted } from '../types'
+import type { AppPersisted, ReadinessLogEntry, WorkoutMoodLogEntry } from '../types'
 import { streakCurrent, workoutDaysFromLogs } from './achievements'
 import { alignScheduleWeek, migrateCustomExercises } from './persist'
 import { weightToLbs } from './volumeStats'
-import { weekStartMonday } from './dates'
+import { dateKey, weekStartMonday } from './dates'
 import type { ReadinessResponses, ReadinessResult } from './readiness'
 import type { TrainingMode } from './trainingMode'
 import type { WorkoutMoodResponses } from './workoutMood'
@@ -692,6 +692,60 @@ export async function completeWorkoutSession(
  *   for select using (auth.uid() = user_id);
  */
 const WORKOUT_MOOD_CHECKINS_TABLE = 'workout_mood_checkins'
+
+function coachHistorySinceKey(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - (days - 1))
+  return dateKey(d)
+}
+
+export async function fetchReadinessChecksForCoach(
+  userId: string,
+  days = 7,
+): Promise<ReadinessLogEntry[]> {
+  const sinceKey = coachHistorySinceKey(days)
+  const { data, error } = await supabase
+    .from(READINESS_CHECKS_TABLE)
+    .select(
+      'date_key, recovery, stress, sleep_quality, combined_score, recommendation, created_at',
+    )
+    .eq('user_id', userId)
+    .gte('date_key', sinceKey)
+    .order('date_key', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({
+    dateKey: String(row.date_key),
+    recovery: Number(row.recovery),
+    stress: Number(row.stress),
+    sleepQuality: Number(row.sleep_quality),
+    combinedScore: Number(row.combined_score),
+    recommendation: row.recommendation as ReadinessLogEntry['recommendation'],
+    at: row.created_at ? Date.parse(String(row.created_at)) : Date.now(),
+  }))
+}
+
+export async function fetchWorkoutMoodCheckinsForCoach(
+  userId: string,
+  days = 28,
+): Promise<WorkoutMoodLogEntry[]> {
+  const sinceKey = coachHistorySinceKey(days)
+  const { data, error } = await supabase
+    .from(WORKOUT_MOOD_CHECKINS_TABLE)
+    .select('date_key, mood_before, mood_after, mood_lift, created_at')
+    .eq('user_id', userId)
+    .gte('date_key', sinceKey)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({
+    dateKey: String(row.date_key),
+    moodBefore: Number(row.mood_before),
+    moodAfter: Number(row.mood_after),
+    moodLift: Number(row.mood_lift),
+    at: row.created_at ? Date.parse(String(row.created_at)) : Date.now(),
+  }))
+}
 
 export type MoodLiftStats = {
   averageLift: number

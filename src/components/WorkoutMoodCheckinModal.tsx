@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { insertWorkoutMoodCheckin } from '../lib/supabase'
 import type { WorkoutMoodResponses } from '../lib/workoutMood'
+import { workoutMoodLift } from '../lib/workoutMood'
+import { useWorkout } from '../context/WorkoutContext'
 
 type Props = {
   open: boolean
@@ -63,6 +65,7 @@ function ScaleRow({
 }
 
 export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onComplete }: Props) {
+  const { logWorkoutMoodCheckin } = useWorkout()
   const [responses, setResponses] = useState<Partial<WorkoutMoodResponses>>({})
   const [saving, setSaving] = useState(false)
 
@@ -92,6 +95,12 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
     } catch {
       /* proceed even if cloud save fails */
     }
+    logWorkoutMoodCheckin({
+      dateKey: todayKey,
+      moodBefore: payload.moodBefore,
+      moodAfter: payload.moodAfter,
+      moodLift: workoutMoodLift(payload),
+    })
     setSaving(false)
     onComplete()
   }

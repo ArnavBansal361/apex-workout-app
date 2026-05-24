@@ -1,4 +1,6 @@
 import type { Exercise, ExerciseHelp, MuscleGroup } from '../types'
+import { MORE_EXERCISES } from './exercisesMore'
+import { getStretchExerciseHelp, STRETCH_EXERCISE_ENTRIES } from './stretches'
 
 function slug(name: string): string {
   return name
@@ -157,48 +159,23 @@ const RAW: [string, MuscleGroup][] = [
   ['Cycling', 'Cardio'],
   ['Stair Climber', 'Cardio'],
   ['Swimming', 'Cardio'],
-  ['Hip Flexor Stretch', 'Stretches'],
-  ['Hamstring Stretch', 'Stretches'],
-  ['Quad Stretch', 'Stretches'],
-  ['Pigeon Pose', 'Stretches'],
-  ['Chest Opener', 'Stretches'],
-  ['Shoulder Cross Stretch', 'Stretches'],
-  ['Tricep Stretch', 'Stretches'],
-  ['Seated Spinal Twist', 'Stretches'],
-  ['Cat-Cow', 'Stretches'],
-  ["Child's Pose", 'Stretches'],
-  ['Downward Dog', 'Stretches'],
-  ['Figure Four Stretch', 'Stretches'],
-  ['Calf Stretch', 'Stretches'],
-  ['Neck Rolls', 'Stretches'],
-  ['Wrist Flexor Stretch', 'Stretches'],
-  ['Doorway Chest Stretch', 'Stretches'],
-  ['Overhead Tricep Stretch', 'Stretches'],
-  ['Cross Body Shoulder Stretch', 'Stretches'],
-  ['Sleeper Stretch', 'Stretches'],
-  ['Lat Stretch with Pole', 'Stretches'],
-  ['Thoracic Extension over Foam Roller', 'Stretches'],
-  ['Lumbar Rotation Stretch', 'Stretches'],
-  ['Standing Hip Circle', 'Stretches'],
-  ['90/90 Hip Stretch', 'Stretches'],
-  ['Couch Stretch', 'Stretches'],
-  ['Frog Stretch', 'Stretches'],
-  ['Butterfly Stretch', 'Stretches'],
-  ['Standing Figure Four', 'Stretches'],
-  ['Ankle Circles', 'Stretches'],
-  ['Toe Touch', 'Stretches'],
-  ['Good Morning Stretch', 'Stretches'],
-  ['Lunge with Rotation', 'Stretches'],
-  ["World's Greatest Stretch", 'Stretches'],
-  ['Inchworm', 'Stretches'],
-  ['Jefferson Curl', 'Stretches'],
+  ...STRETCH_EXERCISE_ENTRIES,
+  ...MORE_EXERCISES,
 ]
 
-export const EXERCISES: Exercise[] = RAW.map(([name, muscleGroup]) => ({
-  id: slug(name),
-  name,
-  muscleGroup,
-}))
+function buildExerciseCatalog(entries: [string, MuscleGroup][]): Exercise[] {
+  const seen = new Set<string>()
+  const out: Exercise[] = []
+  for (const [name, muscleGroup] of entries) {
+    const id = slug(name)
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push({ id, name, muscleGroup })
+  }
+  return out
+}
+
+export const EXERCISES: Exercise[] = buildExerciseCatalog(RAW)
 
 export const EXERCISE_BY_ID: Record<string, Exercise> = Object.fromEntries(
   EXERCISES.map((e) => [e.id, e]),
@@ -1434,159 +1411,6 @@ const EXTENDED_EXERCISE_HELP: Record<string, ExerciseHelp> = {
   },
 }
 
-const STRETCH_HELP: Record<string, ExerciseHelp> = {
-  'hip-flexor-stretch': {
-    formTips:
-      'Half-kneel with one foot forward, tailbone tucked slightly — press hips forward until you feel a mild pull in the front of the rear hip. Keep torso tall and ribs stacked over pelvis. 30–45s each side.',
-    commonMistakes:
-      'Arching the low back to fake depth, leaning the whole torso forward, or collapsing into the front knee instead of lengthening the hip flexor.',
-    beginnerAdvice:
-      'Pad the back knee, stay taller rather than deeper, and use a wall for balance until it feels easy.',
-    diagramDescription:
-      'Side view: vertical thigh line (rear leg) with hip shifting forward gently — front shin vertical, spine long — like a shallow lunge held for mobility.',
-  },
-  'hamstring-stretch': {
-    formTips:
-      'Hinge at the hips with a soft knee (not locked) until you feel tension high in the back thigh. Keep spine neutral; think “chest toward thighs” not “nose to knees.”',
-    commonMistakes:
-      'Rounding hard to reach the floor, locking and hyperextending the knee, or bouncing at the bottom.',
-    beginnerAdvice:
-      'Try seated or lying hamstring slides first; elevation (foot on step) reduces strain if standing is hard.',
-    diagramDescription:
-      'Side view: flat back, hip joint folding while thighs stay mostly vertical — a straight line from head to tail as you lean.',
-  },
-  'quad-stretch': {
-    formTips:
-      'Standing or side-lying: catch the top of the foot, knee points straight down, thigh vertical. Gently pull heel toward glute until quad opens — keep knees together in line.',
-    commonMistakes:
-      'Arching the low back, letting the knee flare out wide, or twisting the standing leg open.',
-    beginnerAdvice:
-      'Hold a wall or chair; if balance is shaky, do the same stretch lying on your side.',
-    diagramDescription:
-      'Side or back view: thigh vertical, shin folded, hip slightly extended — like a relaxed sprint quad grab without leaning the whole body back.',
-  },
-  'pigeon-pose': {
-    formTips:
-      'Front shin as comfortably square as your hip allows; back leg long behind you. Level the hips (use a block under the front hip if tilted) and breathe into the outer hip.',
-    commonMistakes:
-      'Dumping all weight into the low back, forcing the shin to 90° when the knee protests, or collapsing onto one hip.',
-    beginnerAdvice:
-      'Start with figure-four lying on your back, or upright pigeon with a chair — build hip rotation before floor depth.',
-    diagramDescription:
-      'Bird’s-eye: one bent leg in front creating a triangle, torso squared forward — classic hip opener shape.',
-  },
-  'chest-opener': {
-    formTips:
-      'Clasp hands behind you or use a doorway: elbows bent ~90°, forearm on frame, step through until chest lifts and front shoulders open. Gently squeeze shoulder blades together.',
-    commonMistakes:
-      'Flaring ribs forward, shrugging shoulders to ears, or cranking the neck up instead of opening the thoracic spine.',
-    beginnerAdvice:
-      'Lower the elbow height if you feel pinch; shorter holds (20s) several times beat one aggressive pull.',
-    diagramDescription:
-      'Front view: arms on doorframe like a goalpost, sternum slightly forward — space opening across collarbones.',
-  },
-  'shoulder-cross-stretch': {
-    formTips:
-      'Bring one arm straight across the chest; use the other forearm to gently hug it closer. Keep the moving shoulder down — stretch the rear delt and upper back, not the neck.',
-    commonMistakes:
-      'Shrugging into the ear, twisting the torso away, or cranking the arm above shoulder height.',
-    beginnerAdvice:
-      'Soften intensity until breathing stays smooth; swap sides for equal time.',
-    diagramDescription:
-      'Front view: horizontal arm pinned gently across the ribs — simple horizontal adduction stretch.',
-  },
-  'tricep-stretch': {
-    formTips:
-      'Reach one arm up, bend the elbow so hand drops toward the upper back; use the other hand to lightly guide elbow without flaring ribs. Feel the back of the arm.',
-    commonMistakes:
-      'Forcing the head forward, overarching the low back, or letting the elbow drift wide away from the ear.',
-    beginnerAdvice:
-      'If overhead is stiff, use a towel between hands to bridge the gap (“umbrella” stretch).',
-    diagramDescription:
-      'Side view: upper arm near the ear, elbow bent — hand tracing down the spine like scratching between shoulder blades.',
-  },
-  'seated-spinal-twist': {
-    formTips:
-      'Sit tall, lengthen the spine, rotate from the ribs up using the chair back or opposite hand on knee as light leverage. Hips stay grounded and even.',
-    commonMistakes:
-      'Leaning back to cheat rotation, lifting one sit bone, or turning the neck way farther than the torso.',
-    beginnerAdvice:
-      'Start with feet wider or one leg folded — less range with a tall spine beats a sloppy deep twist.',
-    diagramDescription:
-      'Front view: shoulders square-ish to the side wall while hips face forward — spiral from waist up.',
-  },
-  'cat-cow': {
-    formTips:
-      'Hands under shoulders, knees under hips. Exhale round the spine toward the ceiling (cat); inhale drop the belly, widen collarbones (cow). Move segment by segment.',
-    commonMistakes:
-      'Only nodding the head, dumping all motion into the low back, or rushing faster than your breath.',
-    beginnerAdvice:
-      'Small ranges teach control; imagine a marble rolling along your spine from tail to head.',
-    diagramDescription:
-      'Side view on all fours: alternating gentle dome and dip of the spine — yoga warm-up wave.',
-  },
-  'childs-pose': {
-    formTips:
-      'Knees wide or together, sit back toward heels, arms long forward or along the sides. Forehead can rest on the floor; ribs soft, breath into the back body.',
-    commonMistakes:
-      'Forcing knees painfully wide, holding breath, or feeling numb tingling in hands (widen arms or prop chest).',
-    beginnerAdvice:
-      'Put a pillow under hips or chest if knees/ankles complain; it’s a rest pose, not a competition.',
-    diagramDescription:
-      'Side view: hips low toward heels, arms reaching quietly forward — rounded restorative shell shape.',
-  },
-  'downward-dog': {
-    formTips:
-      'Hands shoulder-width, feet hip-width, hips high — aim for an inverted V. Press the floor away, soften knees if needed to keep spine long; heels may lift.',
-    commonMistakes:
-      'Dumping into rounded upper back, locking elbows outward, or chasing heels down by collapsing the chest.',
-    beginnerAdvice:
-      'Pedal the feet, micro-bend knees, and think “long spine” before “straight legs.”',
-    diagramDescription:
-      'Side view: sloped line from hands through hips to feet — classic inverted V warmup.',
-  },
-  'figure-four-stretch': {
-    formTips:
-      'Lie on your back or sit tall: cross ankle onto opposite knee, gently pull thigh toward you (or thread hands behind support leg) until the outer hip opens.',
-    commonMistakes:
-      'Letting the support hip lift off the floor, cranking the knee sideways, or holding breath.',
-    beginnerAdvice:
-      'Wall-supported version: foot on wall + figure-four reduces load; keep the crossed ankle flexed to protect the knee.',
-    diagramDescription:
-      'Supine view: one ankle on opposite knee, legs making a “4” — hip external rotation stretch.',
-  },
-  'calf-stretch': {
-    formTips:
-      'Hands on wall, stagger feet — back leg straight, heel glued down, front knee bent. Shift hips forward until calf loads gently; switch the bent leg to hit soleus later.',
-    commonMistakes:
-      'Heel lifting or turning toes out excessively, collapsing through the arch, or bouncing.',
-    beginnerAdvice:
-      'Use a wedge or rolled towel under the ball of the foot for a milder line; post-walk is ideal.',
-    diagramDescription:
-      'Side view: rear leg straight like a slash behind you, heel down — classic wall calf lean.',
-  },
-  'neck-rolls': {
-    formTips:
-      'Slow half-circles or small “U” motions: ear toward shoulder with chin slightly tucked — avoid full backward rolls that compress the neck.',
-    commonMistakes:
-      'Speed, big circles that grind, or pairing rolls with hard resistance from the hands.',
-    beginnerAdvice:
-      'Try 5 slow tilts each direction with steady breathing; stop if you get dizzy.',
-    diagramDescription:
-      'Front view: gentle lateral neck tilt side to side — smooth, small arcs, not aggressive circling.',
-  },
-  'wrist-flexor-stretch': {
-    formTips:
-      'Arm extended, palm up; use the other hand to extend the wrist (fingers point toward floor) until forearm flexors open — shoulder stays relaxed.',
-    commonMistakes:
-      'Shrugging shoulder, collapsing through the elbow twist, or cranking to sharp nerve tingling.',
-    beginnerAdvice:
-      'Desk version: palms together in “prayer” lower toward waist until mild stretch — keep it frequent on keyboard days.',
-    diagramDescription:
-      'Side view: straight arm, hand bent back gently — simple forearm flexor opener.',
-  },
-}
-
 export function getExerciseHelp(ex: Exercise): ExerciseHelp {
   if (ex.formTips?.trim() && ex.commonMistakes?.trim() && ex.beginnerAdvice?.trim()) {
     return {
@@ -1598,7 +1422,7 @@ export function getExerciseHelp(ex: Exercise): ExerciseHelp {
   }
   const extended = EXTENDED_EXERCISE_HELP[ex.id]
   if (extended) return extended
-  const stretch = STRETCH_HELP[ex.id]
+  const stretch = getStretchExerciseHelp(ex.id)
   if (stretch) return stretch
   const h = MUSCLE_HINTS[ex.muscleGroup]
   return {

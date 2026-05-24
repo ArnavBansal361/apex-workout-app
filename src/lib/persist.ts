@@ -479,6 +479,8 @@ function migrateAppState(s: AppPersisted): AppPersisted {
     settings,
     waterLogs: migrateWaterLogs(s.waterLogs),
     sleepLogs: migrateSleepLogs(s.sleepLogs),
+    readinessLogs: Array.isArray(s.readinessLogs) ? s.readinessLogs : [],
+    workoutMoodLogs: Array.isArray(s.workoutMoodLogs) ? s.workoutMoodLogs : [],
     mealLogs: migrateMealLogs(s.mealLogs),
     setLogs: migrateSetLogs(s.setLogs),
     friends: s.friends ?? [],
@@ -546,6 +548,8 @@ export function defaultState(): AppPersisted {
     bodyweightLogs: [],
     waterLogs: [],
     sleepLogs: [],
+    readinessLogs: [],
+    workoutMoodLogs: [],
     mealLogs: [],
     cardioEntries: [],
     gymSession: {
@@ -631,6 +635,8 @@ export function loadState(): AppPersisted {
       cardioEntries: migrateCardioEntries(parsed.cardioEntries ?? []),
       waterLogs: migrateWaterLogs(parsed.waterLogs ?? []),
       sleepLogs: migrateSleepLogs(parsed.sleepLogs ?? []),
+      readinessLogs: Array.isArray(parsed.readinessLogs) ? parsed.readinessLogs : [],
+      workoutMoodLogs: Array.isArray(parsed.workoutMoodLogs) ? parsed.workoutMoodLogs : [],
       mealLogs: migrateMealLogs(parsed.mealLogs ?? []),
       lifetimeXp:
         typeof parsed.lifetimeXp === 'number' && Number.isFinite(parsed.lifetimeXp)
