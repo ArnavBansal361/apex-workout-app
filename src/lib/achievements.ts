@@ -1,5 +1,6 @@
 import type { AppPersisted, SetLog } from '../types'
-import { dateKey, parseDateKey, startOfDay, weekDatesFromStart, weekStartMonday } from './dates'
+import { dateKey, parseDateKey, weekDatesFromStart, weekStartMonday } from './dates'
+import { streakDaysWithShield } from './streakShield'
 
 function hasLogAtHour(logs: SetLog[], hourAfter: number, hourBefore: number): boolean {
   for (const l of logs) {
@@ -23,20 +24,6 @@ export function workoutDaysFromActivity(state: AppPersisted): Set<string> {
     d.add(dateKey(new Date(c.at)))
   }
   return d
-}
-
-function streakDays(workoutDays: Set<string>, nowMs: number = Date.now()): number {
-  let count = 0
-  const cur = startOfDay(new Date(nowMs))
-  if (!workoutDays.has(dateKey(cur))) {
-    cur.setDate(cur.getDate() - 1)
-    if (!workoutDays.has(dateKey(cur))) return 0
-  }
-  while (workoutDays.has(dateKey(cur))) {
-    count++
-    cur.setDate(cur.getDate() - 1)
-  }
-  return count
 }
 
 function muscleGroupsOnDay(logs: SetLog[], dayKey: string): Set<string> {
@@ -189,7 +176,7 @@ export function evaluateAchievements(state: AppPersisted): string[] {
   const logs = state.setLogs
   const totalSets = logs.length
   const workoutDays = workoutDaysFromLogs(logs)
-  const streak = streakDays(workoutDays)
+  const streak = streakCurrent(state)
 
   if (logs.some((l) => l.isPr)) earned.add('first-pr')
   if (streak >= 7) earned.add('streak-7')
@@ -289,7 +276,11 @@ export function muscleGroupsThisWeek(state: AppPersisted): string[] {
 }
 
 export function streakCurrent(state: AppPersisted, nowMs: number = Date.now()): number {
-  return streakDays(workoutDaysFromActivity(state), nowMs)
+  return streakDaysWithShield(
+    workoutDaysFromActivity(state),
+    state.streakShieldUsedWeekStart ?? null,
+    nowMs,
+  )
 }
 
 function maxMuscleGroupsSingleDay(logs: SetLog[]): number {

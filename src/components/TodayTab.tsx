@@ -12,17 +12,23 @@ import { dateKey, formatLong, getNow } from '../lib/dates'
 import { formatDuration } from '../lib/timers'
 import { progressiveOverloadBanner } from '../lib/overload'
 import { shouldSuggestDeload } from '../lib/deload'
-import { formatLastSessionLine, getLastWeightedSetForExercise } from '../lib/lastSession'
+import { formatLastSessionLine, getLastWeightedSetForExercise, getLastWorkoutSession } from '../lib/lastSession'
 import { PLAN_PRESETS } from '../data/planPresets'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
 import { LogSetModal } from './LogSetModal'
 import { QuickLogModal } from './QuickLogModal'
+import { ReadinessCheckModal } from './ReadinessCheckModal'
+import { TrainingModeModal } from './TrainingModeModal'
+import { WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
+import { trainingModeDef, type TrainingMode } from '../lib/trainingMode'
 import { TodayWeekChartsSection, TodayWeekChartsSideBySide } from './TodayVolumeCharts'
 import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
+import { streakInfo } from '../lib/streakShield'
+import { buildSessionSummaryExtras } from '../lib/sessionSummary'
 import {
   formatSleepDuration,
   macroTotalsForDateKey,
@@ -379,6 +385,7 @@ export function TodayTab({
   const isDesktop = screenLayout === 'desktop'
   const {
     state,
+    userId,
     todayKey,
     notify,
     addSetLog,
@@ -389,8 +396,8 @@ export function TodayTab({
     clearTodayPlan,
     saveTemplate,
     deleteTemplate,
-    loadTemplate,
     applyPresetPlan,
+    loadTemplate,
     updateScheduleDay,
     linkSuperset,
     getSupersetPartner,
@@ -419,7 +426,8 @@ export function TodayTab({
   const { clock, gymElapsedMs, cardioElapsedMs } = useWorkoutTick()
 
   const fallbackQuote = useMemo(() => dailyQuoteForDateKey(todayKey), [todayKey])
-  const streakDays = useMemo(() => streakCurrent(state, clock), [state.setLogs, state.cardioEntries, clock])
+  const streakDays = useMemo(() => streakCurrent(state, clock), [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock])
+  const streakMeta = useMemo(() => streakInfo(state, clock), [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock])
   const [motivationText, setMotivationText] = useState<string | null>(null)
   const [motivationReady, setMotivationReady] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
@@ -582,6 +590,9 @@ export function TodayTab({
   const [confirmDeleteSetId, setConfirmDeleteSetId] = useState<string | null>(null)
   const [confirmClearAllPlan, setConfirmClearAllPlan] = useState(false)
   const [quickLogOpen, setQuickLogOpen] = useState(false)
+  const [readinessOpen, setReadinessOpen] = useState(false)
+  const [trainingModeOpen, setTrainingModeOpen] = useState(false)
+  const [moodCheckinOpen, setMoodCheckinOpen] = useState(false)
   const [gymCardOpen, setGymCardOpen] = useState(false)
   const [gymBarcodeRenderError, setGymBarcodeRenderError] = useState<string | null>(null)
   const gymBarcodeCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -626,13 +637,82 @@ export function TodayTab({
     [orderedSectionIds],
   )
 
-  function handlePrimaryAction() {
+  function proceedWorkoutStart(trainingMode?: TrainingMode | null) {
     onMoreOpenChange(true)
+    if (!state.gymSession.active) startGymSession('stopwatch', undefined, trainingMode ?? null)
+  }
+
+  function handleReadinessComplete() {
+    setReadinessOpen(false)
+    setTrainingModeOpen(true)
+  }
+
+  function handleTrainingModeComplete(mode: TrainingMode) {
+    proceedWorkoutStart(mode)
+  }
+
+  function handlePrimaryAction() {
     if (isCardioPlan) {
+      onMoreOpenChange(true)
       if (!state.cardioTimer.running) startCardioTimer()
-    } else if (!state.gymSession.active) {
-      startGymSession('stopwatch')
+    } else {
+      setReadinessOpen(true)
     }
+  }
+
+  function handleRepeatLastWorkout() {
+    if (!lastWorkoutSession || isCardioPlan) return
+    const hidden = new Set(state.hiddenExerciseIds)
+    const repeatable = lastWorkoutSession.logs.filter(
+      (l) => !hidden.has(l.exerciseId) && resolveExerciseById(l.exerciseId),
+    )
+    if (!repeatable.length) {
+      notify('No exercises from your last session are available')
+      return
+    }
+
+    applyPresetPlan(lastWorkoutSession.exerciseIds)
+
+    repeatable.forEach((l, i) => {
+      const ex = resolveExerciseById(l.exerciseId)!
+      const deferRestTimer = i < repeatable.length - 1
+      if (l.kind === 'weighted') {
+        addSetLog(
+          {
+            kind: 'weighted',
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            muscleGroup: ex.muscleGroup,
+            weight: l.bodyweight ? null : l.weight,
+            bodyweight: l.bodyweight,
+            reps: l.reps,
+            sets: l.sets,
+            note: l.note,
+          },
+          { deferRestTimer },
+        )
+      } else {
+        addSetLog(
+          {
+            kind: 'timed',
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            muscleGroup: ex.muscleGroup,
+            durationSec: l.durationSec,
+            note: l.note,
+          },
+          { deferRestTimer },
+        )
+      }
+    })
+
+    if (isRestDay) {
+      updateScheduleDay(todayKey, { workoutName: 'Workout' })
+    }
+    onMoreOpenChange(true)
+    onPlanOpenChange(true)
+    if (!state.gymSession.active) startGymSession('stopwatch')
+    notify('Last workout loaded into today')
   }
 
   const filteredAdd = useMemo(() => {
@@ -653,6 +733,11 @@ export function TodayTab({
       [...state.setLogs]
         .filter((l) => dateKey(new Date(l.at)) === todayKey)
         .sort((a, b) => b.at - a.at),
+    [state.setLogs, todayKey],
+  )
+
+  const lastWorkoutSession = useMemo(
+    () => getLastWorkoutSession(state.setLogs, todayKey),
     [state.setLogs, todayKey],
   )
 
@@ -795,6 +880,7 @@ export function TodayTab({
     const logsToday = state.setLogs.filter((l) => dateKey(new Date(l.at)) === todayKey)
     const names = [...new Set(logsToday.map((l) => l.exerciseName))]
     const prCount = logsToday.filter((l) => l.isPr).length
+    const extras = buildSessionSummaryExtras(state, todayKey, names.length, durationSec)
     await stopGymSession()
     setSessionSummary({
       dateLabel: formatLong(getNow()),
@@ -802,7 +888,16 @@ export function TodayTab({
       exerciseNames: names,
       totalSets: logsToday.length,
       prCount,
+      ...extras,
     })
+    if (extras.comebackMessage) {
+      notify(extras.comebackMessage, 4500)
+    }
+    setMoodCheckinOpen(true)
+  }
+
+  function finishMoodCheckin() {
+    setMoodCheckinOpen(false)
     setSummaryOpen(true)
   }
 
@@ -1347,9 +1442,9 @@ export function TodayTab({
                       <li
                         key={`${row.ids[0]}-${row.ids[1]}`}
                         className="rounded-[12px] p-3"
-                        style={{
-                          background: '#1a1a1a',
-                          border: '0.5px solid rgba(255,255,255,0.1)',
+          style={{
+                          background: 'var(--apex-surface-nested)',
+                          border: '0.5px solid var(--apex-border)',
                         }}
                       >
                         <div className="flex items-center gap-2 mb-2 min-w-0">
@@ -1504,7 +1599,11 @@ export function TodayTab({
                 </li>
               ))}
               {todaysLogs.length === 0 ? (
-                <p className="text-[14px] font-medium text-[#a0a0a8] py-2">No sets logged yet today.</p>
+                <li>
+                  <div className="apex-empty-state">
+                    <p className="text-[14px] font-medium text-[#a0a0a8]">No sets logged yet today.</p>
+                  </div>
+                </li>
               ) : null}
             </ul>
           </section>
@@ -1536,51 +1635,107 @@ export function TodayTab({
           <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
         </button>
         <p className="apex-page-sub pr-14">{formatLong(new Date(clock))}</p>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[0.8125rem] font-medium text-[#7d7d88]">Streak</span>
           <span className="text-[18px] font-black tabular-nums text-[#f4f4f5]">{streakDays}d</span>
+          <span
+            className={`apex-streak-shield inline-flex items-center gap-1 rounded-[8px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              streakMeta.shieldAvailable
+                ? 'border-white/20 bg-white/[0.06] text-[#ececee]'
+                : 'border-white/[0.08] bg-white/[0.02] text-[#7d7d88]'
+            }`}
+            title={
+              streakMeta.shieldAvailable
+                ? 'Streak shield: one missed day per week won’t break your streak'
+                : 'Streak shield used this week'
+            }
+          >
+            <i className={`ti ti-shield text-[12px] ${streakMeta.shieldAvailable ? '' : 'opacity-50'}`} aria-hidden />
+            {streakMeta.shieldAvailable ? 'Shield ready' : 'Shield used'}
+          </span>
         </div>
         <h1 className="apex-page-title mt-2 pr-2">{workoutTitle}</h1>
         {isRestDay && !isCardioPlan ? (
-          <div className="mt-5 flex gap-2">
+          <>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 min-h-[44px] rounded-[8px] text-[14px] font-normal touch-manipulation"
+                style={{
+                  background: 'transparent',
+                  border: '0.5px solid rgba(255,255,255,0.15)',
+                  color: 'rgba(255,255,255,0.5)',
+                }}
+                onClick={() => {
+                  addCardioEntry('Recovery', null)
+                  onMoreOpenChange(true)
+                }}
+              >
+                Log recovery
+              </button>
+              <button
+                type="button"
+                className="flex-1 min-h-[44px] rounded-[8px] apex-btn-primary text-[14px] font-medium touch-manipulation active:scale-[0.98]"
+                onClick={() => {
+                  updateScheduleDay(todayKey, { workoutName: 'Workout' })
+                  onMoreOpenChange(true)
+                  onPlanOpenChange(true)
+                  if (!state.gymSession.active) startGymSession('stopwatch')
+                }}
+              >
+                Workout day
+              </button>
+            </div>
+            {lastWorkoutSession ? (
+              <button
+                type="button"
+                className={`${btnNeutral} w-full mt-2`}
+                onClick={handleRepeatLastWorkout}
+              >
+                Repeat last workout
+              </button>
+            ) : null}
+          </>
+        ) : !isCardioPlan ? (
+          <>
             <button
               type="button"
-              className="flex-1 min-h-[44px] rounded-[8px] text-[14px] font-normal touch-manipulation"
-              style={{
-                background: 'transparent',
-                border: '0.5px solid rgba(255,255,255,0.15)',
-                color: 'rgba(255,255,255,0.5)',
-              }}
-              onClick={() => {
-                addCardioEntry('Recovery', null)
-                onMoreOpenChange(true)
-              }}
+              className="apex-btn-primary w-full min-h-12 mt-5 text-[14px] font-semibold rounded-[14px]"
+              onClick={handlePrimaryAction}
             >
-              Log recovery
+              Start workout
             </button>
-            <button
-              type="button"
-              className="flex-1 min-h-[44px] rounded-[8px] bg-white text-black text-[14px] font-medium touch-manipulation active:scale-[0.98]"
-              onClick={() => {
-                updateScheduleDay(todayKey, { workoutName: 'Workout' })
-                onMoreOpenChange(true)
-                onPlanOpenChange(true)
-                if (!state.gymSession.active) startGymSession('stopwatch')
-              }}
-            >
-              Workout day
-            </button>
-          </div>
+            {lastWorkoutSession ? (
+              <button
+                type="button"
+                className={`${btnNeutral} w-full mt-2`}
+                onClick={handleRepeatLastWorkout}
+              >
+                Repeat last workout
+              </button>
+            ) : null}
+          </>
         ) : (
           <button
             type="button"
             className="apex-btn-primary w-full min-h-12 mt-5 text-[14px] font-semibold rounded-[14px]"
             onClick={handlePrimaryAction}
           >
-            {isCardioPlan ? 'Log cardio' : 'Start workout'}
+            Log cardio
           </button>
         )}
       </header>
+
+      {state.gymSession.active && state.gymSession.trainingMode ? (
+        <div className="apex-card px-5 py-4">
+          <p className="apex-section-label">
+            {trainingModeDef(state.gymSession.trainingMode).label} mode
+          </p>
+          <p className="mt-2 text-[14px] font-medium text-[#ececee] leading-relaxed">
+            {trainingModeDef(state.gymSession.trainingMode).framing}
+          </p>
+        </div>
+      ) : null}
 
       {coachNote ? (
         <div className="apex-coach-note-card">
@@ -2036,12 +2191,42 @@ export function TodayTab({
         </div>
       ) : null}
 
+      {readinessOpen ? (
+        <ReadinessCheckModal
+          open={readinessOpen}
+          userId={userId}
+          todayKey={todayKey}
+          onClose={() => setReadinessOpen(false)}
+          onComplete={handleReadinessComplete}
+        />
+      ) : null}
+
+      {trainingModeOpen ? (
+        <TrainingModeModal
+          open={trainingModeOpen}
+          userId={userId}
+          todayKey={todayKey}
+          onClose={() => setTrainingModeOpen(false)}
+          onComplete={handleTrainingModeComplete}
+        />
+      ) : null}
+
+      {moodCheckinOpen ? (
+        <WorkoutMoodCheckinModal
+          open={moodCheckinOpen}
+          userId={userId}
+          todayKey={todayKey}
+          onClose={finishMoodCheckin}
+          onComplete={finishMoodCheckin}
+        />
+      ) : null}
+
       {quickLogOpen ? <QuickLogModal onClose={() => setQuickLogOpen(false)} /> : null}
 
       <button
         type="button"
         aria-label="Quick log a set"
-        className="apex-fab fixed z-[56] flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white text-black bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-5 transition-transform active:scale-90 touch-manipulation"
+        className="apex-fab fixed z-[56] flex h-14 w-14 items-center justify-center rounded-full bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-5 transition-transform active:scale-90 touch-manipulation"
         onClick={() => {
           setQuickLogOpen(true)
           setLogTarget(null)

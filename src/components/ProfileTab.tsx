@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { BodyMeasurementsSection } from './BodyMeasurementsSection'
 import { useWorkout } from '../context/WorkoutContext'
 import {
   muscleGroupsThisWeek,
@@ -28,6 +29,10 @@ import {
   dailyCoachSuggestions,
   resolvePlanPersonalizationFlow,
 } from '../lib/anthropicCoach'
+import { formatMoodLift } from '../lib/workoutMood'
+import { computeStrengthAge, formatStrengthAgeLiftLabel } from '../lib/strengthAge'
+import { computePerformanceInsights } from '../lib/performanceInsights'
+import type { MoodLiftStats } from '../lib/supabase'
 import { dateKey } from '../lib/dates'
 import {
   connectClientToTrainer,
@@ -36,6 +41,7 @@ import {
   fetchTrainerClientSummaries,
   fetchUserWorkoutStateForTrainer,
   fetchLeaderboard,
+  fetchAverageMoodLift,
   formatLeaderboardVolume,
   insertTrainerNote,
   supabase,
@@ -117,7 +123,7 @@ function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) 
               key={p.id}
               type="button"
               className={`shrink-0 text-[11px] font-medium transition-colors touch-manipulation ${
-                on ? 'bg-white text-black' : 'bg-transparent text-[#ececee]'
+                on ? 'apex-accent-pill-active' : 'bg-transparent text-[#ececee]'
               }`}
               style={{
                 height: 30,
@@ -491,15 +497,15 @@ function AiInsightsPanel() {
           key={w.muscle}
           className="rounded-[12px]"
           style={{
-            background: '#1a1a1a',
-            border: '0.5px solid rgba(255,255,255,0.15)',
+            background: 'var(--apex-surface-nested)',
+            border: '0.5px solid var(--apex-border)',
             padding: '14px 16px',
           }}
         >
           <div className="flex items-start gap-2">
             <i
               className="ti ti-alert-triangle shrink-0 mt-0.5 text-[16px] leading-none"
-              style={{ color: 'rgba(255,255,255,0.7)' }}
+              style={{ color: 'var(--apex-text-secondary)' }}
               aria-hidden
             />
             <div className="min-w-0 flex-1">
@@ -706,6 +712,8 @@ export function ProfileTab({
   const [busy, setBusy] = useState(false)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const [moodLift, setMoodLift] = useState<MoodLiftStats | null>(null)
+  const [moodLiftLoading, setMoodLiftLoading] = useState(false)
   const [appearanceTheme, setAppearanceTheme] = useState<ApexThemeMode>(readThemeMode)
   const [appearanceFontSize, setAppearanceFontSize] = useState<ApexFontSizeMode>(readFontSizeMode)
   const [bwInput, setBwInput] = useState('')
@@ -735,6 +743,20 @@ export function ProfileTab({
     const sorted = [...state.bodyweightLogs].sort((a, b) => b.at - a.at)
     return sorted[0] ?? null
   }, [state.bodyweightLogs])
+
+  const performanceInsights = useMemo(
+    () => computePerformanceInsights(state),
+  [state.setLogs, state.sleepLogs, state.mealLogs, state.settings.unit])
+
+  const strengthAge = useMemo(
+    () =>
+      computeStrengthAge(
+        state.setLogs,
+        lastBodyweight?.value ?? null,
+        state.settings.unit,
+      ),
+    [state.setLogs, lastBodyweight, state.settings.unit],
+  )
 
   const profileInitials = useMemo(() => {
     const n = state.settings.displayName.trim()
@@ -866,6 +888,29 @@ export function ProfileTab({
     }
   }, [sub, isDesktop, desktopSection, state.setLogs, state.lifetimeXp, userId])
 
+  useEffect(() => {
+    const showStats = isDesktop ? desktopSection === 'profile' : sub === 'stats'
+    if (!showStats) return
+    let cancelled = false
+    setMoodLiftLoading(true)
+    void fetchAverageMoodLift(userId)
+      .then((stats) => {
+        if (!cancelled) {
+          setMoodLift(stats)
+          setMoodLiftLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMoodLift(null)
+          setMoodLiftLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sub, isDesktop, desktopSection, userId])
+
   const levelInfo = useMemo(() => getLevelInfo(state.lifetimeXp ?? 0), [state.lifetimeXp])
 
   const prRows = useMemo(
@@ -989,6 +1034,67 @@ export function ProfileTab({
             <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Keep it going</p>
           </div>
         </div>
+
+        <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
+          <p className="text-[0.75rem] font-medium text-[#7d7d88]">Mood lift</p>
+          {moodLiftLoading ? (
+            <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">…</p>
+          ) : moodLift ? (
+            <>
+              <p className="apex-stat-num mt-2 tabular-nums">{formatMoodLift(moodLift.averageLift)}</p>
+              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">
+                Avg mood improvement per workout · {moodLift.checkinCount}{' '}
+                {moodLift.checkinCount === 1 ? 'check-in' : 'check-ins'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">—</p>
+              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">
+                Complete a workout check-in to track mood lift
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
+          <p className="text-[0.75rem] font-medium text-[#7d7d88]">Strength age</p>
+          {strengthAge.strengthAge != null ? (
+            <>
+              <p className="apex-stat-num mt-2 tabular-nums">{strengthAge.strengthAge}</p>
+              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1 leading-relaxed">
+                Avg age of athletes at your strength-to-bodyweight on{' '}
+                {strengthAge.liftsUsed.map(formatStrengthAgeLiftLabel).join(', ')}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">—</p>
+              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1 leading-relaxed">
+                {strengthAge.missingBodyweight
+                  ? 'Log bodyweight and PRs for bench, squat, deadlift, or overhead press'
+                  : 'Log weighted sets for bench, squat, deadlift, or overhead press'}
+              </p>
+            </>
+          )}
+        </div>
+
+        {performanceInsights.eligible && performanceInsights.insights.length > 0 ? (
+          <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
+            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Performance insights</p>
+            <ul className="mt-3 space-y-2.5">
+              {performanceInsights.insights.map((insight) => (
+                <li
+                  key={insight.id}
+                  className="text-[0.8125rem] font-medium text-[#ececee] leading-relaxed pl-3 border-l-2"
+                  style={{ borderLeftColor: 'var(--apex-accent)' }}
+                >
+                  {insight.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {!isDesktop ? (
@@ -1288,6 +1394,16 @@ export function ProfileTab({
                 </LineChart>
               </ResponsiveContainer>
             )}
+          </div>
+          <div className={isDesktop ? 'col-span-2' : ''}>
+            <BodyMeasurementsSection
+              userId={userId}
+              weightUnit={state.settings.unit}
+              inputClassName={inp}
+              active={isDesktop ? desktopSection === 'profile' : sub === 'stats'}
+              onWeightLogged={addBodyweight}
+              notify={notify}
+            />
           </div>
         </div>
       ) : null}
@@ -1771,7 +1887,7 @@ export function ProfileTab({
       ) : null}
 
       {selectedClient ? (
-        <div className="apex-safe-top fixed inset-0 z-[90] flex flex-col bg-[#0c0c0c]">
+        <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
           <header className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between gap-2">
             <div>
               <p className="text-[15px] font-bold text-[#f4f4f5]">{selectedClient.displayName}</p>
@@ -1920,7 +2036,7 @@ export function ProfileTab({
               </>
             )}
           </div>
-          <div className="shrink-0 border-t border-[#1e1e1e] p-4 bg-[#0c0c0c] space-y-2">
+          <div className="shrink-0 border-t border-[#1e1e1e] p-4 bg-[var(--apex-surface-page)] space-y-2">
             <p className="apex-section-label">Coach note</p>
             <textarea
               className="apex-input w-full min-h-20 px-3 py-3 resize-y"

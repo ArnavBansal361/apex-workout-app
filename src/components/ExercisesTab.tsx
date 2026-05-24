@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { getExerciseHelp } from '../data/exercises'
 import { claudeExerciseFormTips } from '../lib/anthropicCoach'
-import { strengthProgressSeries } from '../lib/overload'
+import { strengthProgressSeries, computeStrengthProgressProjection, STRENGTH_PROJECTION_WEEKS } from '../lib/overload'
+import { formatLong } from '../lib/dates'
 import type { Exercise, MuscleGroup, SetLog } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExerciseMuscleDiagram } from './ExerciseFormGif'
@@ -34,10 +35,13 @@ function StrengthProgressChart({
   unit: 'lbs' | 'kg'
 }) {
   const series = useMemo(() => strengthProgressSeries(logs, exerciseId), [logs, exerciseId])
+  const projection = useMemo(() => computeStrengthProgressProjection(series), [series])
   const plotted = useMemo(() => series.filter((p) => p.weight != null), [series])
   const weights = plotted.map((p) => p.weight as number)
-  const minW = weights.length ? Math.min(...weights) : 0
-  const maxW = weights.length ? Math.max(...weights) : 0
+  const projectionWeights = projection?.points.map((p) => p.weight) ?? []
+  const allWeights = [...weights, ...projectionWeights]
+  const minW = allWeights.length ? Math.min(...allWeights) : 0
+  const maxW = allWeights.length ? Math.max(...allWeights) : 0
   const pad = maxW === minW ? Math.max(5, maxW * 0.1) : (maxW - minW) * 0.12
   const yMin = Math.max(0, minW - pad)
   const yMax = maxW + pad
@@ -49,10 +53,11 @@ function StrengthProgressChart({
   const bottom = 28
   const plotW = w - left - right
   const plotH = h - top - bottom
-  const n = series.length
+  const histN = series.length
+  const totalN = projection ? histN + STRENGTH_PROJECTION_WEEKS : histN
 
   function xAt(i: number) {
-    return left + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
+    return left + (totalN <= 1 ? plotW / 2 : (i / (totalN - 1)) * plotW)
   }
   function yAt(weight: number) {
     if (yMax <= yMin) return top + plotH / 2
@@ -73,6 +78,10 @@ function StrengthProgressChart({
       return `${xAt(i)},${yAt(p.weight as number)}`
     })
     .join(' ')
+
+  const projectionLinePoints = projection
+    ? projection.points.map((p) => `${xAt(p.weekIndex)},${yAt(p.weight)}`).join(' ')
+    : ''
 
   if (plotted.length < 2) {
     return (
@@ -137,18 +146,33 @@ function StrengthProgressChart({
         {linePoints ? (
           <polyline
             fill="none"
-            stroke="rgba(255,255,255,0.8)"
+            stroke="var(--apex-accent)"
             strokeWidth={1.5}
             points={linePoints}
+          />
+        ) : null}
+        {projectionLinePoints ? (
+          <polyline
+            fill="none"
+            stroke="color-mix(in srgb, var(--apex-accent) 55%, transparent)"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            points={projectionLinePoints}
           />
         ) : null}
         {plotted.map((p) => {
           const i = series.findIndex((s) => s.weekStartKey === p.weekStartKey)
           const cx = xAt(i)
           const cy = yAt(p.weight as number)
-          return <circle key={p.weekStartKey} cx={cx} cy={cy} r={2} fill="#ffffff" />
+          return <circle key={p.weekStartKey} cx={cx} cy={cy} r={2} fill="var(--apex-accent)" />
         })}
       </svg>
+      {projection ? (
+        <p className="mt-3 text-[12px] font-medium leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          At this rate you&apos;ll hit {projection.projectedWeight} {unit} by{' '}
+          {formatLong(projection.projectedDate)}.
+        </p>
+      ) : null}
       <p className="sr-only">
         Strength progress for last 8 weeks in {unit}, peak weight per week.
       </p>

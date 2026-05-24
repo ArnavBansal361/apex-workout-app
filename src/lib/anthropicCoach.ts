@@ -2,6 +2,7 @@ import { EXERCISE_BY_ID } from '../data/exercises'
 import type { AppPersisted, ChatMessage, ExerciseHelp } from '../types'
 import { dateKey, formatCoachTodayLine, parseDateKey, weekStartMonday } from './dates'
 import { streakCurrent } from './achievements'
+import { trainingModeCoachInstruction, trainingModeDef } from './trainingMode'
 import { weeklyVolumeSeries } from './stats'
 import type { PrimaryCalendarEvent } from './googleCalendar'
 import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
@@ -134,12 +135,17 @@ export function buildApexCoachContext(state: AppPersisted, nowMs: number = Date.
     })
     .join('\n')
   const streak = streakCurrent(state, nowMs)
+  const trainingMode = state.gymSession.trainingMode
+  const modeLine = trainingMode
+    ? `Today's training mode: ${trainingModeDef(trainingMode).label} — ${trainingModeDef(trainingMode).framing}`
+    : null
   return [
     formatCoachTodayLine(now),
     `Calendar date key: ${todayKey}`,
     `Athlete name: ${name}`,
     `Fitness goals: ${goals}`,
     `Current training streak: ${streak} day(s)`,
+    ...(modeLine ? [modeLine] : []),
     `Full weekly schedule (all days in current week plan):`,
     sched || '(empty)',
     `Strength / timed sets logged this week (Mon–Sun, ${dateKey(ws)} week start):`,
@@ -318,9 +324,10 @@ export async function claudeCoachComplete(
   const todayLine = coachTodaySystemPrefix(nowMs)
   const coachContext = truncateCoachContextBlock(buildApexCoachContext(state, nowMs))
   const planBlock = formatPlanAnswersForSystem(planAnswers)
+  const modeInstruction = trainingModeCoachInstruction(state.gymSession.trainingMode)
   const system = isPlan
-    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}\n\n--- Athlete context ---\n${coachContext}`
-    : `${todayLine}\n\n${COACH_SYSTEM}${planBlock}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
+    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}\n\n--- Athlete context ---\n${coachContext}`
+    : `${todayLine}\n\n${COACH_SYSTEM}${planBlock}${modeInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
   const maxTokens = options.maxTokens ?? (isPlan ? 720 : 320)
   const requestBody = {
     model: CLAUDE_MODEL,

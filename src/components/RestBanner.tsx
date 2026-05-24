@@ -68,16 +68,16 @@ export function RestBanner() {
         }`}
         style={{
           height: 44,
-          background: '#141414',
-          borderBottom: '0.5px solid rgba(255,255,255,0.08)',
+          background: 'var(--apex-surface-card)',
+          borderBottom: '0.5px solid var(--apex-border)',
         }}
       >
         <div className="flex items-baseline gap-2 min-w-0">
-          <span className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <span className="text-[11px] font-normal text-[var(--apex-text-secondary)]">
             Rest
           </span>
           <span
-            className={`text-[15px] font-medium tabular-nums text-white ${
+            className={`text-[15px] font-medium tabular-nums text-[var(--apex-text-primary)] ${
               pulse ? 'apex-rest-timer-pulse' : ''
             }`}
           >
@@ -86,8 +86,7 @@ export function RestBanner() {
         </div>
         <button
           type="button"
-          className="flex items-center gap-1.5 shrink-0 touch-manipulation"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
+          className="flex items-center gap-1.5 shrink-0 touch-manipulation text-[var(--apex-text-secondary)]"
           onClick={() => {
             setSlideOut(true)
             window.setTimeout(() => dismissRestTimer(), 280)

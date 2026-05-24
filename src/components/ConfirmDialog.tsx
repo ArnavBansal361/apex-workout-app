@@ -52,7 +52,7 @@ export function ConfirmDialog({
             className={`min-h-12 flex-1 rounded-[12px] text-[13px] font-medium ${
               isDestructive
                 ? 'bg-[#c43c3c] text-white border border-[#e85d5d]/40'
-                : 'bg-white text-black'
+                : 'apex-btn-primary'
             }`}
             onClick={onConfirm}
           >

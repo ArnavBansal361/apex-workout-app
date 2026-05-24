@@ -70,7 +70,7 @@ export function Onboarding({ onComplete }: Props) {
   }
 
   return (
-    <div className="apex-safe-top min-h-[100dvh] bg-[#0c0c0c] text-[#e0e0e0] px-4 py-6 pb-12">
+    <div className="apex-safe-top apex-theme-shell min-h-[100dvh] bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)] px-4 py-6 pb-12">
       <div className="max-w-lg mx-auto space-y-6">
         <ApexLogo />
 

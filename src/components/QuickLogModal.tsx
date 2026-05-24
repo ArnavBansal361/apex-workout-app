@@ -186,7 +186,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                           ? 'bg-[#1a1a1a] text-[#e0e0e0]'
                           : 'border-transparent text-[#e0e0e0] hover:bg-[#1e1e1e]'
                       }`}
-                      style={{ borderLeftColor: selected?.id === e.id ? 'rgba(255,255,255,0.35)' : 'transparent' }}
+                      style={{ borderLeftColor: selected?.id === e.id ? 'var(--apex-accent)' : 'transparent' }}
                       onClick={() => setSelected(e)}
                     >
                       <span>{e.name}</span>

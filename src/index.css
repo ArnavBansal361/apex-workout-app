@@ -9,6 +9,8 @@
 html {
   --font-scale: 1;
   --apex-font-scale: 1;
+  --apex-accent: #3d7ab5;
+  --accent: var(--apex-accent);
   --apex-surface-page: #0a0a0a;
   --apex-surface-card: #141414;
   --apex-surface-nested: #1a1a1a;
@@ -16,10 +18,10 @@ html {
   --apex-text-secondary: rgba(255, 255, 255, 0.5);
   --apex-text-tertiary: rgba(255, 255, 255, 0.3);
   --apex-border: rgba(255, 255, 255, 0.08);
-  --apex-nav-icon-active: rgba(255, 255, 255, 1);
+  --apex-nav-icon-active: var(--apex-accent);
   --apex-nav-icon-inactive: rgba(255, 255, 255, 0.3);
-  --apex-btn-primary-bg: #ffffff;
-  --apex-btn-primary-text: #000000;
+  --apex-btn-primary-bg: var(--apex-accent);
+  --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(255, 255, 255, 0.15);
   font-family:
     system-ui,
@@ -33,7 +35,7 @@ html {
 }
 
 .apex-theme-shell {
-  --apex-nav-icon-active: rgba(255, 255, 255, 1);
+  --apex-nav-icon-active: var(--apex-accent);
   --apex-nav-icon-inactive: rgba(255, 255, 255, 0.3);
   --apex-surface-page: #0a0a0a;
   --apex-surface-card: #141414;
@@ -42,38 +44,38 @@ html {
   --apex-text-secondary: rgba(255, 255, 255, 0.5);
   --apex-text-tertiary: rgba(255, 255, 255, 0.3);
   --apex-border: rgba(255, 255, 255, 0.08);
-  --apex-btn-primary-bg: #ffffff;
-  --apex-btn-primary-text: #000000;
+  --apex-btn-primary-bg: var(--apex-accent);
+  --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(255, 255, 255, 0.15);
 }
 
 html[data-apex-theme='light'] {
   color-scheme: light;
-  --apex-surface-page: #f0f0f0;
-  --apex-surface-card: #f5f5f5;
-  --apex-surface-nested: #ebebeb;
+  --apex-surface-page: #eef2f8;
+  --apex-surface-card: #f5f9f7;
+  --apex-surface-nested: #edf4f1;
   --apex-text-primary: rgba(0, 0, 0, 0.88);
   --apex-text-secondary: rgba(0, 0, 0, 0.45);
   --apex-text-tertiary: rgba(0, 0, 0, 0.3);
   --apex-border: rgba(0, 0, 0, 0.08);
-  --apex-nav-icon-active: rgba(0, 0, 0, 1);
+  --apex-nav-icon-active: var(--apex-accent);
   --apex-nav-icon-inactive: rgba(0, 0, 0, 0.3);
-  --apex-btn-primary-bg: rgba(0, 0, 0, 0.88);
+  --apex-btn-primary-bg: var(--apex-accent);
   --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(0, 0, 0, 0.15);
 }
 
 html[data-apex-theme='light'] .apex-theme-shell {
-  --apex-surface-page: #f0f0f0;
-  --apex-surface-card: #f5f5f5;
-  --apex-surface-nested: #ebebeb;
+  --apex-surface-page: #eef2f8;
+  --apex-surface-card: #f5f9f7;
+  --apex-surface-nested: #edf4f1;
   --apex-text-primary: rgba(0, 0, 0, 0.88);
   --apex-text-secondary: rgba(0, 0, 0, 0.45);
   --apex-text-tertiary: rgba(0, 0, 0, 0.3);
   --apex-border: rgba(0, 0, 0, 0.08);
-  --apex-nav-icon-active: rgba(0, 0, 0, 1);
+  --apex-nav-icon-active: var(--apex-accent);
   --apex-nav-icon-inactive: rgba(0, 0, 0, 0.3);
-  --apex-btn-primary-bg: rgba(0, 0, 0, 0.88);
+  --apex-btn-primary-bg: var(--apex-accent);
   --apex-btn-primary-text: #ffffff;
   --apex-btn-border: rgba(0, 0, 0, 0.15);
 }
@@ -201,9 +203,9 @@ body {
 }
 
 .apex-dashboard-nav-btn--active {
-  color: var(--apex-text-primary);
-  background: var(--apex-surface-card);
-  border-color: var(--apex-border);
+  color: var(--apex-accent);
+  background: color-mix(in srgb, var(--apex-accent) 12%, var(--apex-surface-card));
+  border-color: color-mix(in srgb, var(--apex-accent) 35%, var(--apex-border));
 }
 
 button,
@@ -247,6 +249,25 @@ textarea {
   .apex-card-interactive:active {
     transform: none !important;
   }
+}
+
+.apex-session-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.625rem;
+  padding: 0 0.625rem;
+  border-radius: 8px;
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(236, 236, 238, 0.92);
+}
+
+.apex-streak-shield {
+  line-height: 1.2;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -378,6 +399,10 @@ html[data-apex-theme='light'] .apex-theme-shell *::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.75) !important;
 }
 
+html[data-apex-theme='light'] .apex-modal-overlay {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
 .apex-modal-panel {
   padding: 20px !important;
   max-width: min(100%, 480px);
@@ -462,8 +487,13 @@ html[data-apex-theme='light'] .apex-theme-shell *::-webkit-scrollbar-thumb {
 .apex-card-accent-left {
   border-radius: 12px;
   border: 0.5px solid var(--apex-border);
-  background: var(--apex-surface-card);
-  box-shadow: none;
+  border-left: 3px solid var(--apex-accent);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--apex-accent) 10%, var(--apex-surface-card)) 0%,
+    var(--apex-surface-card) 35%
+  );
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--apex-accent) 10%, transparent);
   outline: none;
   padding: 16px;
 }
@@ -473,7 +503,7 @@ html[data-apex-theme='light'] .apex-theme-shell *::-webkit-scrollbar-thumb {
   font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--apex-text-tertiary);
+  color: color-mix(in srgb, var(--apex-accent) 72%, var(--apex-text-tertiary));
 }
 
 .apex-settings-divider {
@@ -581,7 +611,7 @@ html[data-apex-theme='light'] .apex-sign-out-btn {
 
 /* —— Inputs & buttons —— */
 .apex-input {
-  border-radius: 8px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
   color: var(--apex-text-primary);
@@ -594,11 +624,12 @@ html[data-apex-theme='light'] .apex-sign-out-btn {
 }
 .apex-input:focus {
   outline: none;
-  border-color: var(--apex-border);
+  border-color: color-mix(in srgb, var(--apex-accent) 45%, var(--apex-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--apex-accent) 22%, transparent);
 }
 
 .apex-btn {
-  border-radius: 8px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-btn-border);
   background: transparent;
   color: var(--apex-text-primary);
@@ -615,26 +646,34 @@ html[data-apex-theme='light'] .apex-sign-out-btn {
   transform: scale(0.98);
 }
 
+.apex-btn,
+.apex-btn-primary,
+.apex-input,
+textarea.apex-input {
+  border-radius: 12px !important;
+}
+
 .apex-btn-primary {
   border: none !important;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--apex-btn-primary-bg) !important;
   background-color: var(--apex-btn-primary-bg) !important;
   color: var(--apex-btn-primary-text) !important;
   font-size: 14px;
   font-weight: 500;
-  box-shadow: none;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--apex-accent) 35%, transparent);
+  transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
 }
 .apex-btn-primary:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  filter: brightness(1.05);
 }
 .apex-btn-primary:active {
   transform: scale(0.98);
 }
 
 .apex-btn-muted {
-  border-radius: 14px;
+  border-radius: 12px;
   background: #1a1a1a;
   color: rgba(255, 255, 255, 0.5);
   border: 0.5px solid rgba(255, 255, 255, 0.08);
@@ -681,7 +720,7 @@ html[data-apex-theme='light'] .apex-btn-delete {
 
 /* —— Metric tiles (Profile, etc.) —— */
 .apex-metric-card {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
   box-shadow: none;
@@ -693,9 +732,13 @@ html[data-apex-theme='light'] .apex-btn-delete {
 }
 
 .apex-metric-card-accent {
-  border-radius: 16px;
-  border: 0.5px solid var(--apex-border);
-  background: var(--apex-surface-card);
+  border-radius: 12px;
+  border: 0.5px solid color-mix(in srgb, var(--apex-accent) 35%, var(--apex-border));
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--apex-accent) 12%, var(--apex-surface-card)) 0%,
+    var(--apex-surface-card) 100%
+  );
   padding: 16px;
 }
 
@@ -819,7 +862,7 @@ html[data-apex-theme='light'] .apex-coach-dots span {
 /* —— Search row —— */
 .apex-search-wrap {
   position: relative;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
 }
@@ -827,7 +870,7 @@ html[data-apex-theme='light'] .apex-coach-dots span {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--apex-surface-card);
   padding: 0.5rem 0.875rem;
   border: none;
@@ -906,7 +949,7 @@ details summary::-webkit-details-marker {
 
 @keyframes apex-mic-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--apex-accent) 55%, transparent);
   }
   70% {
     box-shadow: 0 0 0 10px transparent;
@@ -917,8 +960,9 @@ details summary::-webkit-details-marker {
 }
 
 .apex-mic-listening {
-  outline: 1px solid rgba(255, 255, 255, 0.45);
+  outline: 1px solid color-mix(in srgb, var(--apex-accent) 65%, transparent);
   outline-offset: 2px;
+  animation: apex-mic-ring 1.4s ease-out infinite;
 }
 
 /* —— Top bar & tab bar (minimal chrome) —— */
@@ -955,7 +999,7 @@ details summary::-webkit-details-marker {
   align-items: center;
   gap: 0.625rem;
   padding: 0.625rem 0.75rem;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 0.5px solid rgba(255, 255, 255, 0.1);
   background: #141414;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -976,8 +1020,8 @@ details summary::-webkit-details-marker {
   padding: 0 0.75rem;
   border-radius: 10px;
   border: none;
-  background: #f4f4f5;
-  color: #0a0a0a;
+  background: var(--apex-accent);
+  color: #ffffff;
   font-size: 12px;
   font-weight: 600;
   touch-action: manipulation;
@@ -1006,7 +1050,7 @@ details summary::-webkit-details-marker {
 }
 
 html[data-apex-theme='light'] .apex-pwa-install-banner__inner {
-  background: #f5f5f5;
+  background: #f5f9f7;
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
@@ -1016,8 +1060,8 @@ html[data-apex-theme='light'] .apex-pwa-install-banner__text {
 }
 
 html[data-apex-theme='light'] .apex-pwa-install-banner__install {
-  background: #0d0d0d;
-  color: #f4f4f5;
+  background: var(--apex-accent);
+  color: #ffffff;
 }
 
 html[data-apex-theme='light'] .apex-pwa-install-banner__dismiss {
@@ -1047,11 +1091,24 @@ html[data-apex-theme='light'] .apex-pwa-install-banner__dismiss {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 7px;
 }
 
 .apex-bottom-nav-btn--active {
   opacity: 1;
+}
+
+.apex-bottom-nav-btn--active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 1.5rem;
+  height: 0.25rem;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: var(--apex-accent);
+  opacity: 0.9;
 }
 
 .apex-bottom-nav-btn--active,
@@ -1093,8 +1150,9 @@ html[data-apex-theme='light'] .apex-pwa-install-banner__dismiss {
 }
 
 .apex-profile-subtab-indicator {
-  height: 1px;
-  background: var(--apex-text-primary);
+  height: 2px;
+  background: var(--apex-accent);
+  border-radius: 9999px;
 }
 
 .apex-stats-achievements-divider {
@@ -1129,8 +1187,8 @@ html[data-apex-theme='light'] .apex-stats-achievements-divider {
 }
 
 .apex-unit-segment button.apex-unit-segment--active {
-  background: #ffffff !important;
-  color: #000000 !important;
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
 }
 
 html[data-apex-theme='light'] .apex-unit-segment {
@@ -1168,8 +1226,8 @@ html[data-apex-theme='light'] .apex-appearance-btn--active {
 /* —— Light theme (data attribute on <html>) —— */
 html[data-apex-theme='light'] body,
 html[data-apex-theme='light'] #root {
-  background: var(--apex-surface-page);
-  color: var(--apex-text-primary);
+  background: var(--apex-surface-page) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 html[data-apex-theme='light'] .apex-theme-shell {
@@ -1187,12 +1245,23 @@ html[data-apex-theme='light'] .apex-app-header {
   border-bottom-color: var(--apex-border) !important;
 }
 
-html[data-apex-theme='light'] .apex-card,
-html[data-apex-theme='light'] .apex-card-accent-left {
+html[data-apex-theme='light'] .apex-card {
   border-radius: 12px;
   border: 0.5px solid var(--apex-border) !important;
   background: var(--apex-surface-card) !important;
   box-shadow: none !important;
+}
+
+html[data-apex-theme='light'] .apex-card-accent-left {
+  border-radius: 12px;
+  border: 0.5px solid var(--apex-border) !important;
+  border-left: 3px solid var(--apex-accent) !important;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--apex-accent) 8%, var(--apex-surface-card)) 0%,
+    var(--apex-surface-card) 35%
+  ) !important;
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--apex-accent) 8%, transparent) !important;
 }
 
 html[data-apex-theme='light'] .apex-card-interactive:hover {
@@ -1212,7 +1281,7 @@ html[data-apex-theme='light'] .apex-lead {
 }
 
 html[data-apex-theme='light'] .apex-section-label {
-  color: var(--apex-text-tertiary) !important;
+  color: color-mix(in srgb, var(--apex-accent) 65%, var(--apex-text-tertiary)) !important;
 }
 
 html[data-apex-theme='light'] .apex-input {
@@ -1227,7 +1296,8 @@ html[data-apex-theme='light'] .apex-input::placeholder {
 }
 
 html[data-apex-theme='light'] .apex-input:focus {
-  border-color: var(--apex-border) !important;
+  border-color: color-mix(in srgb, var(--apex-accent) 50%, var(--apex-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--apex-accent) 18%, transparent) !important;
 }
 
 html[data-apex-theme='light'] .apex-btn {
@@ -1264,10 +1334,19 @@ html[data-apex-theme='light'] .apex-schedule-today-pill {
   text-transform: uppercase;
 }
 
-html[data-apex-theme='light'] .apex-metric-card,
-html[data-apex-theme='light'] .apex-metric-card-accent {
+html[data-apex-theme='light'] .apex-metric-card {
   border: 0.5px solid var(--apex-border) !important;
   background: var(--apex-surface-card) !important;
+  box-shadow: none !important;
+}
+
+html[data-apex-theme='light'] .apex-metric-card-accent {
+  border: 0.5px solid color-mix(in srgb, var(--apex-accent) 30%, var(--apex-border)) !important;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--apex-accent) 10%, var(--apex-surface-card)) 0%,
+    var(--apex-surface-card) 100%
+  ) !important;
   box-shadow: none !important;
 }
 
@@ -1308,7 +1387,7 @@ html[data-apex-theme='light'] .apex-week-chart-dot {
 }
 
 html[data-apex-theme='light'] .apex-week-chart-dot--active {
-  background: var(--apex-text-primary);
+  background: var(--apex-accent);
 }
 
 .apex-coach-note-card {
@@ -1376,14 +1455,26 @@ html[data-apex-theme='light'] .apex-coach-note-card {
 }
 
 .apex-week-chart-dot--active {
-  background: rgba(255, 255, 255, 1);
+  background: var(--apex-accent);
   opacity: 1;
 }
+
 .apex-coach-bubble-ai,
 .apex-coach-bubble--model {
   background-color: #141414 !important;
   color: #ffffff !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-apex-theme='light'] .apex-coach-bubble-ai,
+html[data-apex-theme='light'] .apex-coach-bubble--model {
+  background-color: var(--apex-surface-nested) !important;
+  color: var(--apex-text-primary) !important;
+  border-color: var(--apex-border) !important;
+}
+
+html[data-apex-theme='light'] .apex-dashboard-nav {
+  border-color: var(--apex-border) !important;
 }
 
 .apex-coach-clear-btn {
@@ -1451,7 +1542,7 @@ html[data-apex-theme='light'] .apex-profile-subtab-indicator {
 }
 
 /* Hardcoded dark-mode text utilities → light hierarchy */
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   .text-\[\#f4f4f5\],
   .text-\[\#f0f0f2\],
   .text-\[\#ececee\],
@@ -1462,12 +1553,14 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   .text-\[\#d4d4d8\],
   .text-\[\#c8c8ce\],
   .text-\[\#c4c4cc\],
-  .text-\[\#bbb\]
+  .text-\[\#bbb\],
+  .text-\[\#e8e8ea\],
+  .text-\[\#d4d4dc\]
 ) {
   color: var(--apex-text-primary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   .text-\[\#a0a0a8\],
   .text-\[\#b4b4bc\],
   .text-\[\#c8c8ce\]
@@ -1475,7 +1568,7 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   color: var(--apex-text-secondary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   .text-\[\#7d7d88\],
   .text-\[\#a8a8b0\],
   .text-\[\#8e8e96\],
@@ -1487,18 +1580,18 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   color: var(--apex-text-secondary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell :not(.apex-btn-primary):not(.apex-coach-bubble-ai) :is(.text-white, .text-\[\#ffffff\]) {
+html[data-apex-theme='light'] :not(.apex-btn-primary):not(.apex-coach-bubble-ai) :is(.text-white, .text-\[\#ffffff\]) {
   color: var(--apex-text-primary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .text-white\/35,
-html[data-apex-theme='light'] .apex-theme-shell .text-white\/50,
-html[data-apex-theme='light'] .apex-theme-shell .text-white\/55 {
+html[data-apex-theme='light'] .text-white\/35,
+html[data-apex-theme='light'] .text-white\/50,
+html[data-apex-theme='light'] .text-white\/55 {
   color: var(--apex-text-tertiary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .text-white\/70,
-html[data-apex-theme='light'] .apex-theme-shell .text-white\/80 {
+html[data-apex-theme='light'] .text-white\/70,
+html[data-apex-theme='light'] .text-white\/80 {
   color: var(--apex-text-secondary) !important;
 }
 
@@ -1507,7 +1600,7 @@ html[data-apex-theme='light'] .apex-btn-primary :is(.text-white, .text-black) {
 }
 
 /* Dark surface utilities → themed surfaces */
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   .bg-black\/15,
   .bg-black\/20,
   .bg-black\/25,
@@ -1524,18 +1617,18 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   .bg-\[\#1a1a1a\],
   .bg-\[\#1a1a1e\],
   .bg-\[\#1a1a24\],
-  .bg-\[\#141414\],
-  .bg-\[\#0a0e14\]
+  .bg-\[\#3f3f46\]
 ) {
   background-color: var(--apex-surface-card) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .bg-\[\#090d14\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-\[\#0a0a0a\] {
+html[data-apex-theme='light'] .bg-\[\#090d14\],
+html[data-apex-theme='light'] .bg-\[\#0a0a0a\],
+html[data-apex-theme='light'] .bg-\[\#0a0e14\] {
   background-color: var(--apex-surface-page) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   .border-white\/\[0\.06\],
   .border-white\/\[0\.07\],
   .border-white\/\[0\.08\],
@@ -1553,46 +1646,49 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   border-color: var(--apex-border) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .divide-white\/\[0\.05\],
-html[data-apex-theme='light'] .apex-theme-shell .divide-white\/\[0\.06\] {
+html[data-apex-theme='light'] .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]),
+html[data-apex-theme='light'] .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]),
+html[data-apex-theme='light'] .divide-\[\#1e1e1e\] > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--apex-border) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.03\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.04\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.06\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.08\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.10\],
-html[data-apex-theme='light'] .apex-theme-shell .bg-white\/\[0\.12\] {
+html[data-apex-theme='light'] .bg-white\/\[0\.03\],
+html[data-apex-theme='light'] .bg-white\/\[0\.04\],
+html[data-apex-theme='light'] .bg-white\/\[0\.06\],
+html[data-apex-theme='light'] .bg-white\/\[0\.08\],
+html[data-apex-theme='light'] .bg-white\/\[0\.10\],
+html[data-apex-theme='light'] .bg-white\/\[0\.12\] {
   background-color: var(--apex-surface-nested) !important;
 }
 
 /* Selected toggle pills (theme, units, font size) */
-html[data-apex-theme='light'] .apex-theme-shell .apex-appearance-btn--active,
-html[data-apex-theme='light'] .apex-theme-shell .apex-btn.border-white\/15 {
+html[data-apex-theme='light'] .apex-appearance-btn--active,
+html[data-apex-theme='light'] .apex-btn.border-white\/15 {
   border-color: var(--apex-border) !important;
   background-color: var(--apex-btn-primary-bg) !important;
   color: var(--apex-btn-primary-text) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell button:focus-visible {
+html[data-apex-theme='light'] button:focus-visible {
   outline: 2px solid var(--apex-text-primary) !important;
   outline-offset: 2px;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell input.bg-transparent,
-html[data-apex-theme='light'] .apex-theme-shell .bg-transparent {
+html[data-apex-theme='light'] input.bg-transparent,
+html[data-apex-theme='light'] .bg-transparent {
   background-color: transparent !important;
 }
 
 /* Modal / overlay shells */
-html[data-apex-theme='light'] .bg-\[\#0c0c0c\].border-white\/\[0\.08\] {
-  background: var(--apex-surface-card) !important;
+html[data-apex-theme='light'] .bg-\[\#0c0c0c\].border-white\/\[0\.08\],
+html[data-apex-theme='light'] .fixed.inset-0.bg-\[\#0c0c0c\] {
+  background: var(--apex-surface-page) !important;
   border-color: var(--apex-border) !important;
+  color: var(--apex-text-primary) !important;
 }
 
 /* Inputs with hardcoded dark classes in const strings */
-html[data-apex-theme='light'] .apex-theme-shell :is(
+html[data-apex-theme='light'] :is(
   [class*='border-[#1e1e1e]'][class*='bg-[#121212]'],
   [class*='border-[#1e1e1e]'][class*='bg-[#161616]']
 ) {
@@ -1601,25 +1697,56 @@ html[data-apex-theme='light'] .apex-theme-shell :is(
   color: var(--apex-text-primary) !important;
 }
 
-html[data-apex-theme='light'] .apex-theme-shell [class*='placeholder:text-[#9898a0]']::placeholder {
+html[data-apex-theme='light'] [class*='placeholder:text-[#9898a0]']::placeholder {
   color: var(--apex-text-tertiary) !important;
 }
 
 /* Profile avatar tile */
-html[data-apex-theme='light'] .apex-theme-shell .border-white\/10.bg-\[\#1a1a1a\] {
+html[data-apex-theme='light'] .border-white\/10.bg-\[\#1a1a1a\] {
   background: var(--apex-surface-card) !important;
   border-color: var(--apex-border) !important;
 }
 
-/* FAB (+) — light mode filled button tint */
+/* FAB (+) — denim accent circle, white icon */
+.apex-fab {
+  border-radius: 9999px !important;
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--apex-accent) 40%, transparent);
+}
+
 html[data-apex-theme='light'] .apex-fab {
-  background: var(--apex-btn-primary-bg) !important;
-  color: var(--apex-btn-primary-text) !important;
-  border-color: var(--apex-border) !important;
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--apex-accent) 35%, transparent);
+}
+
+.apex-accent-pill-active {
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+.apex-schedule-today-pill {
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
+}
+
+.apex-empty-state {
+  border-radius: 12px;
+  border: 1px dashed var(--apex-border);
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 /* PR badge on light cards */
-html[data-apex-theme='light'] .apex-theme-shell .bg-white.text-black {
+html[data-apex-theme='light'] .bg-white.text-black {
   background: var(--apex-btn-primary-bg) !important;
   color: var(--apex-btn-primary-text) !important;
+}
+
+html[data-apex-theme='light'] html {
+  background: var(--apex-surface-page) !important;
 }

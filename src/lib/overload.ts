@@ -1,10 +1,23 @@
 import type { SetLog } from '../types'
-import { dateKey, weekStartMonday } from './dates'
+import { dateKey, parseDateKey, weekStartMonday } from './dates'
+
+export const STRENGTH_PROJECTION_WEEKS = 8
+export const MIN_STRENGTH_POINTS_FOR_PROJECTION = 4
 
 export type StrengthProgressPoint = {
   weekStartKey: string
   label: string
   weight: number | null
+}
+
+export type StrengthProgressProjection = {
+  slopePerWeek: number
+  projectedWeight: number
+  projectedDate: Date
+  /** Week index in the historical 8-week window where projection starts. */
+  startIndex: number
+  /** Points along the projection segment (includes start). */
+  points: { weekIndex: number; weight: number }[]
 }
 
 /** Max weight per week for exercise (non-BW), last 8 Mon–Sun blocks. */
@@ -31,6 +44,65 @@ export function strengthProgressSeries(logs: SetLog[], exerciseId: string): Stre
     })
   }
   return out
+}
+
+function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number } | null {
+  const n = points.length
+  if (n < 2) return null
+  let sumX = 0
+  let sumY = 0
+  let sumXY = 0
+  let sumXX = 0
+  for (const p of points) {
+    sumX += p.x
+    sumY += p.y
+    sumXY += p.x * p.y
+    sumXX += p.x * p.x
+  }
+  const denom = n * sumXX - sumX * sumX
+  if (Math.abs(denom) < 1e-10) return null
+  const slope = (n * sumXY - sumX * sumY) / denom
+  const intercept = (sumY - slope * sumX) / n
+  return { slope, intercept }
+}
+
+/** Linear trend from weekly peaks; projects forward 8 weeks from the latest logged week. */
+export function computeStrengthProgressProjection(
+  series: StrengthProgressPoint[],
+): StrengthProgressProjection | null {
+  const plotted = series
+    .map((p, index) => ({ ...p, index }))
+    .filter((p): p is typeof p & { weight: number } => p.weight != null)
+
+  if (plotted.length < MIN_STRENGTH_POINTS_FOR_PROJECTION) return null
+
+  const reg = linearRegression(plotted.map((p) => ({ x: p.index, y: p.weight })))
+  if (!reg) return null
+
+  const start = plotted.reduce((a, b) => (a.index > b.index ? a : b))
+  const startIndex = start.index
+  const anchorWeek = parseDateKey(series[startIndex]!.weekStartKey)
+  const projectedDate = new Date(anchorWeek)
+  projectedDate.setDate(projectedDate.getDate() + STRENGTH_PROJECTION_WEEKS * 7)
+
+  const points: { weekIndex: number; weight: number }[] = []
+  for (let w = 0; w <= STRENGTH_PROJECTION_WEEKS; w++) {
+    const weekIndex = startIndex + w
+    points.push({
+      weekIndex,
+      weight: Math.max(0, reg.intercept + reg.slope * weekIndex),
+    })
+  }
+
+  const endWeight = points[points.length - 1]!.weight
+
+  return {
+    slopePerWeek: reg.slope,
+    projectedWeight: Math.round(endWeight * 10) / 10,
+    projectedDate,
+    startIndex,
+    points,
+  }
 }
 
 /** Max weight used on a calendar day for exercise (non-bodyweight only) */

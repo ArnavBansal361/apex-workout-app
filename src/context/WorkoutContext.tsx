@@ -37,11 +37,14 @@ import { normalizeTodayLayout } from '../lib/todayLayout'
 import { showWeeklySummaryNotification } from '../lib/desktopNotifications'
 import { computeIsPr } from '../lib/pr'
 import { evaluateAchievements, streakCurrent } from '../lib/achievements'
+import type { TrainingMode } from '../lib/trainingMode'
+import { detectStreakShieldConsumption } from '../lib/streakShield'
 import { cardioElapsedMs, gymElapsedMs } from '../lib/timers'
 import { currentWeekStartKey } from '../lib/volumeStats'
 import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
 import { applyTrainerShareToState, syncTrainerShareFromState } from '../lib/trainer'
 import {
+  completeWorkoutSession,
   fetchLatestCoachNoteForClient,
   fetchUserWorkoutState,
   pickWorkoutStateForHydrate,
@@ -100,7 +103,11 @@ type Ctx = {
   pauseCardioTimer: () => void
   resetCardioTimer: () => void
   applyCardioTimerToEntry: (entryId: string) => void
-  startGymSession: (mode: 'stopwatch' | 'manual', manualMsSinceMidnight?: number) => void
+  startGymSession: (
+    mode: 'stopwatch' | 'manual',
+    manualMsSinceMidnight?: number,
+    trainingMode?: TrainingMode | null,
+  ) => void
   pauseGymSession: () => void
   resumeGymSession: () => void
   stopGymSession: () => Promise<void>
@@ -355,6 +362,13 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   }, [state.setLogs, notify])
 
   useEffect(() => {
+    const weekToConsume = detectStreakShieldConsumption(state, clock)
+    if (weekToConsume && state.streakShieldUsedWeekStart !== weekToConsume) {
+      setState((s) => ({ ...s, streakShieldUsedWeekStart: weekToConsume }))
+    }
+  }, [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock])
+
+  useEffect(() => {
     return () => {
       if (notifyClearTimeoutRef.current != null) {
         window.clearTimeout(notifyClearTimeoutRef.current)
@@ -532,7 +546,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     [notify],
   )
 
-  const startGymSession: Ctx['startGymSession'] = useCallback((mode, manualMsSinceMidnight) => {
+  const startGymSession: Ctx['startGymSession'] = useCallback((mode, manualMsSinceMidnight, trainingMode = null) => {
     const d = new Date()
     let manualStartedAt: number | null = null
     if (mode === 'manual' && manualMsSinceMidnight != null) {
@@ -549,6 +563,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         manualStartedAt: mode === 'manual' ? manualStartedAt : null,
         pauseStartedAt: null,
         accumulatedPauseMs: 0,
+        trainingMode: trainingMode ?? s.gymSession.trainingMode ?? null,
       },
     }))
     notify('Gym session started')
@@ -587,6 +602,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     const payload = `Duration about ${mins} minutes. Exercises: ${names.join(', ')}. Sets: ${logsToday.length}.`
 
     const hadActiveSession = snapshot.gymSession.active
+    const sessionTrainingMode = snapshot.gymSession.trainingMode
     const earnedWorkoutXp = hadActiveSession && logsToday.length > 0
     setState((s) => ({
       ...s,
@@ -597,10 +613,19 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         manualStartedAt: null,
         pauseStartedAt: null,
         accumulatedPauseMs: 0,
+        trainingMode: null,
       },
       lifetimeXp: earnedWorkoutXp ? (s.lifetimeXp ?? 0) + XP_PER_WORKOUT_COMPLETE : (s.lifetimeXp ?? 0),
     }))
     notify('Gym session ended')
+
+    if (sessionTrainingMode) {
+      try {
+        await completeWorkoutSession(userId, today, sessionTrainingMode)
+      } catch {
+        /* ignore cloud sync errors */
+      }
+    }
 
     try {
       const sentence = await claudeOneSentenceWorkoutSummary(snapshot, payload)
@@ -613,7 +638,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     } catch {
       notify('Could not generate workout summary right now.')
     }
-  }, [notify])
+  }, [notify, userId])
 
   const addPlanExercise = useCallback((exerciseId: string) => {
     setState((s) => {

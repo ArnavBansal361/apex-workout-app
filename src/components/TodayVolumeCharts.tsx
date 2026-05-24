@@ -17,11 +17,24 @@ import type { AppPersisted } from '../types'
 import { dateKey, parseDateKey, weekStartMonday } from '../lib/dates'
 import { useApexChartColors } from '../lib/stats'
 import { workoutDaysFromLogs } from '../lib/achievements'
-import { weeklyVolumeHorizontalBarData, weeklyVolumeRadarData } from '../lib/volumeStats'
+import { weeklyVolumeHorizontalBarData, weeklyVolumeRadarData, detectInjuryRiskWarnings } from '../lib/volumeStats'
 
 const MIN_SESSIONS_FOR_VOLUME_CHART = 3
 
 const SLIDE_LABELS = ['Weekly volume', 'Muscle balance'] as const
+
+/** Shared chart panel wrapper (padding comes from .apex-card). */
+const CHART_BODY_CLASS = 'min-w-0'
+
+/** Radar wedge fill — 12% opacity (within 10–15% spec). */
+const RADAR_FILL_OPACITY = 0.12
+
+/** Horizontal bar fill: medium gray on dark cards, equivalent on light. */
+function todayVolumeBarFill(chart: ReturnType<typeof useApexChartColors>): string {
+  return chart.radarStroke === '#ffffff'
+    ? 'rgba(255,255,255,0.4)'
+    : 'rgba(0,0,0,0.4)'
+}
 
 /** Stable for the current calendar week. */
 export function weekAnchorKey(clockMs: number = Date.now()): string {
@@ -57,7 +70,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
   }, [barData])
 
   return (
-    <>
+    <div className={CHART_BODY_CLASS}>
       <p className="text-[12px] text-[#a0a0a8] mb-3 leading-relaxed font-medium">
         Load = sets × reps × weight (converted to lb). Cardio not included.
       </p>
@@ -69,7 +82,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
           <BarChart
             layout="vertical"
             data={barData}
-            margin={{ top: 4, right: labelMargin, left: 4, bottom: 4 }}
+            margin={{ top: 8, right: labelMargin, left: 8, bottom: 8 }}
             barCategoryGap={6}
             barGap={2}
           >
@@ -85,7 +98,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
             />
             <Bar
               dataKey="volume"
-              fill={chart.bar}
+              fill={todayVolumeBarFill(chart)}
               radius={[0, 4, 4, 0]}
               maxBarSize={18}
               isAnimationActive={false}
@@ -101,7 +114,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </>
+    </div>
   )
 })
 
@@ -123,8 +136,38 @@ const MuscleBalanceRadar = memo(
     radarFill: string
     radarFillOpacity: number
   }) {
-    const angleTick = useMemo(
-      () => ({ fill: labelFill, fontSize: 10, fontWeight: 500 as const }),
+    const renderAngleTick = useMemo(
+      () =>
+        (props: {
+          x?: string | number
+          y?: string | number
+          cx?: string | number
+          cy?: string | number
+          payload?: { value?: string }
+        }) => {
+          const x = Number(props.x ?? 0)
+          const y = Number(props.y ?? 0)
+          const cx = Number(props.cx ?? 0)
+          const cy = Number(props.cy ?? 0)
+          const { payload } = props
+          const angle = Math.atan2(y - cy, x - cx)
+          const pad = 14
+          const tx = x + Math.cos(angle) * pad
+          const ty = y + Math.sin(angle) * pad
+          return (
+            <text
+              x={tx}
+              y={ty}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={labelFill}
+              fontSize={10}
+              fontWeight={500}
+            >
+              {payload?.value ?? ''}
+            </text>
+          )
+        },
       [labelFill],
     )
     const radiusDomain = useMemo(() => [0, 100] as const, [])
@@ -137,11 +180,15 @@ const MuscleBalanceRadar = memo(
           data={data}
           cx="50%"
           cy="50%"
-          outerRadius="56%"
-          margin={{ top: 28, right: 36, bottom: 28, left: 36 }}
+          outerRadius="50%"
+          margin={{ top: 40, right: 52, bottom: 40, left: 52 }}
         >
           <PolarGrid stroke={gridStroke} strokeWidth={0.5} />
-          <PolarAngleAxis dataKey="subject" tick={angleTick} tickLine={false} />
+          <PolarAngleAxis
+            dataKey="subject"
+            tick={renderAngleTick}
+            tickLine={false}
+          />
           <PolarRadiusAxis angle={30} domain={radiusDomain} tick={false} axisLine={false} />
           <Radar
             name="Relative load"
@@ -173,25 +220,47 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
     () => weeklyVolumeRadarData(state, anchorMs),
     [state.setLogs, state.settings.unit, anchorMs],
   )
-  const fillOpacity = Math.max(chart.radarFillOpacity, 0.42)
+  const injuryWarnings = useMemo(
+    () => detectInjuryRiskWarnings(state, anchorMs),
+    [state.setLogs, state.settings.unit, anchorMs],
+  )
+  const darkRadar = chart.radarStroke === '#ffffff'
+  const radarFill = darkRadar ? '#ffffff' : 'rgba(0,0,0,0.12)'
+  const radarFillOpacity = darkRadar ? RADAR_FILL_OPACITY : 1
 
   return (
-    <>
+    <div className={CHART_BODY_CLASS}>
       <p className="text-[12px] text-[#a0a0a8] mb-3 leading-relaxed font-medium">
         Relative volume across six groups. A shrunken wedge means less load than your strongest
         group this week.
       </p>
+      {injuryWarnings.length > 0 ? (
+        <div className="mb-3 rounded-[12px] border border-[#c47a3a]/35 bg-[#c47a3a]/[0.08] p-3 space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[#d4956a]">
+            Injury risk
+          </p>
+          {injuryWarnings.map((warning) => (
+            <p
+              key={`${warning.kind}-${warning.muscle ?? warning.message}`}
+              className="text-[12px] font-medium text-[#ececee] leading-relaxed flex gap-2"
+            >
+              <i className="ti ti-alert-triangle shrink-0 mt-0.5 text-[14px] text-[#d4956a]" aria-hidden />
+              <span>{warning.message}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
       <div className="w-full min-w-0 overflow-visible" style={{ height: 280 }}>
         <MuscleBalanceRadar
           data={radarData}
           gridStroke={chart.grid}
           labelFill={chart.label}
           radarStroke={chart.radarStroke}
-          radarFill={chart.radarFill}
-          radarFillOpacity={fillOpacity}
+          radarFill={radarFill}
+          radarFillOpacity={radarFillOpacity}
         />
       </div>
-    </>
+    </div>
   )
 })
 
@@ -207,12 +276,12 @@ export const TodayWeekChartsSideBySide = memo(function TodayWeekChartsSideBySide
 
   return (
     <div className="grid grid-cols-2 gap-4">
-      <div className="apex-card p-5 min-w-0 overflow-visible">
-        <p className="apex-section-label mb-3">Weekly volume</p>
+      <div className="apex-card min-w-0 overflow-visible">
+        <p className="apex-section-label mb-2">Weekly volume</p>
         <WeeklyVolumePanel state={state} weekKey={weekKey} />
       </div>
-      <div className="apex-card p-5 min-w-0 overflow-visible">
-        <p className="apex-section-label mb-3">Muscle balance</p>
+      <div className="apex-card min-w-0 overflow-visible">
+        <p className="apex-section-label mb-2">Muscle balance</p>
         <MuscleBalancePanel state={state} weekKey={weekKey} />
       </div>
     </div>
@@ -259,9 +328,9 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
   }
 
   return (
-    <div className="apex-card p-5 min-w-0 overflow-visible">
-      <p className="apex-section-label mb-1">This week</p>
-      <p className="text-[12px] font-medium text-[#a0a0a8] mb-3">{SLIDE_LABELS[slide]}</p>
+    <div className="apex-card min-w-0 overflow-visible">
+      <p className="apex-section-label mb-2">This week</p>
+      <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">{SLIDE_LABELS[slide]}</p>
 
       <div
         className="w-full min-w-0 overflow-visible touch-pan-y"

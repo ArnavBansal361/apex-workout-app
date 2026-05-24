@@ -677,7 +677,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         {title}
                       </p>
                       {isToday ? (
-                        <span className="apex-schedule-today-pill mt-1 text-[7px] sm:text-[8px] font-bold uppercase tracking-wider bg-white text-black">
+                        <span className="apex-schedule-today-pill mt-1 text-[7px] sm:text-[8px] font-bold uppercase tracking-wider">
                           Today
                         </span>
                       ) : null}

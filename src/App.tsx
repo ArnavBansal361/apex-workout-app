@@ -234,7 +234,7 @@ export default function App() {
     return (
       <div className="apex-safe-top min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--apex-surface-page)]">
         <ApexLogo />
-        <p className="text-[14px] font-normal text-white/50">Loading…</p>
+        <p className="text-[14px] font-normal text-[var(--apex-text-secondary)]">Loading…</p>
       </div>
     )
   }

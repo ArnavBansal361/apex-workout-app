@@ -121,7 +121,7 @@ export function Auth() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full min-h-12 rounded-[8px] bg-white text-black text-[14px] font-medium disabled:opacity-50"
+              className="w-full min-h-12 rounded-[8px] apex-btn-primary text-[14px] font-medium disabled:opacity-50"
             >
               {busy ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Sign up'}
             </button>

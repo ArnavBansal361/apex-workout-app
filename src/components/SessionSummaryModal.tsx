@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import html2canvas from 'html2canvas'
 import { formatDuration } from '../lib/timers'
+import type { SessionBadge } from '../lib/streakShield'
 
 export type SessionSummaryData = {
   dateLabel: string
@@ -8,6 +9,9 @@ export type SessionSummaryData = {
   exerciseNames: string[]
   totalSets: number
   prCount: number
+  headline: string
+  badges: SessionBadge[]
+  comebackMessage: string | null
 }
 
 type Props = {
@@ -61,8 +65,25 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
       <div className="w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
         <div ref={cardRef} className="apex-card p-6">
           <p className="apex-section-label">Apex</p>
-          <p className="mt-2 text-[13px] font-normal text-[#e0e0e0]">Session complete</p>
+          <p className="mt-2 text-[13px] font-normal text-[#e0e0e0]">{data.headline}</p>
+          {data.comebackMessage ? (
+            <p className="mt-2 text-[13px] font-medium text-[#ececee] leading-relaxed">
+              {data.comebackMessage}
+            </p>
+          ) : null}
           <p className="mt-2 text-[13px] font-normal text-[#a0a0a8]">{data.dateLabel}</p>
+          {data.badges.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {data.badges.map((badge) => (
+                <span
+                  key={badge.id}
+                  className={`apex-session-badge apex-session-badge--${badge.id}`}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-6 grid grid-cols-2 gap-3">
             <div className="rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">Duration</p>
@@ -90,6 +111,16 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
                 ))}
               </ul>
             </div>
+          ) : null}
+          {data.badges.some((b) => b.id === 'short-session') ? (
+            <p className="mt-4 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+              Short sessions still count toward your streak and weekly progress.
+            </p>
+          ) : null}
+          {data.badges.some((b) => b.id === 'efficient-session') ? (
+            <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+              20 minutes counts — a focused session beats skipping the gym.
+            </p>
           ) : null}
         </div>
 

@@ -531,6 +531,7 @@ export function defaultState(): AppPersisted {
       manualStartedAt: null,
       pauseStartedAt: null,
       accumulatedPauseMs: 0,
+      trainingMode: null,
     },
     cardioTimer: {
       running: false,
@@ -548,6 +549,7 @@ export function defaultState(): AppPersisted {
     notificationPromptDone: false,
     lastWeeklySummaryNotifWeekStart: null,
     burnoutDismissedWeekStart: null,
+    streakShieldUsedWeekStart: null,
   }
 }
 
@@ -707,6 +709,10 @@ export function applyApexAppearanceFromStorage(): void {
   try {
     const theme = localStorage.getItem(APEX_THEME_STORAGE_KEY)
     root.setAttribute('data-apex-theme', theme === 'light' ? 'light' : 'dark')
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) {
+      meta.setAttribute('content', theme === 'light' ? '#eef2f8' : '#0a0a0a')
+    }
     const fs = localStorage.getItem(APEX_FONT_SIZE_STORAGE_KEY)
     const size: ApexFontSizeMode =
       fs === 'small' || fs === 'large' || fs === 'xlarge' ? fs : 'medium'
@@ -716,6 +722,8 @@ export function applyApexAppearanceFromStorage(): void {
     root.style.setProperty('--apex-font-scale', scale)
   } catch {
     root.setAttribute('data-apex-theme', 'dark')
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', '#0a0a0a')
     root.setAttribute('data-apex-font-size', 'medium')
     root.style.setProperty('--font-scale', '1')
     root.style.setProperty('--apex-font-scale', '1')

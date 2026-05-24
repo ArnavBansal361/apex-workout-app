@@ -1,3 +1,5 @@
+import type { TrainingMode } from './lib/trainingMode'
+
 export type MuscleGroup =
   | 'Chest'
   | 'Back'
@@ -190,6 +192,8 @@ export interface GymSessionPersist {
   manualStartedAt: number | null
   pauseStartedAt: number | null
   accumulatedPauseMs: number
+  /** Selected at workout start (readiness → training mode flow). */
+  trainingMode: TrainingMode | null
 }
 
 export interface CardioTimerPersist {
@@ -252,6 +256,8 @@ export interface AppPersisted {
   lastWeeklySummaryNotifWeekStart: string | null
   /** Week start (Mon YYYY-MM-DD) when user dismissed burnout warnings on Insights. */
   burnoutDismissedWeekStart: string | null
+  /** Week start (Mon YYYY-MM-DD) when the one-per-week streak shield was consumed. */
+  streakShieldUsedWeekStart: string | null
   /** Synced to cloud so trainers can respect client privacy toggles. */
   trainerShare?: {
     workoutLogs: boolean

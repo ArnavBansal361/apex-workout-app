@@ -43,6 +43,98 @@ export type BurnoutWarning = {
   avgVol: number
 }
 
+export type InjuryRiskWarning = {
+  kind: 'volume-spike' | 'push-pull-imbalance'
+  muscle?: MuscleGroup
+  pctSpike?: number
+  message: string
+}
+
+const INJURY_SPIKE_PCT = 40
+const INJURY_MIN_PRIOR_WEEK_VOL = 200
+const INJURY_MIN_PUSH_PULL_VOL = 400
+const INJURY_PUSH_PULL_RATIO = 1.4
+
+function volumeSpikeSuggestion(muscle: MuscleGroup): string {
+  switch (muscle) {
+    case 'Shoulders':
+      return 'Add face pulls to balance your shoulder volume.'
+    case 'Chest':
+      return 'Add rows or band pull-aparts to balance chest-dominant pushing.'
+    case 'Back':
+      return 'Ramp pulling volume gradually after last week’s lighter load.'
+    case 'Arms':
+      return 'Balance arm work with opposing movements and extra recovery.'
+    case 'Legs':
+      return 'Consider a lighter leg session or extra mobility after this jump.'
+    case 'Core':
+      return 'Pair high core volume with anti-rotation and recovery work.'
+    default:
+      return 'Balance this group with opposing work and gradual progression.'
+  }
+}
+
+function pushPullImbalanceSuggestion(
+  thisWeek: Record<MuscleGroup, number>,
+  pushVol: number,
+): string {
+  const shoulders = thisWeek.Shoulders ?? 0
+  const chest = thisWeek.Chest ?? 0
+  if (shoulders >= chest * 0.55 || shoulders / Math.max(1, pushVol) >= 0.38) {
+    return 'Add face pulls to balance your shoulder volume.'
+  }
+  if (chest > shoulders * 1.25) {
+    return 'Add rows or band pull-aparts to balance chest-dominant pushing.'
+  }
+  return 'Add rows or face pulls to balance your pushing volume.'
+}
+
+/** Volume spike >40% WoW or push volume significantly outweighing pull. */
+export function detectInjuryRiskWarnings(state: AppPersisted, nowMs: number): InjuryRiskWarning[] {
+  const thisMonday = weekStartMonday(new Date(nowMs))
+  const lastMonday = new Date(thisMonday)
+  lastMonday.setDate(thisMonday.getDate() - 7)
+
+  const thisWeek = volumeInWeek(state, thisMonday)
+  const lastWeek = volumeInWeek(state, lastMonday)
+  const warnings: InjuryRiskWarning[] = []
+
+  for (const muscle of RADAR_GROUPS) {
+    const prev = lastWeek[muscle] ?? 0
+    const curr = thisWeek[muscle] ?? 0
+    if (prev < INJURY_MIN_PRIOR_WEEK_VOL) continue
+    const pctIncrease = ((curr - prev) / prev) * 100
+    if (pctIncrease <= INJURY_SPIKE_PCT) continue
+    const suggestion = volumeSpikeSuggestion(muscle)
+    warnings.push({
+      kind: 'volume-spike',
+      muscle,
+      pctSpike: Math.round(pctIncrease),
+      message: `${muscle} volume is up ${Math.round(pctIncrease)}% vs last week. ${suggestion}`,
+    })
+  }
+
+  const pushVol = (thisWeek.Chest ?? 0) + (thisWeek.Shoulders ?? 0)
+  const pullVol = thisWeek.Back ?? 0
+  const pushHeavy =
+    pushVol >= INJURY_MIN_PUSH_PULL_VOL &&
+    (pullVol < INJURY_MIN_PUSH_PULL_VOL || pushVol > pullVol * INJURY_PUSH_PULL_RATIO)
+
+  if (pushHeavy) {
+    warnings.push({
+      kind: 'push-pull-imbalance',
+      message: pushPullImbalanceSuggestion(thisWeek, pushVol),
+    })
+  }
+
+  const seen = new Set<string>()
+  return warnings.filter((w) => {
+    if (seen.has(w.message)) return false
+    seen.add(w.message)
+    return true
+  })
+}
+
 /** Muscles with this week volume ≥150% of prior 4-week average (RADAR_GROUPS only). */
 export function detectBurnoutWarnings(state: AppPersisted, nowMs: number): BurnoutWarning[] {
   const thisMonday = weekStartMonday(new Date(nowMs))

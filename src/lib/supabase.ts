@@ -6,6 +6,12 @@ import { streakCurrent, workoutDaysFromLogs } from './achievements'
 import { alignScheduleWeek, migrateCustomExercises } from './persist'
 import { weightToLbs } from './volumeStats'
 import { weekStartMonday } from './dates'
+import type { ReadinessResponses, ReadinessResult } from './readiness'
+import type { TrainingMode } from './trainingMode'
+import type { WorkoutMoodResponses } from './workoutMood'
+import { workoutMoodLift } from './workoutMood'
+import type { BodyMeasurementInput, BodyMeasurementLog } from './bodyMeasurements'
+import { hasAnyBodyMeasurement, todayMeasurementDateKey } from './bodyMeasurements'
 
 /** Supabase table: user_workout_data (user_id uuid PK, data jsonb, updated_at timestamptz). */
 const WORKOUT_DATA_TABLE = 'user_workout_data'
@@ -548,4 +554,280 @@ export async function fetchLatestCoachNoteForClient(
     .maybeSingle()
   if (error || !data?.note) return null
   return String(data.note)
+}
+
+/** Supabase table: readiness_checks — run once in SQL editor:
+ *
+ * create table if not exists public.readiness_checks (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   recovery smallint not null check (recovery between 1 and 5),
+ *   stress smallint not null check (stress between 1 and 5),
+ *   sleep_quality smallint not null check (sleep_quality between 1 and 5),
+ *   combined_score smallint not null,
+ *   recommendation text not null check (recommendation in ('full', 'moderate', 'recovery')),
+ *   created_at timestamptz not null default now()
+ * );
+ *
+ * alter table public.readiness_checks enable row level security;
+ *
+ * create policy "readiness_checks insert own" on public.readiness_checks
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "readiness_checks select own" on public.readiness_checks
+ *   for select using (auth.uid() = user_id);
+ */
+const READINESS_CHECKS_TABLE = 'readiness_checks'
+
+export async function insertReadinessCheck(
+  userId: string,
+  dayKey: string,
+  responses: ReadinessResponses,
+  result: ReadinessResult,
+): Promise<void> {
+  const { error } = await supabase.from(READINESS_CHECKS_TABLE).insert({
+    user_id: userId,
+    date_key: dayKey,
+    recovery: responses.recovery,
+    stress: responses.stress,
+    sleep_quality: responses.sleepQuality,
+    combined_score: result.combinedScore,
+    recommendation: result.tier,
+    created_at: new Date().toISOString(),
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Supabase table: workout_sessions — run once in SQL editor:
+ *
+ * create table if not exists public.workout_sessions (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   training_mode text not null check (training_mode in ('energy', 'focus', 'discipline', 'recovery', 'confidence')),
+ *   started_at timestamptz not null default now(),
+ *   ended_at timestamptz,
+ *   created_at timestamptz not null default now()
+ * );
+ *
+ * create index if not exists workout_sessions_user_date_idx
+ *   on public.workout_sessions (user_id, date_key, started_at desc);
+ *
+ * alter table public.workout_sessions enable row level security;
+ *
+ * create policy "workout_sessions insert own" on public.workout_sessions
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "workout_sessions update own" on public.workout_sessions
+ *   for update using (auth.uid() = user_id);
+ *
+ * create policy "workout_sessions select own" on public.workout_sessions
+ *   for select using (auth.uid() = user_id);
+ */
+const WORKOUT_SESSIONS_TABLE = 'workout_sessions'
+
+export async function insertWorkoutSession(
+  userId: string,
+  dayKey: string,
+  trainingMode: TrainingMode,
+): Promise<void> {
+  const { error } = await supabase.from(WORKOUT_SESSIONS_TABLE).insert({
+    user_id: userId,
+    date_key: dayKey,
+    training_mode: trainingMode,
+    started_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function completeWorkoutSession(
+  userId: string,
+  dayKey: string,
+  trainingMode: TrainingMode,
+): Promise<void> {
+  const { data, error: fetchError } = await supabase
+    .from(WORKOUT_SESSIONS_TABLE)
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date_key', dayKey)
+    .eq('training_mode', trainingMode)
+    .is('ended_at', null)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (fetchError) throw new Error(fetchError.message)
+  if (!data?.id) return
+
+  const { error } = await supabase
+    .from(WORKOUT_SESSIONS_TABLE)
+    .update({ ended_at: new Date().toISOString() })
+    .eq('id', data.id)
+  if (error) throw new Error(error.message)
+}
+
+/** Supabase table: workout_mood_checkins — run once in SQL editor:
+ *
+ * create table if not exists public.workout_mood_checkins (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   mood_before smallint not null check (mood_before between 1 and 5),
+ *   mood_after smallint not null check (mood_after between 1 and 5),
+ *   mood_lift smallint not null,
+ *   created_at timestamptz not null default now()
+ * );
+ *
+ * create index if not exists workout_mood_checkins_user_idx
+ *   on public.workout_mood_checkins (user_id, created_at desc);
+ *
+ * alter table public.workout_mood_checkins enable row level security;
+ *
+ * create policy "workout_mood_checkins insert own" on public.workout_mood_checkins
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "workout_mood_checkins select own" on public.workout_mood_checkins
+ *   for select using (auth.uid() = user_id);
+ */
+const WORKOUT_MOOD_CHECKINS_TABLE = 'workout_mood_checkins'
+
+export type MoodLiftStats = {
+  averageLift: number
+  checkinCount: number
+}
+
+export async function insertWorkoutMoodCheckin(
+  userId: string,
+  dayKey: string,
+  responses: WorkoutMoodResponses,
+): Promise<void> {
+  const moodLift = workoutMoodLift(responses)
+  const { error } = await supabase.from(WORKOUT_MOOD_CHECKINS_TABLE).insert({
+    user_id: userId,
+    date_key: dayKey,
+    mood_before: responses.moodBefore,
+    mood_after: responses.moodAfter,
+    mood_lift: moodLift,
+    created_at: new Date().toISOString(),
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function fetchAverageMoodLift(userId: string): Promise<MoodLiftStats | null> {
+  const { data, error } = await supabase
+    .from(WORKOUT_MOOD_CHECKINS_TABLE)
+    .select('mood_lift')
+    .eq('user_id', userId)
+
+  if (error) throw new Error(error.message)
+  if (!data?.length) return null
+
+  const lifts = data.map((row) => Number(row.mood_lift)).filter((n) => Number.isFinite(n))
+  if (!lifts.length) return null
+
+  const sum = lifts.reduce((acc, n) => acc + n, 0)
+  return {
+    averageLift: sum / lifts.length,
+    checkinCount: lifts.length,
+  }
+}
+
+/** Supabase table: body_measurements — run once in SQL editor:
+ *
+ * create table if not exists public.body_measurements (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   weight numeric,
+ *   chest numeric,
+ *   waist numeric,
+ *   hips numeric,
+ *   arms numeric,
+ *   thighs numeric,
+ *   weight_unit text not null default 'lbs',
+ *   circumference_unit text not null default 'in',
+ *   created_at timestamptz not null default now()
+ * );
+ *
+ * create index if not exists body_measurements_user_created_idx
+ *   on public.body_measurements (user_id, created_at desc);
+ *
+ * alter table public.body_measurements enable row level security;
+ *
+ * create policy "body_measurements insert own" on public.body_measurements
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "body_measurements select own" on public.body_measurements
+ *   for select using (auth.uid() = user_id);
+ */
+const BODY_MEASUREMENTS_TABLE = 'body_measurements'
+
+function parseMeasurementNumber(raw: unknown): number | null {
+  if (raw == null) return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function mapBodyMeasurementRow(row: Record<string, unknown>): BodyMeasurementLog {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    date_key: String(row.date_key),
+    weight: parseMeasurementNumber(row.weight),
+    chest: parseMeasurementNumber(row.chest),
+    waist: parseMeasurementNumber(row.waist),
+    hips: parseMeasurementNumber(row.hips),
+    arms: parseMeasurementNumber(row.arms),
+    thighs: parseMeasurementNumber(row.thighs),
+    weight_unit: String(row.weight_unit ?? 'lbs'),
+    circumference_unit: String(row.circumference_unit ?? 'in'),
+    created_at: String(row.created_at),
+  }
+}
+
+export async function insertBodyMeasurementLog(
+  userId: string,
+  input: BodyMeasurementInput,
+  weightUnit: 'lbs' | 'kg',
+): Promise<BodyMeasurementLog> {
+  if (!hasAnyBodyMeasurement(input)) {
+    throw new Error('Enter at least one measurement')
+  }
+
+  const payload = {
+    user_id: userId,
+    date_key: todayMeasurementDateKey(),
+    weight: input.weight ?? null,
+    chest: input.chest ?? null,
+    waist: input.waist ?? null,
+    hips: input.hips ?? null,
+    arms: input.arms ?? null,
+    thighs: input.thighs ?? null,
+    weight_unit: weightUnit,
+    circumference_unit: 'in',
+    created_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase
+    .from(BODY_MEASUREMENTS_TABLE)
+    .insert(payload)
+    .select('*')
+    .single()
+
+  if (error) throw new Error(error.message)
+  return mapBodyMeasurementRow(data as Record<string, unknown>)
+}
+
+export async function fetchBodyMeasurementLogs(userId: string): Promise<BodyMeasurementLog[]> {
+  const { data, error } = await supabase
+    .from(BODY_MEASUREMENTS_TABLE)
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  if (!data?.length) return []
+  return data.map((row) => mapBodyMeasurementRow(row as Record<string, unknown>))
 }

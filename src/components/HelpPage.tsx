@@ -19,7 +19,7 @@ export function HelpPage({ onClose }: Props) {
   }, [q])
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col bg-[#0c0c0c]">
+    <div className="apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
       <header className="px-4 pt-3 pb-2 border-b border-[#1e1e1e] space-y-2">
         <div className="flex items-center justify-between gap-2">
           <ApexLogo />
