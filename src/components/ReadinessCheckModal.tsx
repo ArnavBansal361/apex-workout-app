@@ -17,20 +17,41 @@ type Props = {
 
 type QuestionKey = keyof ReadinessResponses
 
-const QUESTIONS: { key: QuestionKey; label: string; low: string; high: string }[] = [
+const QUESTIONS: {
+  key: QuestionKey
+  label: string
+  prompt?: string
+  low: string
+  high: string
+}[] = [
   { key: 'recovery', label: 'Recovery', low: 'Worn out', high: 'Fully recovered' },
-  { key: 'stress', label: 'Stress level', low: 'Very calm', high: 'Very stressed' },
   { key: 'sleepQuality', label: 'Sleep quality', low: 'Poor', high: 'Excellent' },
+  {
+    key: 'cognitiveFatigue',
+    label: 'Cognitive fatigue',
+    prompt: 'How mentally tired are you?',
+    low: 'Alert',
+    high: 'Exhausted',
+  },
+  {
+    key: 'stress',
+    label: 'Stress',
+    prompt: 'How stressed are you today?',
+    low: 'Very calm',
+    high: 'Very stressed',
+  },
 ]
 
 function ScaleRow({
   label,
+  prompt,
   low,
   high,
   value,
   onChange,
 }: {
   label: string
+  prompt?: string
   low: string
   high: string
   value: number | null
@@ -39,6 +60,9 @@ function ScaleRow({
   return (
     <div className="space-y-2">
       <p className="text-[13px] font-medium text-[#ececee]">{label}</p>
+      {prompt ? (
+        <p className="text-[12px] font-medium text-[#a0a0a8] leading-snug">{prompt}</p>
+      ) : null}
       <div className="flex gap-2">
         {([1, 2, 3, 4, 5] as const).map((n) => {
           const active = value === n
@@ -84,7 +108,10 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
   if (!open) return null
 
   const complete =
-    responses.recovery != null && responses.stress != null && responses.sleepQuality != null
+    responses.recovery != null &&
+    responses.cognitiveFatigue != null &&
+    responses.stress != null &&
+    responses.sleepQuality != null
 
   function patch(key: QuestionKey, value: number) {
     setResponses((prev) => ({ ...prev, [key]: value }))
@@ -96,6 +123,7 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
     setResult(
       readinessFromResponses({
         recovery: responses.recovery!,
+        cognitiveFatigue: responses.cognitiveFatigue!,
         stress: responses.stress!,
         sleepQuality: responses.sleepQuality!,
       }),
@@ -107,6 +135,7 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
     setSaving(true)
     const payload: ReadinessResponses = {
       recovery: responses.recovery!,
+      cognitiveFatigue: responses.cognitiveFatigue!,
       stress: responses.stress!,
       sleepQuality: responses.sleepQuality!,
     }
@@ -118,6 +147,7 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
     logReadinessCheck({
       dateKey: todayKey,
       recovery: payload.recovery,
+      cognitiveFatigue: payload.cognitiveFatigue,
       stress: payload.stress,
       sleepQuality: payload.sleepQuality,
       combinedScore: result.combinedScore,
@@ -156,6 +186,7 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
                 <ScaleRow
                   key={q.key}
                   label={q.label}
+                  prompt={q.prompt}
                   low={q.low}
                   high={q.high}
                   value={responses[q.key] ?? null}

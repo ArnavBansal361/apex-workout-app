@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { filterClientStateForTrainer, type TrainerSharePrefs } from './trainer'
 import type { AppPersisted, ReadinessLogEntry, WorkoutMoodLogEntry } from '../types'
 import { streakCurrent, workoutDaysFromLogs } from './achievements'
+import { stateForCloudSync } from './cycleTracking'
 import { alignScheduleWeek, migrateCustomExercises } from './persist'
 import { weightToLbs } from './volumeStats'
 import { dateKey, weekStartMonday } from './dates'
@@ -141,7 +142,7 @@ export async function upsertUserWorkoutState(userId: string, state: AppPersisted
   const { error } = await supabase.from(WORKOUT_DATA_TABLE).upsert(
     {
       user_id: userId,
-      data: state,
+      data: stateForCloudSync(state),
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id' },
@@ -563,8 +564,14 @@ export async function fetchLatestCoachNoteForClient(
  *   user_id uuid not null references auth.users(id) on delete cascade,
  *   date_key text not null,
  *   recovery smallint not null check (recovery between 1 and 5),
+ *   cognitive_fatigue smallint check (cognitive_fatigue is null or cognitive_fatigue between 1 and 5),
  *   stress smallint not null check (stress between 1 and 5),
  *   sleep_quality smallint not null check (sleep_quality between 1 and 5),
+ *
+ * -- If the table already exists:
+ * alter table public.readiness_checks
+ *   add column if not exists cognitive_fatigue smallint
+ *   check (cognitive_fatigue is null or cognitive_fatigue between 1 and 5);
  *   combined_score smallint not null,
  *   recommendation text not null check (recommendation in ('full', 'moderate', 'recovery')),
  *   created_at timestamptz not null default now()
@@ -590,6 +597,7 @@ export async function insertReadinessCheck(
     user_id: userId,
     date_key: dayKey,
     recovery: responses.recovery,
+    cognitive_fatigue: responses.cognitiveFatigue,
     stress: responses.stress,
     sleep_quality: responses.sleepQuality,
     combined_score: result.combinedScore,
@@ -640,6 +648,25 @@ export async function insertWorkoutSession(
     created_at: new Date().toISOString(),
   })
   if (error) throw new Error(error.message)
+}
+
+export async function fetchWorkoutSessionsForCoach(
+  userId: string,
+  days = 90,
+): Promise<{ dateKey: string; trainingMode: TrainingMode }[]> {
+  const sinceKey = coachHistorySinceKey(days)
+  const { data, error } = await supabase
+    .from(WORKOUT_SESSIONS_TABLE)
+    .select('date_key, training_mode, started_at')
+    .eq('user_id', userId)
+    .gte('date_key', sinceKey)
+    .order('started_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({
+    dateKey: String(row.date_key),
+    trainingMode: row.training_mode as TrainingMode,
+  }))
 }
 
 export async function completeWorkoutSession(
@@ -707,7 +734,7 @@ export async function fetchReadinessChecksForCoach(
   const { data, error } = await supabase
     .from(READINESS_CHECKS_TABLE)
     .select(
-      'date_key, recovery, stress, sleep_quality, combined_score, recommendation, created_at',
+      'date_key, recovery, cognitive_fatigue, stress, sleep_quality, combined_score, recommendation, created_at',
     )
     .eq('user_id', userId)
     .gte('date_key', sinceKey)
@@ -717,6 +744,8 @@ export async function fetchReadinessChecksForCoach(
   return (data ?? []).map((row) => ({
     dateKey: String(row.date_key),
     recovery: Number(row.recovery),
+    cognitiveFatigue:
+      row.cognitive_fatigue == null ? undefined : Number(row.cognitive_fatigue),
     stress: Number(row.stress),
     sleepQuality: Number(row.sleep_quality),
     combinedScore: Number(row.combined_score),
@@ -816,6 +845,84 @@ export async function fetchAverageMoodLift(userId: string): Promise<MoodLiftStat
  * create policy "body_measurements select own" on public.body_measurements
  *   for select using (auth.uid() = user_id);
  */
+/** Supabase table: deload_weeks — run once in SQL editor:
+ *
+ * create table if not exists public.deload_weeks (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   week_start_key text not null,
+ *   action text not null check (action in ('suggested', 'applied', 'dismissed')),
+ *   weight_reduction_pct smallint not null default 40,
+ *   exercise_ids jsonb not null default '[]'::jsonb,
+ *   created_at timestamptz not null default now()
+ * );
+ *
+ * create index if not exists deload_weeks_user_week_idx
+ *   on public.deload_weeks (user_id, week_start_key, created_at desc);
+ *
+ * alter table public.deload_weeks enable row level security;
+ *
+ * create policy "deload_weeks insert own" on public.deload_weeks
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "deload_weeks select own" on public.deload_weeks
+ *   for select using (auth.uid() = user_id);
+ */
+const DELOAD_WEEKS_TABLE = 'deload_weeks'
+
+export type DeloadWeekAction = 'suggested' | 'applied' | 'dismissed'
+
+export type DeloadWeekRecord = {
+  id: string
+  weekStartKey: string
+  action: DeloadWeekAction
+  weightReductionPct: number
+  exerciseIds: string[]
+  createdAt: string
+}
+
+export async function insertDeloadWeekEvent(
+  userId: string,
+  weekStartKey: string,
+  action: DeloadWeekAction,
+  exerciseIds: string[],
+  weightReductionPct = 40,
+): Promise<void> {
+  const { error } = await supabase.from(DELOAD_WEEKS_TABLE).insert({
+    user_id: userId,
+    week_start_key: weekStartKey,
+    action,
+    weight_reduction_pct: weightReductionPct,
+    exercise_ids: exerciseIds,
+    created_at: new Date().toISOString(),
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function fetchDeloadWeekHistory(
+  userId: string,
+  limit = 24,
+): Promise<DeloadWeekRecord[]> {
+  const { data, error } = await supabase
+    .from(DELOAD_WEEKS_TABLE)
+    .select('id, week_start_key, action, weight_reduction_pct, exercise_ids, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    weekStartKey: String(row.week_start_key),
+    action: row.action as DeloadWeekAction,
+    weightReductionPct: Number(row.weight_reduction_pct) || 40,
+    exerciseIds: Array.isArray(row.exercise_ids)
+      ? row.exercise_ids.map((x) => String(x))
+      : [],
+    createdAt: String(row.created_at),
+  }))
+}
+
 const BODY_MEASUREMENTS_TABLE = 'body_measurements'
 
 function parseMeasurementNumber(raw: unknown): number | null {
@@ -884,4 +991,112 @@ export async function fetchBodyMeasurementLogs(userId: string): Promise<BodyMeas
   if (error) throw new Error(error.message)
   if (!data?.length) return []
   return data.map((row) => mapBodyMeasurementRow(row as Record<string, unknown>))
+}
+
+/** Supabase table: tended_user_state — shared Tended cross-app daily physical state.
+ *
+ * create table if not exists public.tended_user_state (
+ *   id uuid primary key default gen_random_uuid(),
+ *   user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   workout_done boolean not null default false,
+ *   volume_lbs numeric not null default 0,
+ *   muscle_groups_trained text[] not null default '{}',
+ *   mood_score smallint check (mood_score is null or mood_score between 1 and 5),
+ *   sleep_hours numeric check (sleep_hours is null or sleep_hours >= 0),
+ *   water_oz numeric not null default 0,
+ *   readiness_score smallint,
+ *   energy_level smallint check (energy_level is null or energy_level between 1 and 5),
+ *   stress_level smallint check (stress_level is null or stress_level between 1 and 5),
+ *   source_app text not null default 'apex',
+ *   created_at timestamptz not null default now(),
+ *   updated_at timestamptz not null default now(),
+ *   unique (user_id, date_key)
+ * );
+ *
+ * create index if not exists tended_user_state_user_date_idx
+ *   on public.tended_user_state (user_id, date_key desc);
+ *
+ * alter table public.tended_user_state enable row level security;
+ *
+ * create policy "tended_user_state select own" on public.tended_user_state
+ *   for select using (auth.uid() = user_id);
+ *
+ * create policy "tended_user_state insert own" on public.tended_user_state
+ *   for insert with check (auth.uid() = user_id);
+ *
+ * create policy "tended_user_state update own" on public.tended_user_state
+ *   for update using (auth.uid() = user_id);
+ */
+const TENDED_USER_STATE_TABLE = 'tended_user_state'
+
+/** Daily physical-state row for cross-app Tended context. */
+export type TendedUserStateSnapshot = {
+  dateKey: string
+  workoutDone: boolean
+  volumeLbs: number
+  muscleGroupsTrained: string[]
+  moodScore: number | null
+  sleepHours: number | null
+  waterOz: number
+  readinessScore: number | null
+  energyLevel: number | null
+  stressLevel: number | null
+}
+
+export async function upsertTendedUserState(
+  userId: string,
+  snapshot: TendedUserStateSnapshot,
+  sourceApp = 'apex',
+): Promise<void> {
+  const now = new Date().toISOString()
+  const { error } = await supabase.from(TENDED_USER_STATE_TABLE).upsert(
+    {
+      user_id: userId,
+      date_key: snapshot.dateKey,
+      workout_done: snapshot.workoutDone,
+      volume_lbs: snapshot.volumeLbs,
+      muscle_groups_trained: snapshot.muscleGroupsTrained,
+      mood_score: snapshot.moodScore,
+      sleep_hours: snapshot.sleepHours,
+      water_oz: snapshot.waterOz,
+      readiness_score: snapshot.readinessScore,
+      energy_level: snapshot.energyLevel,
+      stress_level: snapshot.stressLevel,
+      source_app: sourceApp,
+      updated_at: now,
+    },
+    { onConflict: 'user_id,date_key' },
+  )
+  if (error) throw new Error(error.message)
+}
+
+export async function fetchTendedUserState(
+  userId: string,
+  limit = 30,
+): Promise<TendedUserStateSnapshot[]> {
+  const { data, error } = await supabase
+    .from(TENDED_USER_STATE_TABLE)
+    .select(
+      'date_key, workout_done, volume_lbs, muscle_groups_trained, mood_score, sleep_hours, water_oz, readiness_score, energy_level, stress_level',
+    )
+    .eq('user_id', userId)
+    .order('date_key', { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => ({
+    dateKey: String(row.date_key),
+    workoutDone: Boolean(row.workout_done),
+    volumeLbs: Number(row.volume_lbs) || 0,
+    muscleGroupsTrained: Array.isArray(row.muscle_groups_trained)
+      ? row.muscle_groups_trained.map((g) => String(g))
+      : [],
+    moodScore: row.mood_score == null ? null : Number(row.mood_score),
+    sleepHours: row.sleep_hours == null ? null : Number(row.sleep_hours),
+    waterOz: Number(row.water_oz) || 0,
+    readinessScore: row.readiness_score == null ? null : Number(row.readiness_score),
+    energyLevel: row.energy_level == null ? null : Number(row.energy_level),
+    stressLevel: row.stress_level == null ? null : Number(row.stress_level),
+  }))
 }

@@ -173,6 +173,8 @@ export interface Settings {
   unit: 'lbs' | 'kg'
   restTimerSeconds: number
   restTimerEnabled: boolean
+  /** Desktop/in-app reminder 5 min after a completed workout (if no recent meal logged). */
+  postWorkoutProteinNotificationEnabled: boolean
   trainerMode: boolean
   trainerNotes: string
   /** Selected profile icon; null shows initials. */
@@ -183,6 +185,8 @@ export interface Settings {
   macroGoalProteinG: number
   macroGoalCarbsG: number
   macroGoalFatG: number
+  /** Local-only hormonal cycle tracking (never synced to Supabase). */
+  cycleTrackingEnabled: boolean
 }
 
 export interface GymSessionPersist {
@@ -218,6 +222,8 @@ export type CoachChatImage = {
 export type ReadinessLogEntry = {
   dateKey: string
   recovery: number
+  /** 1–5; omitted on logs before cognitive fatigue was added */
+  cognitiveFatigue?: number
   stress: number
   sleepQuality: number
   combinedScore: number
@@ -291,6 +297,12 @@ export interface AppPersisted {
   burnoutDismissedWeekStart: string | null
   /** Week start (Mon YYYY-MM-DD) when the one-per-week streak shield was consumed. */
   streakShieldUsedWeekStart: string | null
+  /** Week start when user activated a deload week (logging prefills at −40% weight). */
+  deloadActiveWeekStart: string | null
+  /** Week start when the deload suggestion banner was dismissed. */
+  deloadDismissedWeekStart: string | null
+  /** Day 1 of current cycle (YYYY-MM-DD). Local only — never synced to Supabase. */
+  cycleStartDateKey: string | null
   /** Synced to cloud so trainers can respect client privacy toggles. */
   trainerShare?: {
     workoutLogs: boolean
@@ -313,6 +325,7 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'lbs',
   restTimerSeconds: 90,
   restTimerEnabled: true,
+  postWorkoutProteinNotificationEnabled: true,
   trainerMode: false,
   trainerNotes: '',
   profileAvatarId: null,
@@ -321,6 +334,7 @@ export const DEFAULT_SETTINGS: Settings = {
   macroGoalProteinG: DEFAULT_MACRO_GOAL_PROTEIN_G,
   macroGoalCarbsG: DEFAULT_MACRO_GOAL_CARBS_G,
   macroGoalFatG: DEFAULT_MACRO_GOAL_FAT_G,
+  cycleTrackingEnabled: false,
 }
 
 export const ACHIEVEMENT_DEFS = [

@@ -35,12 +35,22 @@ import {
 import { dateKey, weekStartMonday } from '../lib/dates'
 import { computeWeekSummary } from '../lib/weekSummary'
 import { normalizeTodayLayout } from '../lib/todayLayout'
-import { showWeeklySummaryNotification } from '../lib/desktopNotifications'
+import {
+  POST_WORKOUT_PROTEIN_DELAY_MS,
+  POST_WORKOUT_PROTEIN_MEAL_LOOKBACK_MS,
+  POST_WORKOUT_PROTEIN_MESSAGE,
+  showPostWorkoutProteinNotification,
+  showWeeklySummaryNotification,
+} from '../lib/desktopNotifications'
+import { hasMealLoggedWithin } from '../lib/stats'
 import { computeIsPr } from '../lib/pr'
 import { evaluateAchievements, streakCurrent } from '../lib/achievements'
 import type { TrainingMode } from '../lib/trainingMode'
 import { detectStreakShieldConsumption } from '../lib/streakShield'
 import { cardioElapsedMs, gymElapsedMs } from '../lib/timers'
+import { preserveLocalOnlyFields } from '../lib/cycleTracking'
+import { pickDeloadExerciseIds } from '../lib/deload'
+import { syncTendedUserStateSnapshots } from '../lib/tendedUserState'
 import { currentWeekStartKey } from '../lib/volumeStats'
 import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
 import { applyTrainerShareToState, syncTrainerShareFromState } from '../lib/trainer'
@@ -48,6 +58,7 @@ import {
   completeWorkoutSession,
   fetchLatestCoachNoteForClient,
   fetchUserWorkoutState,
+  insertDeloadWeekEvent,
   pickWorkoutStateForHydrate,
   supabase,
   upsertLeaderboardEntry,
@@ -127,6 +138,7 @@ type Ctx = {
   batchPatchSchedule: (patches: { dateKey: string; patch: Partial<ScheduleDay> }[]) => void
   disconnectGoogleCalendar: () => void
   updateSettings: (patch: Partial<Settings>) => void
+  setCycleStartDateKey: (dateKeyVal: string) => void
   pushChat: (
     role: 'user' | 'model',
     text: string,
@@ -142,6 +154,8 @@ type Ctx = {
     help?: { formTips: string; commonMistakes: string; beginnerAdvice: string },
   ) => void
   dismissBurnoutWarnings: () => void
+  applyDeloadWeek: () => void
+  dismissDeloadSuggestion: () => void
   toggleFavoriteExercise: (exerciseId: string) => void
   addBodyweight: (value: number) => void
   addWaterOz: (oz?: number) => void
@@ -210,8 +224,10 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   const [coachNote, setCoachNote] = useState<string | null>(null)
   const stateRef = useRef(state)
   const notifyClearTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const proteinNotifyTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const cloudReadyRef = useRef(false)
   const cloudSaveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const tendedStateTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const offlineSyncToastShownRef = useRef(false)
 
   useEffect(() => {
@@ -263,9 +279,13 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       if (cancelled) return
       let synced = stateRef.current
       if (remote) {
-        synced = withAchievements(
-          alignScheduleWeek(
-            pickWorkoutStateForHydrate(synced, remote.state, remote.updatedAt),
+        const localBefore = stateRef.current
+        synced = preserveLocalOnlyFields(
+          localBefore,
+          withAchievements(
+            alignScheduleWeek(
+              pickWorkoutStateForHydrate(synced, remote.state, remote.updatedAt),
+            ),
           ),
         )
         setState(synced)
@@ -276,6 +296,9 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       const { data: authData } = await supabase.auth.getUser()
       await upsertLeaderboardEntry(userId, synced, authData.user)
       cloudReadyRef.current = true
+      void syncTendedUserStateSnapshots(userId, synced, Date.now()).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[Tended state] initial sync failed', e)
+      })
       const note = await fetchLatestCoachNoteForClient(userId)
       setCoachNote(note?.trim() ? note : null)
     })()
@@ -337,6 +360,23 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   const todayKey = dateKey(new Date(clock))
 
   useEffect(() => {
+    if (!cloudReadyRef.current || !isAppOnline()) return
+    if (tendedStateTimerRef.current != null) {
+      window.clearTimeout(tendedStateTimerRef.current)
+    }
+    tendedStateTimerRef.current = window.setTimeout(() => {
+      void syncTendedUserStateSnapshots(userId, stateRef.current, clock).catch((e) => {
+        if (import.meta.env.DEV) console.warn('[Tended state] sync failed', e)
+      })
+    }, 2500)
+    return () => {
+      if (tendedStateTimerRef.current != null) {
+        window.clearTimeout(tendedStateTimerRef.current)
+      }
+    }
+  }, [userId, todayKey, state, clock])
+
+  useEffect(() => {
     setState((s) => alignScheduleWeek(s))
   }, [todayKey])
 
@@ -352,6 +392,28 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       notifyClearTimeoutRef.current = null
     }, durationMs)
   }, [])
+
+  const clearPostWorkoutProteinTimer = useCallback(() => {
+    if (proteinNotifyTimeoutRef.current != null) {
+      window.clearTimeout(proteinNotifyTimeoutRef.current)
+      proteinNotifyTimeoutRef.current = null
+    }
+  }, [])
+
+  const schedulePostWorkoutProteinNotification = useCallback(() => {
+    clearPostWorkoutProteinTimer()
+    proteinNotifyTimeoutRef.current = window.setTimeout(() => {
+      proteinNotifyTimeoutRef.current = null
+      const s = stateRef.current
+      if (!s.settings.postWorkoutProteinNotificationEnabled) return
+      if (hasMealLoggedWithin(s, POST_WORKOUT_PROTEIN_MEAL_LOOKBACK_MS)) return
+      if (!showPostWorkoutProteinNotification()) {
+        notify(POST_WORKOUT_PROTEIN_MESSAGE, 5000)
+      }
+    }, POST_WORKOUT_PROTEIN_DELAY_MS)
+  }, [clearPostWorkoutProteinTimer, notify])
+
+  useEffect(() => () => clearPostWorkoutProteinTimer(), [clearPostWorkoutProteinTimer])
 
   const streakMilestonePrevRef = useRef<number | null>(null)
   useEffect(() => {
@@ -558,6 +620,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   )
 
   const startGymSession: Ctx['startGymSession'] = useCallback((mode, manualMsSinceMidnight, trainingMode = null) => {
+    clearPostWorkoutProteinTimer()
     const d = new Date()
     let manualStartedAt: number | null = null
     if (mode === 'manual' && manualMsSinceMidnight != null) {
@@ -578,7 +641,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       },
     }))
     notify('Gym session started')
-  }, [notify])
+  }, [clearPostWorkoutProteinTimer, notify])
 
   const pauseGymSession = useCallback(() => {
     setState((s) => {
@@ -630,6 +693,10 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     }))
     notify('Gym session ended')
 
+    if (hadActiveSession) {
+      schedulePostWorkoutProteinNotification()
+    }
+
     if (sessionTrainingMode) {
       try {
         await completeWorkoutSession(userId, today, sessionTrainingMode)
@@ -649,7 +716,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     } catch {
       notify('Could not generate workout summary right now.')
     }
-  }, [notify, userId])
+  }, [notify, schedulePostWorkoutProteinNotification, userId])
 
   const addPlanExercise = useCallback((exerciseId: string) => {
     setState((s) => {
@@ -798,6 +865,12 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
   }, [])
 
+  const setCycleStartDateKey = useCallback((dateKeyVal: string) => {
+    const dk = dateKeyVal.trim()
+    if (!dk) return
+    setState((s) => ({ ...s, cycleStartDateKey: dk }))
+  }, [])
+
   const pushChat = useCallback(
     (
       role: 'user' | 'model',
@@ -874,6 +947,33 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   const dismissBurnoutWarnings = useCallback(() => {
     setState((s) => ({ ...s, burnoutDismissedWeekStart: currentWeekStartKey() }))
   }, [])
+
+  const applyDeloadWeek = useCallback(() => {
+    const wk = currentWeekStartKey()
+    const dk = dateKey(new Date())
+    const s = stateRef.current
+    const validIds = new Set([
+      ...EXERCISES.map((e) => e.id),
+      ...s.customExercises.map((e) => e.id),
+    ])
+    const hidden = new Set(s.hiddenExerciseIds)
+    const plan = pickDeloadExerciseIds(s, dk).filter((id) => validIds.has(id) && !hidden.has(id))
+    setState({
+      ...s,
+      todayPlanExerciseIds: plan,
+      todaySupersetPairs: [],
+      deloadActiveWeekStart: wk,
+      deloadDismissedWeekStart: null,
+    })
+    void insertDeloadWeekEvent(userId, wk, 'applied', plan, 40).catch(() => {})
+    notify('Deload week — same exercises, weights prefill at 60% of last session')
+  }, [notify, userId])
+
+  const dismissDeloadSuggestion = useCallback(() => {
+    const wk = currentWeekStartKey()
+    setState((s) => ({ ...s, deloadDismissedWeekStart: wk }))
+    void insertDeloadWeekEvent(userId, wk, 'dismissed', [], 40).catch(() => {})
+  }, [userId])
 
   const hideExercise = useCallback((exerciseId: string) => {
     setState((s) => ({
@@ -1266,12 +1366,15 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       batchPatchSchedule,
       disconnectGoogleCalendar,
       updateSettings,
+      setCycleStartDateKey,
       pushChat,
       clearChat,
       hideExercise,
       resolveExerciseById,
       addCustomExercise,
       dismissBurnoutWarnings,
+      applyDeloadWeek,
+      dismissDeloadSuggestion,
       toggleFavoriteExercise,
       addBodyweight,
       addWaterOz,
@@ -1331,12 +1434,15 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       batchPatchSchedule,
       disconnectGoogleCalendar,
       updateSettings,
+      setCycleStartDateKey,
       pushChat,
       clearChat,
       hideExercise,
       resolveExerciseById,
       addCustomExercise,
       dismissBurnoutWarnings,
+      applyDeloadWeek,
+      dismissDeloadSuggestion,
       toggleFavoriteExercise,
       addBodyweight,
       addWaterOz,

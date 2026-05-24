@@ -31,6 +31,7 @@ import {
 } from '../lib/anthropicCoach'
 import { formatMoodLift } from '../lib/workoutMood'
 import { computeStrengthAge, formatStrengthAgeLiftLabel } from '../lib/strengthAge'
+import { LongevityScoreCard } from './LongevityScoreCard'
 import { PerformanceInsightsCard } from './PerformanceInsightsCard'
 import type { MoodLiftStats } from '../lib/supabase'
 import { dateKey } from '../lib/dates'
@@ -848,6 +849,7 @@ export function ProfileTab({
     userId,
     state,
     updateSettings,
+    setCycleStartDateKey,
     notify,
     addBodyweight,
     resetAppData,
@@ -1262,6 +1264,7 @@ export function ProfileTab({
           >
             Achievements
           </button>
+          <LongevityScoreCard className={isDesktop ? 'col-span-2' : ''} />
           <PerformanceInsightsCard className={isDesktop ? 'col-span-2' : ''} />
           {trainerMode ? (
             <>
@@ -1864,6 +1867,51 @@ export function ProfileTab({
           </section>
           <div className="apex-settings-divider" aria-hidden />
           <section className="apex-settings-section space-y-4">
+            <div className="space-y-1">
+              <span className="apex-section-label block">Cycle tracking</span>
+              <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                Optional. Adjusts AI coach intensity by phase. Stored on this device only — never
+                uploaded to the cloud.
+              </p>
+            </div>
+            <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
+              <input
+                type="checkbox"
+                checked={state.settings.cycleTrackingEnabled}
+                onChange={(e) => updateSettings({ cycleTrackingEnabled: e.target.checked })}
+                className="apex-checkbox"
+              />
+              Enable cycle tracking
+            </label>
+            {state.settings.cycleTrackingEnabled ? (
+              <div className="space-y-3 pl-0">
+                <label className="block">
+                  <span className="apex-section-label block mb-2">Cycle start date</span>
+                  <input
+                    type="date"
+                    className={`w-full min-h-12 ${inp}`}
+                    value={state.cycleStartDateKey ?? ''}
+                    onChange={(e) => {
+                      if (e.target.value) setCycleStartDateKey(e.target.value)
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="apex-btn min-h-11 w-full text-[13px] font-semibold"
+                  onClick={() => {
+                    const dk = new Date().toISOString().slice(0, 10)
+                    setCycleStartDateKey(dk)
+                    notify('Cycle start set to today')
+                  }}
+                >
+                  Log cycle start as today
+                </button>
+              </div>
+            ) : null}
+          </section>
+          <div className="apex-settings-divider" aria-hidden />
+          <section className="apex-settings-section space-y-4">
             <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
             <input
               type="checkbox"
@@ -1873,6 +1921,21 @@ export function ProfileTab({
             />
             Start rest countdown after each set
           </label>
+          <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
+            <input
+              type="checkbox"
+              checked={state.settings.postWorkoutProteinNotificationEnabled}
+              onChange={(e) =>
+                updateSettings({ postWorkoutProteinNotificationEnabled: e.target.checked })
+              }
+              className="apex-checkbox"
+            />
+            Post-workout protein reminder (5 min after session)
+          </label>
+          <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed -mt-2">
+            &ldquo;Good time for protein — your muscles are ready to absorb it.&rdquo; Skipped if you
+            logged a meal in the last 30 minutes. Uses system notifications when allowed.
+          </p>
           <label className="block">
             <span className="apex-section-label block mb-2">Rest timer (seconds)</span>
             <input

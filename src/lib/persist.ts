@@ -473,6 +473,14 @@ function migrateAppState(s: AppPersisted): AppPersisted {
       s.settings.macroGoalFatG > 0
         ? Math.round(s.settings.macroGoalFatG)
         : DEFAULT_MACRO_GOAL_FAT_G,
+    cycleTrackingEnabled:
+      typeof s.settings.cycleTrackingEnabled === 'boolean'
+        ? s.settings.cycleTrackingEnabled
+        : false,
+    postWorkoutProteinNotificationEnabled:
+      typeof s.settings.postWorkoutProteinNotificationEnabled === 'boolean'
+        ? s.settings.postWorkoutProteinNotificationEnabled
+        : true,
   }
   return {
     ...s,
@@ -502,6 +510,18 @@ function migrateAppState(s: AppPersisted): AppPersisted {
     burnoutDismissedWeekStart:
       typeof s.burnoutDismissedWeekStart === 'string' || s.burnoutDismissedWeekStart === null
         ? s.burnoutDismissedWeekStart
+        : null,
+    deloadActiveWeekStart:
+      typeof s.deloadActiveWeekStart === 'string' || s.deloadActiveWeekStart === null
+        ? s.deloadActiveWeekStart
+        : null,
+    deloadDismissedWeekStart:
+      typeof s.deloadDismissedWeekStart === 'string' || s.deloadDismissedWeekStart === null
+        ? s.deloadDismissedWeekStart
+        : null,
+    cycleStartDateKey:
+      typeof s.cycleStartDateKey === 'string' || s.cycleStartDateKey === null
+        ? s.cycleStartDateKey
         : null,
     todaySupersetPairs: Array.isArray(s.todaySupersetPairs)
       ? s.todaySupersetPairs.filter(
@@ -578,6 +598,9 @@ export function defaultState(): AppPersisted {
     lastWeeklySummaryNotifWeekStart: null,
     burnoutDismissedWeekStart: null,
     streakShieldUsedWeekStart: null,
+    deloadActiveWeekStart: null,
+    deloadDismissedWeekStart: null,
+    cycleStartDateKey: null,
   }
 }
 

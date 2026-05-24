@@ -35,6 +35,13 @@ export function parseDateKey(key: string): Date {
   return new Date(y, m - 1, d)
 }
 
+/** Add calendar days to a YYYY-MM-DD key (local calendar). */
+export function addDaysToDateKey(key: string, deltaDays: number): string {
+  const d = parseDateKey(key)
+  d.setDate(d.getDate() + deltaDays)
+  return dateKey(d)
+}
+
 /** Monday 00:00 local of the week containing `d` */
 export function weekStartMonday(d: Date): Date {
   const c = new Date(d.getFullYear(), d.getMonth(), d.getDate())

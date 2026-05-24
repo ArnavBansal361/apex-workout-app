@@ -1,6 +1,8 @@
 import type { AppPersisted, ChatMessage, ExerciseHelp } from '../types'
+import { cycleCoachInstruction } from './cycleTracking'
 import { resolveCoachContextBlock } from './coachContext'
-import { formatCoachTodayLine, parseDateKey } from './dates'
+import { dateKey, formatCoachTodayLine, parseDateKey } from './dates'
+import { readinessCoachInstruction } from './readiness'
 import { trainingModeCoachInstruction } from './trainingMode'
 import { weeklyVolumeSeries } from './stats'
 import type { PrimaryCalendarEvent } from './googleCalendar'
@@ -120,10 +122,15 @@ function coachTodaySystemPrefix(nowMs: number): string {
 
 const COACH_SYSTEM = `- Respond in plain conversational text only. Never use markdown, bullet points, numbered lists, headers, tables, dividers, or emoji.
 - Keep every reply to a maximum of 3 sentences total. Be direct and specific.
-- Sound like a knowledgeable friend, not a formal coach or essay writer.
-- Always end with exactly one specific actionable suggestion the athlete can do next (training, recovery, or scheduling).
+- Sound like a knowledgeable coach who has trained this athlete for months — warm but not chatty, confident, and never generic.
+- Cite real numbers from their context when relevant (volume, readiness, cognitive fatigue, stress, longevity score, mood lift, rest times, injury risk, schedule).
+- When today's readiness check is logged, name cognitive fatigue and stress as X/5 in your reply (do not skip them).
+- If cognitive fatigue is 4–5, recommend zone 2 cardio or mobility instead of heavy lifting unless they clearly want strength work.
+- If stress is 4–5, suggest a shorter session with more rest between sets and lower total volume.
+- Never give boilerplate advice ("listen to your body", "stay hydrated") unless their data shows a specific gap you can name.
+- Always end with exactly one specific actionable suggestion tied to today's schedule, training mode, or their latest logged data.
 
-You are the Apex AI Coach in the Apex workout app. The athlete context block is refreshed on every message. It includes today's date, training mode, goals, streak, full workout history for the past 4 weeks, all personal records, current-week volume by muscle group, readiness scores (7 days), mood check-ins, sleep and water averages, and the weekly schedule. Reference specific numbers and trends from that data — never give generic advice when the context has detail. If a section is empty, say so briefly and still help.`
+You are the Apex AI Coach in the Apex workout app. The athlete context block is refreshed on every message. It includes: today's date; whether today is a scheduled rest or workout day; training mode and mode streak; deload history and active deload; longevity score; menstrual cycle phase when enabled; post-workout mood trends (14 days); most and least trained muscle groups; average workout duration and rest between sets; injury risk level; goals and streak; full workout history (4 weeks); all PRs; weekly volume by muscle; readiness (7 days) with cognitive fatigue and stress; detailed mood logs; sleep and water averages; and the weekly schedule. Use that data — if a section is empty, say so briefly and still help with what you do know.`
 
 const COACH_VISION_HINT = `- The athlete attached a photo in their latest message. Analyze the image (form, equipment setup, meals, body composition cues, etc.) and connect your answer to their goals and logged training.`
 
@@ -293,16 +300,18 @@ export async function claudeCoachComplete(
   const isPlan = options.mode === 'workout_plan' && isCompletePlanAnswers(planAnswers)
   const nowMs = Date.now()
   const todayLine = coachTodaySystemPrefix(nowMs)
-  const coachContext = await resolveCoachContextBlock(state, {
+  const { context: coachContext, todayReadiness } = await resolveCoachContextBlock(state, {
     userId: options.userId,
     nowMs,
   })
   const planBlock = formatPlanAnswersForSystem(planAnswers)
   const modeInstruction = trainingModeCoachInstruction(state.gymSession.trainingMode)
+  const cycleInstruction = cycleCoachInstruction(state, dateKey(new Date(nowMs)))
+  const readinessInstruction = readinessCoachInstruction(todayReadiness)
   const visionBlock = lastHasImage && !isPlan ? `\n${COACH_VISION_HINT}` : ''
   const system = isPlan
-    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}\n\n--- Athlete context ---\n${coachContext}`
-    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
+    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}${cycleInstruction}${readinessInstruction}\n\n--- Athlete context ---\n${coachContext}`
+    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}${readinessInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
   const maxTokens = options.maxTokens ?? (isPlan ? 720 : lastHasImage ? 560 : 320)
   const requestBody = {
     model: CLAUDE_MODEL,
@@ -515,7 +524,7 @@ export async function claudeOneSentenceWorkoutSummary(
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 256,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${(await resolveCoachContextBlock(state, { nowMs: Date.now() })).context}`,
       messages: [{ role: 'user', content: user }],
     }),
   })
@@ -563,7 +572,7 @@ ${rawText.slice(0, 12000)}`
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 8192,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${(await resolveCoachContextBlock(state, { nowMs: Date.now() })).context}`,
       messages: [{ role: 'user', content: user }],
     }),
   })

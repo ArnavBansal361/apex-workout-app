@@ -11,8 +11,13 @@ import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
 import { dateKey, formatLong, getNow } from '../lib/dates'
 import { formatDuration } from '../lib/timers'
 import { progressiveOverloadBanner } from '../lib/overload'
-import { shouldSuggestDeload } from '../lib/deload'
-import { formatLastSessionLine, getLastWeightedSetForExercise, getLastWorkoutSession } from '../lib/lastSession'
+import {
+  getWeightedPrefillForExercise,
+  isDeloadBannerDismissed,
+  isDeloadWeekActive,
+  shouldSuggestDeloadWeek,
+} from '../lib/deload'
+import { formatLastSessionLine, getLastWorkoutSession } from '../lib/lastSession'
 import { PLAN_PRESETS } from '../data/planPresets'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -25,8 +30,11 @@ import {
   setsLoggedTodayForExercise,
   writeGymModeEnabled,
 } from '../lib/gymMode'
+import { getCycleStatus } from '../lib/cycleTracking'
+import { generateWarmupPlan, plannedExerciseIdsForSession } from '../lib/warmupGenerator'
 import { ReadinessCheckModal } from './ReadinessCheckModal'
 import { TrainingModeModal } from './TrainingModeModal'
+import { WarmupCardModal } from './WarmupCardModal'
 import { WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
 import { trainingModeDef, type TrainingMode } from '../lib/trainingMode'
 import {
@@ -434,6 +442,8 @@ export function TodayTab({
     logSleep,
     addMealLog,
     deleteMealLog,
+    applyDeloadWeek,
+    dismissDeloadSuggestion,
   } = useWorkout()
   const { clock, gymElapsedMs, cardioElapsedMs } = useWorkoutTick()
 
@@ -504,7 +514,6 @@ export function TodayTab({
   const [gymModeStandardOnce, setGymModeStandardOnce] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [sessionSummary, setSessionSummary] = useState<SessionSummaryData | null>(null)
-  const [deloadDismissed, setDeloadDismissed] = useState(false)
   const [gymTime, setGymTime] = useState('09:00')
   const [gymManualOpen, setGymManualOpen] = useState(false)
   const [cardioName, setCardioName] = useState('')
@@ -606,6 +615,8 @@ export function TodayTab({
   const [quickLogOpen, setQuickLogOpen] = useState(false)
   const [readinessOpen, setReadinessOpen] = useState(false)
   const [trainingModeOpen, setTrainingModeOpen] = useState(false)
+  const [warmupOpen, setWarmupOpen] = useState(false)
+  const [pendingTrainingMode, setPendingTrainingMode] = useState<TrainingMode | null>(null)
   const [moodCheckinOpen, setMoodCheckinOpen] = useState(false)
   const [gymCardOpen, setGymCardOpen] = useState(false)
   const [gymBarcodeRenderError, setGymBarcodeRenderError] = useState<string | null>(null)
@@ -661,8 +672,29 @@ export function TodayTab({
     setTrainingModeOpen(true)
   }
 
+  const sessionPlanIds = useMemo(() => {
+    const sched = state.schedule.find((d) => d.dateKey === todayKey)
+    return plannedExerciseIdsForSession(
+      state.todayPlanExerciseIds,
+      sched?.plannedExerciseIds,
+    )
+  }, [state.schedule, state.todayPlanExerciseIds, todayKey])
+
+  const warmupPlan = useMemo(
+    () => generateWarmupPlan(sessionPlanIds, resolveExerciseById),
+    [sessionPlanIds, resolveExerciseById],
+  )
+
+  function finishWarmupAndStart() {
+    setWarmupOpen(false)
+    proceedWorkoutStart(pendingTrainingMode)
+    setPendingTrainingMode(null)
+  }
+
   function handleTrainingModeComplete(mode: TrainingMode) {
-    proceedWorkoutStart(mode)
+    setTrainingModeOpen(false)
+    setPendingTrainingMode(mode)
+    setWarmupOpen(true)
   }
 
   function handlePrimaryAction() {
@@ -771,7 +803,22 @@ export function TodayTab({
     [state.setLogs, state.todayPlanExerciseIds, state.settings.unit, resolveExerciseById],
   )
 
-  const showDeloadBanner = !deloadDismissed && shouldSuggestDeload(state.setLogs)
+  const showDeloadBanner =
+    shouldSuggestDeloadWeek(state) &&
+    !isDeloadBannerDismissed(state.deloadDismissedWeekStart) &&
+    !isDeloadWeekActive(state.deloadActiveWeekStart)
+
+  const deloadWeekActive = isDeloadWeekActive(state.deloadActiveWeekStart)
+
+  const cycleStatus = useMemo(
+    () =>
+      getCycleStatus(
+        Boolean(state.settings.cycleTrackingEnabled),
+        state.cycleStartDateKey,
+        todayKey,
+      ),
+    [state.settings.cycleTrackingEnabled, state.cycleStartDateKey, todayKey],
+  )
 
   const lastSessionLine = useMemo(() => {
     if (!logTarget) return null
@@ -780,8 +827,13 @@ export function TodayTab({
 
   const logInitialWeighted = useMemo(() => {
     if (!logTarget) return null
-    return getLastWeightedSetForExercise(state.setLogs, logTarget.id)
-  }, [logTarget, state.setLogs])
+    return getWeightedPrefillForExercise(
+      state.setLogs,
+      logTarget.id,
+      state.settings.unit,
+      state.deloadActiveWeekStart,
+    )
+  }, [logTarget, state.setLogs, state.settings.unit, state.deloadActiveWeekStart])
 
   const planRows = useMemo(
     () => buildPlanRows(state.todayPlanExerciseIds, state.todaySupersetPairs ?? []),
@@ -882,7 +934,12 @@ export function TodayTab({
   }
 
   function swipeQuickLog(ex: Exercise) {
-    const last = getLastWeightedSetForExercise(state.setLogs, ex.id)
+    const last = getWeightedPrefillForExercise(
+      state.setLogs,
+      ex.id,
+      state.settings.unit,
+      state.deloadActiveWeekStart,
+    )
     if (!last) {
       openExerciseLog(ex)
       return
@@ -906,7 +963,12 @@ export function TodayTab({
       setSupersetLogFromId(ex.id)
       const next = resolveExerciseById(partner)
       if (next) {
-        const lastB = getLastWeightedSetForExercise(state.setLogs, partner)
+        const lastB = getWeightedPrefillForExercise(
+          state.setLogs,
+          partner,
+          state.settings.unit,
+          state.deloadActiveWeekStart,
+        )
         if (lastB) {
           commitWeightedLog(
             next,
@@ -1729,6 +1791,11 @@ export function TodayTab({
           <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
         </button>
         <p className="apex-page-sub pr-14">{formatLong(new Date(clock))}</p>
+        {cycleStatus ? (
+          <p className="mt-1.5 text-[11px] font-medium text-[#9898a0] tracking-wide">
+            {cycleStatus.shortLabel} phase · day {cycleStatus.dayInCycle}
+          </p>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[0.8125rem] font-medium text-[#7d7d88]">Streak</span>
           <span className="text-[18px] font-black tabular-nums text-[#f4f4f5]">{streakDays}d</span>
@@ -1918,19 +1985,40 @@ export function TodayTab({
       ) : null}
 
       {showDeloadBanner ? (
-        <div className="apex-card px-5 py-4">
-          <p className="apex-section-label mb-2">Deload</p>
-          <p className="apex-lead text-[14px]">
-            You&apos;ve trained consistently for 4 weeks straight. Consider a lighter week — fewer
-            sets or intensity — so you come back stronger.
+        <div className="apex-card px-5 py-4 border border-amber-500/20 bg-amber-950/15">
+          <p className="apex-section-label mb-2">Recovery</p>
+          <p className="apex-lead text-[14px] leading-relaxed">
+            Your body may benefit from a deload this week — volume has climbed for several weeks in
+            a row.
           </p>
-          <button
-            type="button"
-            className="mt-2 text-[10px] uppercase tracking-[0.5px] text-[#a8a8b0]"
-            onClick={() => setDeloadDismissed(true)}
-          >
-            Dismiss
-          </button>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              className="apex-btn-primary min-h-11 px-4 text-[13px] font-semibold rounded-[12px]"
+              onClick={() => applyDeloadWeek()}
+            >
+              Generate lighter workout
+            </button>
+            <button
+              type="button"
+              className="apex-btn min-h-11 px-4 text-[13px] rounded-[12px]"
+              onClick={() => dismissDeloadSuggestion()}
+            >
+              Not this week
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] font-medium text-[#9898a0] leading-relaxed">
+            Keeps the same exercises and reps; logging prefills at 60% of your last weights (−40%).
+          </p>
+        </div>
+      ) : null}
+
+      {deloadWeekActive ? (
+        <div className="apex-card px-5 py-3 border border-white/[0.08]">
+          <p className="text-[13px] font-medium text-[#c8c8ce] leading-relaxed">
+            <span className="font-semibold text-[#ececee]">Deload week active.</span> Same plan and
+            reps — weights prefill at 60% of your last session.
+          </p>
         </div>
       ) : null}
 
@@ -2327,10 +2415,20 @@ export function TodayTab({
           open={trainingModeOpen}
           userId={userId}
           todayKey={todayKey}
-          onClose={() => setTrainingModeOpen(false)}
+          onClose={() => {
+            setTrainingModeOpen(false)
+            setPendingTrainingMode(null)
+          }}
           onComplete={handleTrainingModeComplete}
         />
       ) : null}
+
+      <WarmupCardModal
+        open={warmupOpen}
+        plan={warmupPlan}
+        onSkip={finishWarmupAndStart}
+        onStart={finishWarmupAndStart}
+      />
 
       {moodCheckinOpen ? (
         <WorkoutMoodCheckinModal

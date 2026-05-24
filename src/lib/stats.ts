@@ -239,6 +239,16 @@ export function mealLogsForDateKey(state: AppPersisted, dayKey: string): AppPers
   return (state.mealLogs ?? []).filter((m) => m.dateKey === dayKey)
 }
 
+/** True if any meal was logged within `withinMs` of `nowMs` (default 30 minutes). */
+export function hasMealLoggedWithin(
+  state: AppPersisted,
+  withinMs: number,
+  nowMs: number = Date.now(),
+): boolean {
+  const cutoff = nowMs - withinMs
+  return (state.mealLogs ?? []).some((m) => m.at >= cutoff)
+}
+
 export function macroTotalsForDateKey(state: AppPersisted, dayKey: string): MacroTotals {
   const meals = mealLogsForDateKey(state, dayKey)
   let calories = 0
