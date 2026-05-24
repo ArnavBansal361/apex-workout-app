@@ -60,24 +60,64 @@ function extractAssistantText(data: unknown): string {
   return text.trim()
 }
 
+export type AnthropicCoachContentBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image'
+      source: { type: 'base64'; media_type: string; data: string }
+    }
+
+export type AnthropicCoachMessage = {
+  role: 'user' | 'assistant'
+  content: string | AnthropicCoachContentBlock[]
+}
+
+const COACH_IMAGE_ONLY_FALLBACK =
+  'The athlete attached a photo (e.g. form check or meal). Use the image and their training context to give specific, practical feedback.'
+
+function coachMessageToAnthropicContent(m: ChatMessage): string | AnthropicCoachContentBlock[] {
+  const text = m.text.trim()
+  if (!m.image) return text
+
+  const blocks: AnthropicCoachContentBlock[] = [
+    {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: m.image.mediaType,
+        data: m.image.data,
+      },
+    },
+  ]
+  if (text) blocks.push({ type: 'text', text })
+  else if (m.role === 'user') blocks.push({ type: 'text', text: COACH_IMAGE_ONLY_FALLBACK })
+  return blocks
+}
+
+function canMergeAnthropicContent(
+  a: string | AnthropicCoachContentBlock[],
+  b: string | AnthropicCoachContentBlock[],
+): boolean {
+  return typeof a === 'string' && typeof b === 'string'
+}
+
 /**
  * Maps chat UI roles to Anthropic message roles. Drops leading assistant-only turns (welcome).
- * Merges consecutive same-role turns so the API always gets strict user/assistant alternation.
+ * Merges consecutive same-role text-only turns so the API gets user/assistant alternation.
  */
-export function chatHistoryToAnthropicMessages(
-  messages: ChatMessage[],
-): { role: 'user' | 'assistant'; content: string }[] {
+export function chatHistoryToAnthropicMessages(messages: ChatMessage[]): AnthropicCoachMessage[] {
   let i = 0
   while (i < messages.length && messages[i]!.role === 'model') i++
-  const out: { role: 'user' | 'assistant'; content: string }[] = []
+  const out: AnthropicCoachMessage[] = []
   for (; i < messages.length; i++) {
     const m = messages[i]!
     const role = m.role === 'user' ? 'user' : 'assistant'
+    const content = coachMessageToAnthropicContent(m)
     const prev = out[out.length - 1]
-    if (prev && prev.role === role) {
-      prev.content = `${prev.content}\n\n${m.text}`
+    if (prev && prev.role === role && canMergeAnthropicContent(prev.content, content)) {
+      prev.content = `${prev.content}\n\n${content}`
     } else {
-      out.push({ role, content: m.text })
+      out.push({ role, content })
     }
   }
   return out
@@ -162,10 +202,13 @@ const COACH_SYSTEM = `- Respond in plain conversational text only. Never use mar
 
 You are the Apex AI Coach in the Apex workout app. Use the athlete context below (today's date, full weekly schedule, goals, this week's logged work, streak). If data is sparse, say so briefly and still help.`
 
+const COACH_VISION_HINT = `- The athlete attached a photo in their latest message. Analyze the image (form, equipment setup, meals, body composition cues, etc.) and connect your answer to their goals and logged training.`
+
 const COACH_PLAN_SYSTEM = `- Respond in plain conversational text only. No markdown, bullet points, numbered lists, headers, tables, dividers, or emoji.
 - The athlete finished plan personalization — deliver a personalized workout plan now (weekly structure, example sessions, progression).
 - You may use up to 10 short lines separated by line breaks for days or sessions. Still no bullets or emoji.
-- End with one clear next step they can take in the app (e.g. log a session or add exercises to schedule).`
+- End with one clear next step they can take in the app (e.g. log a session or add exercises to schedule).
+- On the very last line only, output exactly: APEX_PLAN: id1, id2, id3 (comma-separated exercise slug ids from the app library for today's main session, e.g. bench-press, squat, lat-pulldown; up to 12 ids).`
 
 export const PLAN_PERSONALIZATION_QUESTIONS = [
   {
@@ -317,6 +360,9 @@ export async function claudeCoachComplete(
   if (messages.length === 0 || messages[messages.length - 1]!.role !== 'user') {
     throw new Error('Coach conversation must end with a user message.')
   }
+  const lastContent = messages[messages.length - 1]!.content
+  const lastHasImage =
+    Array.isArray(lastContent) && lastContent.some((b) => b.type === 'image')
   const sessionAnswers = extractPlanPersonalizationFromChat(chatHistory)
   const planAnswers = options.planAnswers ?? sessionAnswers
   const isPlan = options.mode === 'workout_plan' && isCompletePlanAnswers(planAnswers)
@@ -325,10 +371,11 @@ export async function claudeCoachComplete(
   const coachContext = truncateCoachContextBlock(buildApexCoachContext(state, nowMs))
   const planBlock = formatPlanAnswersForSystem(planAnswers)
   const modeInstruction = trainingModeCoachInstruction(state.gymSession.trainingMode)
+  const visionBlock = lastHasImage && !isPlan ? `\n${COACH_VISION_HINT}` : ''
   const system = isPlan
     ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}\n\n--- Athlete context ---\n${coachContext}`
-    : `${todayLine}\n\n${COACH_SYSTEM}${planBlock}${modeInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
-  const maxTokens = options.maxTokens ?? (isPlan ? 720 : 320)
+    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
+  const maxTokens = options.maxTokens ?? (isPlan ? 720 : lastHasImage ? 560 : 320)
   const requestBody = {
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
@@ -564,10 +611,16 @@ export async function claudeOneSentenceWorkoutSummary(
 
 export async function claudeParseImport(state: AppPersisted, rawText: string): Promise<unknown> {
   const apiKey = getAnthropicApiKey()
+  const atMs = Date.now()
+  const unit = state.settings.unit
   const user = `You parse workout notes in any format into JSON for an app. Return ONLY valid JSON with this shape:
 {"setLogs": [...], "bodyweightLogs": [...], "cardioEntries": [...], "schedule": [...] }
-Each set log: {"kind":"weighted"|"timed","exerciseId":string,"exerciseName":string,"muscleGroup":string,"at":number ms optional 0 if unknown,"isPr":boolean,"note":string,"bodyweight":bool,"weight":number|null,"reps":number,"sets":number} OR timed: {"kind":"timed","durationSec":number,...}
-Cardio entries: {"name":string,"durationMinutes":number|null,"at":number ms optional}
+Each weighted set log (one row per exercise): {"kind":"weighted","exerciseId":string,"exerciseName":string,"muscleGroup":string,"at":${atMs},"isPr":false,"note":"","bodyweight":false,"weight":number|null,"reps":number,"sets":number}
+- "sets" = how many sets performed; "reps" = reps per set; "weight" = load per set in ${unit} (null if bodyweight).
+- exerciseId must be a slug id (lowercase, hyphens), e.g. bench-press for Bench Press, squat for Squat. Pick the closest built-in id.
+- Set every set log "at" to ${atMs} (today's workout). Never use 0.
+Timed: {"kind":"timed","durationSec":number,"exerciseId":...,"exerciseName":...,"muscleGroup":...,"at":${atMs},"isPr":false,"note":""}
+Cardio entries: {"name":string,"durationMinutes":number|null,"at":${atMs}}
 Use durationMinutes for cardio (not seconds). Use empty arrays if missing. MuscleGroup one of Chest,Back,Legs,Shoulders,Arms,Core,Cardio,Stretches.
 Raw notes:
 ${rawText.slice(0, 12000)}`

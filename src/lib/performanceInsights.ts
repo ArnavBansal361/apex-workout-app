@@ -7,12 +7,14 @@ import { weightToLbs } from './volumeStats'
 
 const MIN_COMBINED_SPAN_DAYS = 14
 const MIN_WEEKS_WITH_DATA = 2
+const MIN_QUALIFYING_DAYS = 4
 const MIN_DAYS_PER_GROUP = 2
 const MIN_PCT_DIFF = 5
 const LONG_SLEEP_MINUTES = 8 * 60
+const HIGH_SLEEP_QUALITY = 4
 
 export type PerformanceInsight = {
-  id: 'sleep-duration' | 'prior-day-carbs'
+  id: 'sleep-duration' | 'sleep-quality' | 'prior-day-carbs' | 'prior-day-protein'
   text: string
 }
 
@@ -68,19 +70,25 @@ function median(nums: number[]): number | null {
   return (sorted[mid - 1]! + sorted[mid]!) / 2
 }
 
-function hasMinimumCombinedData(
-  workoutDays: string[],
-  sleepDayKeys: Set<string>,
-  nutritionPriorDayKeys: Set<string>,
-): boolean {
-  const combined = new Set<string>()
-  for (const d of workoutDays) {
-    if (sleepDayKeys.has(d)) combined.add(d)
-    if (nutritionPriorDayKeys.has(d)) combined.add(d)
-  }
-  if (combined.size === 0) return false
+function priorDayHasNutrition(state: AppPersisted, workoutDayKey: string): boolean {
+  const macros = macroTotalsForDateKey(state, shiftDateKey(workoutDayKey, -1))
+  return macros.calories > 0 || macros.proteinG > 0 || macros.carbsG > 0
+}
 
-  const sorted = [...combined].sort()
+/** Workout days with sleep, prior-day nutrition, and measurable strength that day. */
+function qualifyingWorkoutDays(state: AppPersisted, workoutDays: string[]): string[] {
+  return workoutDays.filter((day) => {
+    if (!sleepLogForDateKey(state, day)) return false
+    if (!priorDayHasNutrition(state, day)) return false
+    return workoutDayStrengthScore(state, day) != null
+  })
+}
+
+/** At least 2 calendar weeks of sleep + nutrition + workout data spanning 14+ days. */
+function hasMinimumCombinedData(qualifyingDays: string[]): boolean {
+  if (qualifyingDays.length < MIN_QUALIFYING_DAYS) return false
+
+  const sorted = [...qualifyingDays].sort()
   const span = daysBetweenInclusive(sorted[0]!, sorted[sorted.length - 1]!)
   if (span < MIN_COMBINED_SPAN_DAYS) return false
 
@@ -119,25 +127,61 @@ function sleepDurationInsight(state: AppPersisted, workoutDays: string[]): Perfo
   }
 }
 
-function priorDayCarbInsight(state: AppPersisted, workoutDays: string[]): PerformanceInsight | null {
-  const paired: { score: number; priorCarbsG: number }[] = []
+function sleepQualityInsight(state: AppPersisted, workoutDays: string[]): PerformanceInsight | null {
+  const restedScores: number[] = []
+  const tiredScores: number[] = []
+
+  for (const day of workoutDays) {
+    const sleep = sleepLogForDateKey(state, day)
+    const score = workoutDayStrengthScore(state, day)
+    if (!sleep || score == null) continue
+    if (sleep.quality >= HIGH_SLEEP_QUALITY) restedScores.push(score)
+    else tiredScores.push(score)
+  }
+
+  if (restedScores.length < MIN_DAYS_PER_GROUP || tiredScores.length < MIN_DAYS_PER_GROUP) {
+    return null
+  }
+
+  const restedAvg = average(restedScores)!
+  const tiredAvg = average(tiredScores)!
+  if (restedAvg <= tiredAvg) return null
+
+  const pct = pctStronger(restedAvg, tiredAvg)
+  if (pct < MIN_PCT_DIFF) return null
+
+  return {
+    id: 'sleep-quality',
+    text: `You lift ${pct}% stronger after nights you rate ${HIGH_SLEEP_QUALITY}+ stars for sleep quality.`,
+  }
+}
+
+function priorDayMacroInsight(
+  state: AppPersisted,
+  workoutDays: string[],
+  macro: 'carbsG' | 'proteinG',
+  id: PerformanceInsight['id'],
+  highLabel: string,
+): PerformanceInsight | null {
+  const paired: { score: number; value: number }[] = []
 
   for (const day of workoutDays) {
     const priorKey = shiftDateKey(day, -1)
     const macros = macroTotalsForDateKey(state, priorKey)
-    if (macros.carbsG <= 0) continue
+    const value = macros[macro]
+    if (value <= 0) continue
     const score = workoutDayStrengthScore(state, day)
     if (score == null) continue
-    paired.push({ score, priorCarbsG: macros.carbsG })
+    paired.push({ score, value })
   }
 
   if (paired.length < MIN_DAYS_PER_GROUP * 2) return null
 
-  const carbMedian = median(paired.map((p) => p.priorCarbsG))
-  if (carbMedian == null) return null
+  const med = median(paired.map((p) => p.value))
+  if (med == null) return null
 
-  const highScores = paired.filter((p) => p.priorCarbsG >= carbMedian).map((p) => p.score)
-  const lowScores = paired.filter((p) => p.priorCarbsG < carbMedian).map((p) => p.score)
+  const highScores = paired.filter((p) => p.value >= med).map((p) => p.score)
+  const lowScores = paired.filter((p) => p.value < med).map((p) => p.score)
 
   if (highScores.length < MIN_DAYS_PER_GROUP || lowScores.length < MIN_DAYS_PER_GROUP) {
     return null
@@ -150,22 +194,9 @@ function priorDayCarbInsight(state: AppPersisted, workoutDays: string[]): Perfor
   const pct = pctStronger(highAvg, lowAvg)
   if (pct < MIN_PCT_DIFF) return null
 
-  const sorted = [...paired].sort((a, b) => b.score - a.score)
-  const topCount = Math.max(1, Math.ceil(sorted.length * 0.25))
-  const topSlice = sorted.slice(0, topCount)
-  const topHighCarbShare =
-    topSlice.filter((p) => p.priorCarbsG >= carbMedian).length / topSlice.length
-
-  if (topHighCarbShare >= 0.6) {
-    return {
-      id: 'prior-day-carbs',
-      text: 'Your best sessions follow high-carb days.',
-    }
-  }
-
   return {
-    id: 'prior-day-carbs',
-    text: `You lift ${pct}% stronger when the prior day was high-carb.`,
+    id,
+    text: `You lift ${pct}% stronger when the prior day was ${highLabel}.`,
   }
 }
 
@@ -175,25 +206,26 @@ export function computePerformanceInsights(state: AppPersisted): PerformanceInsi
     return { eligible: false, insights: [] }
   }
 
-  const sleepDayKeys = new Set((state.sleepLogs ?? []).map((s) => s.dateKey))
-  const nutritionPriorDayKeys = new Set<string>()
-  for (const day of workoutDays) {
-    const priorKey = shiftDateKey(day, -1)
-    if (macroTotalsForDateKey(state, priorKey).carbsG > 0) {
-      nutritionPriorDayKeys.add(day)
-    }
-  }
-
-  const eligible = hasMinimumCombinedData(workoutDays, sleepDayKeys, nutritionPriorDayKeys)
-  if (!eligible) {
+  const qualifyingDays = qualifyingWorkoutDays(state, workoutDays)
+  if (!hasMinimumCombinedData(qualifyingDays)) {
     return { eligible: false, insights: [] }
   }
 
   const insights: PerformanceInsight[] = []
-  const sleep = sleepDurationInsight(state, workoutDays)
-  if (sleep) insights.push(sleep)
-  const carbs = priorDayCarbInsight(state, workoutDays)
+  const sleepDur = sleepDurationInsight(state, workoutDays)
+  if (sleepDur) insights.push(sleepDur)
+  const sleepQual = sleepQualityInsight(state, workoutDays)
+  if (sleepQual) insights.push(sleepQual)
+  const carbs = priorDayMacroInsight(state, workoutDays, 'carbsG', 'prior-day-carbs', 'high-carb')
   if (carbs) insights.push(carbs)
+  const protein = priorDayMacroInsight(
+    state,
+    workoutDays,
+    'proteinG',
+    'prior-day-protein',
+    'high-protein',
+  )
+  if (protein) insights.push(protein)
 
   return { eligible: true, insights }
 }

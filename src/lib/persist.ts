@@ -1,6 +1,16 @@
 import { useCallback, useState } from 'react'
-import type { AppPersisted, CardioEntry, CardioTimerPersist, Exercise, MuscleGroup, SetLog, ChatMessage } from '../types'
+import type {
+  AppPersisted,
+  CardioEntry,
+  CardioTimerPersist,
+  CoachChatImage,
+  Exercise,
+  MuscleGroup,
+  SetLog,
+  ChatMessage,
+} from '../types'
 import { DEFAULT_SETTINGS, DEFAULT_WATER_GOAL_OZ, DEFAULT_MACRO_GOAL_CALORIES, DEFAULT_MACRO_GOAL_PROTEIN_G, DEFAULT_MACRO_GOAL_CARBS_G, DEFAULT_MACRO_GOAL_FAT_G } from '../types'
+import { stripCoachPlanMachineLine } from './coachWorkoutPlan'
 import { dateKey, weekStartMonday } from './dates'
 import { normalizeTodayLayout } from './todayLayout'
 
@@ -188,15 +198,27 @@ export function sanitizeCoachBubbleText(text: string): string {
 export function getCoachMessageDisplayText(m: ChatMessage): string | null {
   if (m.role === 'user' && isCoachUiPromptLine(m.text)) return null
   let display = sanitizeCoachBubbleText(m.text)
-  if (m.role === 'model') {
+  if (m.role === 'model' && !m.workoutPlan) {
     display = limitCoachReplySentences(display)
   }
+  display = stripCoachPlanMachineLine(display)
   return display.trim() ? display : null
+}
+
+function isValidCoachChatImage(raw: unknown): raw is CoachChatImage {
+  if (!raw || typeof raw !== 'object') return false
+  const o = raw as Record<string, unknown>
+  const mt = o.mediaType
+  if (mt !== 'image/jpeg' && mt !== 'image/png' && mt !== 'image/gif' && mt !== 'image/webp') {
+    return false
+  }
+  return typeof o.data === 'string' && o.data.length > 0 && o.data.length <= 5_000_000
 }
 
 function isJunkCoachMessage(m: ChatMessage): boolean {
   const t = m.text.trim()
-  if (!t) return m.role === 'model'
+  if (!t && !m.image) return m.role === 'model'
+  if (!t && m.image) return m.role !== 'user'
   if (isLeakedModelMetadataLine(t)) return true
   if (m.role === 'user' && isCoachUiPromptLine(t)) return true
   return false
@@ -219,7 +241,9 @@ function isValidChatMessage(m: unknown): m is ChatMessage {
     typeof o.id === 'string' &&
     (o.role === 'user' || o.role === 'model') &&
     typeof o.text === 'string' &&
-    typeof o.at === 'number'
+    typeof o.at === 'number' &&
+    (o.workoutPlan === undefined || o.workoutPlan === true) &&
+    (o.image === undefined || isValidCoachChatImage(o.image))
   )
 }
 

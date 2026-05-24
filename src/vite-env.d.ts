@@ -11,6 +11,10 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_CALENDAR_CLIENT_ID?: string
   /** Optional; defaults to `window.location.origin`. Must match Google Cloud OAuth redirect URIs. */
   readonly VITE_GOOGLE_CALENDAR_REDIRECT_URI?: string
+  /** Spotify Web API app client ID (Dashboard → Settings → Client ID). */
+  readonly VITE_SPOTIFY_CLIENT_ID?: string
+  /** Optional; defaults to `window.location.origin`. Must match Spotify redirect URIs. */
+  readonly VITE_SPOTIFY_REDIRECT_URI?: string
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
 }

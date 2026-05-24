@@ -147,10 +147,45 @@ body {
   width: 280px;
   max-width: 280px;
   flex: 0 0 280px;
+  overflow: hidden;
 }
 
 .apex-coach-sidebar {
   font-size: 13px;
+  width: 100%;
+}
+
+.apex-coach-sidebar-messages {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.apex-coach-sidebar-footer {
+  flex-shrink: 0;
+}
+
+.apex-coach-sidebar-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+.apex-coach-sidebar-scroll > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.apex-coach-sidebar-scroll .apex-card,
+.apex-coach-sidebar-scroll textarea,
+.apex-coach-sidebar-scroll input {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .apex-coach-sidebar .apex-coach-empty-hint,
@@ -159,21 +194,53 @@ body {
   font-size: 13px;
 }
 
+.apex-coach-message {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .apex-coach-bubble {
+  box-sizing: border-box;
   font-size: 13px;
   padding: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.apex-coach-bubble__text {
+  font-size: inherit;
   line-height: 1.55;
   overflow-wrap: break-word;
-  word-wrap: break-word;
+  word-break: normal;
   white-space: pre-wrap;
 }
 
-.apex-coach-sidebar .apex-coach-bubble {
-  padding: 12px;
-  line-height: 1.55;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  white-space: pre-wrap;
+.apex-coach-bubble__image {
+  display: block;
+}
+
+.apex-coach-attach-btn:active {
+  background: var(--apex-surface-nested);
+}
+
+.apex-coach-bubble--user {
+  width: auto;
+  max-width: 88%;
+  margin-left: auto;
+}
+
+.apex-coach-bubble--model {
+  width: 100%;
+  max-width: 100%;
+}
+
+.apex-coach-sidebar .apex-coach-bubble--user {
+  max-width: 92%;
+}
+
+.apex-coach-sidebar .apex-coach-bubble--model {
+  width: 100%;
+  max-width: 100%;
 }
 
 .apex-dashboard-main {
@@ -1438,12 +1505,38 @@ html[data-apex-theme='light'] .apex-coach-note-card {
 }
 
 .apex-coach-chat-scroll {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-radius: 16px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
+}
+
+.apex-coach-sidebar .apex-coach-chat-scroll {
+  flex: 1 1 0;
+  max-height: 100%;
+}
+
+.apex-muscle-balance-plot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.apex-muscle-balance-plot .recharts-responsive-container {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.apex-muscle-balance-plot .recharts-wrapper {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .apex-week-chart-dot {
@@ -1749,4 +1842,59 @@ html[data-apex-theme='light'] .bg-white.text-black {
 
 html[data-apex-theme='light'] html {
   background: var(--apex-surface-page) !important;
+}
+
+/* Gym mode — full-screen set logging */
+.apex-gym-mode__exit:active,
+.apex-gym-mode__nav:active {
+  background: var(--apex-surface-nested);
+}
+
+.apex-gym-stepper__label {
+  display: block;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--apex-text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.apex-gym-stepper__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.apex-gym-stepper__btn {
+  flex-shrink: 0;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--apex-border);
+  background: var(--apex-surface-card);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--apex-text-primary);
+  touch-action: manipulation;
+}
+
+.apex-gym-stepper__btn:active {
+  transform: scale(0.96);
+  background: var(--apex-surface-nested);
+}
+
+.apex-gym-stepper__value {
+  flex: 1;
+  max-width: 8rem;
+  text-align: center;
+  font-size: clamp(2.5rem, 10vw, 3.25rem);
+  font-weight: 700;
+  color: var(--apex-text-primary);
+}
+
+.apex-gym-mode__log {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }

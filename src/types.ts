@@ -15,6 +15,7 @@ export type TabId = 'today' | 'exercises' | 'schedule' | 'profile'
 /** Reorderable / toggleable blocks on the Today tab (see `todayLayout`). */
 export type TodaySectionId =
   | 'daily-motivation'
+  | 'spotify-player'
   | 'weekly-volume'
   | 'muscle-balance'
   | 'gym-tracker'
@@ -207,11 +208,21 @@ export interface RestTimerPersist {
   dismissed: boolean
 }
 
+/** Base64 image attached to a coach user message (Anthropic vision). */
+export type CoachChatImage = {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+  data: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'model'
   text: string
   at: number
+  /** Model reply from workout-plan generation — show Apply to today. */
+  workoutPlan?: boolean
+  /** User-attached photo (form check, meal, etc.). */
+  image?: CoachChatImage
 }
 
 /** Two exercise ids linked as a superset in today's plan. */

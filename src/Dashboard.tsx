@@ -137,9 +137,11 @@ export function DashboardShell() {
         ) : null}
       </main>
 
-      <aside className="apex-dashboard-coach shrink-0 min-w-[280px] border-l border-white/[0.08] flex flex-col px-4 py-5 min-h-0 overflow-y-auto">
+      <aside className="apex-dashboard-coach shrink-0 border-l border-white/[0.08] flex flex-col px-4 py-5 min-h-0 min-w-0 overflow-hidden">
         <p className="apex-section-label shrink-0 mb-3">AI</p>
-        <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="sidebar" />
+        <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col overflow-hidden">
+          <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="sidebar" />
+        </div>
       </aside>
     </div>
   )

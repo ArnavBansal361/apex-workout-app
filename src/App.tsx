@@ -23,7 +23,9 @@ import { ProfileTab } from './components/ProfileTab'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
 import { GoogleCalendarOAuthHandler } from './components/GoogleCalendarOAuthHandler'
+import { SpotifyOAuthHandler } from './components/SpotifyOAuthHandler'
 import { isGoogleCalendarOAuthReturn } from './lib/googleCalendar'
+import { isSpotifyOAuthReturn } from './lib/spotify'
 import { ScheduleTab } from './components/ScheduleTab'
 import { ApexLogo } from './components/ApexLogo'
 import { TodayTab } from './components/TodayTab'
@@ -190,6 +192,7 @@ export default function App() {
 
     function clearOAuthUrl() {
       if (isGoogleCalendarOAuthReturn()) return
+      if (isSpotifyOAuthReturn()) return
       const hash = window.location.hash
       const search = window.location.search
       if (
@@ -247,6 +250,7 @@ export default function App() {
     <BrowserRouter>
       <WorkoutProvider userId={session.user.id}>
         <GoogleCalendarOAuthHandler />
+        <SpotifyOAuthHandler />
         <Routes>
           <Route
             path="/"

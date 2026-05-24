@@ -17,8 +17,14 @@ import { PLAN_PRESETS } from '../data/planPresets'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
+import { GymModeView } from './GymModeView'
 import { LogSetModal } from './LogSetModal'
 import { QuickLogModal } from './QuickLogModal'
+import {
+  readGymModeEnabled,
+  setsLoggedTodayForExercise,
+  writeGymModeEnabled,
+} from '../lib/gymMode'
 import { ReadinessCheckModal } from './ReadinessCheckModal'
 import { TrainingModeModal } from './TrainingModeModal'
 import { WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
@@ -54,6 +60,7 @@ import {
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
+import { SpotifyPlayerCard } from './SpotifyPlayerCard'
 import type { Exercise, SetLog, TodaySectionId, TodaySupersetPair } from '../types'
 
 type Props = {
@@ -488,6 +495,8 @@ export function TodayTab({
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [logTarget, setLogTarget] = useState<Exercise | null>(null)
+  const [gymModeEnabled, setGymModeEnabled] = useState(() => readGymModeEnabled())
+  const [gymModeStandardOnce, setGymModeStandardOnce] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [sessionSummary, setSessionSummary] = useState<SessionSummaryData | null>(null)
   const [deloadDismissed, setDeloadDismissed] = useState(false)
@@ -800,6 +809,58 @@ export function TodayTab({
     )
   }
 
+  function openExerciseLog(ex: Exercise) {
+    setSupersetLogFromId(null)
+    setEditLog(null)
+    setGymModeStandardOnce(false)
+    setLogTarget(ex)
+  }
+
+  function toggleGymMode(enabled: boolean) {
+    setGymModeEnabled(enabled)
+    writeGymModeEnabled(enabled)
+    if (enabled) setGymModeStandardOnce(false)
+  }
+
+  const useGymModeView =
+    Boolean(logTarget) && gymModeEnabled && !gymModeStandardOnce
+
+  const gymModeSetsToday = useMemo(() => {
+    if (!logTarget) return 0
+    return setsLoggedTodayForExercise(state.setLogs, logTarget.id, todayKey)
+  }, [logTarget, state.setLogs, todayKey])
+
+  function logSetFromGymMode(
+    ex: Exercise,
+    vals: { bodyweight: boolean; weight: number | null; reps: number },
+  ) {
+    const partner = getSupersetPartner(ex.id)
+    const deferRest = Boolean(partner && supersetLogFromId === null)
+    commitWeightedLog(
+      ex,
+      {
+        bodyweight: vals.bodyweight,
+        weight: vals.bodyweight ? null : vals.weight ?? 0,
+        reps: vals.reps,
+        sets: 1,
+        note: '',
+      },
+      { deferRestTimer: deferRest },
+    )
+    flashPlanCard(ex.id)
+    notify(`Set logged — ${ex.name}`, 1600)
+    if (partner && supersetLogFromId === null) {
+      setSupersetLogFromId(ex.id)
+      const next = resolveExerciseById(partner)
+      if (next) {
+        setLogTarget(next)
+        setGymModeStandardOnce(false)
+        return
+      }
+    }
+    setSupersetLogFromId(null)
+  }
+
   function afterPlanSetLogged(ex: Exercise) {
     const partner = getSupersetPartner(ex.id)
     if (partner && supersetLogFromId === null) {
@@ -818,8 +879,7 @@ export function TodayTab({
   function swipeQuickLog(ex: Exercise) {
     const last = getLastWeightedSetForExercise(state.setLogs, ex.id)
     if (!last) {
-      setLogTarget(ex)
-      setEditLog(null)
+      openExerciseLog(ex)
       return
     }
     const partner = getSupersetPartner(ex.id)
@@ -858,8 +918,7 @@ export function TodayTab({
           notify(`Set logged — ${next.name}`, 2000)
           setSupersetLogFromId(null)
         } else {
-          setLogTarget(next)
-          setEditLog(null)
+          openExerciseLog(next)
         }
         return
       }
@@ -950,6 +1009,8 @@ export function TodayTab({
             )}
           </div>
         )
+      case 'spotify-player':
+        return <SpotifyPlayerCard />
       case 'weekly-volume':
         return isDesktop ? <TodayWeekChartsSideBySide /> : <TodayWeekChartsSection />
       case 'muscle-balance':
@@ -1341,6 +1402,36 @@ export function TodayTab({
             </button>
             {planOpen ? (
               <div className="px-5 pb-5 space-y-4 border-t border-white/[0.06] pt-4">
+                <label className="flex items-center justify-between gap-4 min-h-14 px-4 rounded-[14px] border border-white/[0.08] bg-white/[0.03] touch-manipulation">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[#f0f0f2]">Gym mode</p>
+                    <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5 leading-snug">
+                      Full-screen logging with large controls
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={gymModeEnabled}
+                    onChange={(e) => toggleGymMode(e.target.checked)}
+                    className="apex-checkbox scale-125 shrink-0"
+                    aria-label="Enable gym mode"
+                  />
+                </label>
+                {gymModeEnabled && state.todayPlanExerciseIds.length > 0 ? (
+                  <button
+                    type="button"
+                    className="apex-btn-primary w-full min-h-14 rounded-[14px] text-[15px] font-semibold touch-manipulation"
+                    onClick={() => {
+                      const first =
+                        state.todayPlanExerciseIds
+                          .map((id) => resolveExerciseById(id))
+                          .find((ex): ex is Exercise => Boolean(ex)) ?? null
+                      if (first) openExerciseLog(first)
+                    }}
+                  >
+                    Open gym mode
+                  </button>
+                ) : null}
                 <p className="apex-section-label">Quick presets</p>
                 <div className="grid grid-cols-2 gap-3">
                   {PLAN_PRESETS.map((p) => (
@@ -1422,11 +1513,7 @@ export function TodayTab({
                               flash={flashPlanId === row.id}
                               linkPickActive={!!supersetLinkFrom}
                               onSwipeLog={() => swipeQuickLog(ex)}
-                              onOpenLog={() => {
-                                setSupersetLogFromId(null)
-                                setLogTarget(ex)
-                                setEditLog(null)
-                              }}
+                              onOpenLog={() => openExerciseLog(ex)}
                               onRemove={() => setPlanRemoveId(row.id)}
                               onLongPress={() => setPlanActionMenuId(row.id)}
                               onTapWhileLinking={() => handlePlanLinkTap(row.id)}
@@ -1482,11 +1569,7 @@ export function TodayTab({
                                 flash={flashPlanId === ex.id}
                                 linkPickActive={!!supersetLinkFrom}
                                 onSwipeLog={() => swipeQuickLog(ex)}
-                                onOpenLog={() => {
-                                  setSupersetLogFromId(null)
-                                  setLogTarget(ex)
-                                  setEditLog(null)
-                                }}
+                                onOpenLog={() => openExerciseLog(ex)}
                                 onRemove={() => setPlanRemoveId(ex.id)}
                                 onLongPress={() => setPlanActionMenuId(ex.id)}
                                 onTapWhileLinking={() => handlePlanLinkTap(ex.id)}
@@ -1927,8 +2010,29 @@ export function TodayTab({
         </div>
       ) : null}
 
+      {useGymModeView && logTarget ? (
+        <GymModeView
+          exercise={logTarget}
+          unit={state.settings.unit}
+          setsLoggedToday={gymModeSetsToday}
+          initialWeighted={logInitialWeighted}
+          planExerciseIds={state.todayPlanExerciseIds}
+          resolveExercise={(id) => resolveExerciseById(id)}
+          onNavigate={(ex) => {
+            setGymModeStandardOnce(false)
+            setLogTarget(ex)
+          }}
+          onExit={() => {
+            setLogTarget(null)
+            setSupersetLogFromId(null)
+          }}
+          onSwitchToStandard={() => setGymModeStandardOnce(true)}
+          onLogSet={(vals) => logSetFromGymMode(logTarget, vals)}
+        />
+      ) : null}
+
       <LogSetModal
-        open={!!logTarget}
+        open={!!logTarget && !useGymModeView}
         exercise={logTarget}
         unit={state.settings.unit}
         lastSessionLine={lastSessionLine}
@@ -1936,6 +2040,12 @@ export function TodayTab({
         onClose={() => {
           setLogTarget(null)
           setSupersetLogFromId(null)
+          setGymModeStandardOnce(false)
+        }}
+        onOpenGymMode={() => {
+          setGymModeEnabled(true)
+          writeGymModeEnabled(true)
+          setGymModeStandardOnce(false)
         }}
         onSave={(p) => {
           try {
@@ -2223,6 +2333,7 @@ export function TodayTab({
 
       {quickLogOpen ? <QuickLogModal onClose={() => setQuickLogOpen(false)} /> : null}
 
+      {!useGymModeView ? (
       <button
         type="button"
         aria-label="Quick log a set"
@@ -2237,6 +2348,7 @@ export function TodayTab({
           <path d="M12 5v14M5 12h14" strokeLinecap="round" />
         </svg>
       </button>
+      ) : null}
     </div>
   )
 }

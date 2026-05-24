@@ -2,6 +2,7 @@ import type { TodayLayoutPersist, TodaySectionId } from '../types'
 
 export const ALL_TODAY_SECTION_IDS: TodaySectionId[] = [
   'daily-motivation',
+  'spotify-player',
   'weekly-volume',
   'muscle-balance',
   'gym-tracker',
@@ -15,6 +16,7 @@ export const ALL_TODAY_SECTION_IDS: TodaySectionId[] = [
 
 export const TODAY_SECTION_LABELS: Record<TodaySectionId, string> = {
   'daily-motivation': 'Daily motivation',
+  'spotify-player': 'Spotify',
   'weekly-volume': 'Weekly volume',
   'muscle-balance': 'Muscle balance',
   'gym-tracker': 'Gym tracker',

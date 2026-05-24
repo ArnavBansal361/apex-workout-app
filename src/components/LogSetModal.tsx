@@ -24,6 +24,8 @@ type Props = {
   onClose: () => void
   /** Return false to keep the modal open (e.g. superset auto-advance). */
   onSave: (payload: LogSetSavePayload) => void | boolean
+  /** Switch to full-screen gym mode for this exercise. */
+  onOpenGymMode?: () => void
 }
 
 const inp =
@@ -141,6 +143,7 @@ export function LogSetModal({
   initialWeighted,
   onClose,
   onSave,
+  onOpenGymMode,
 }: Props) {
   const [mode, setMode] = useState<'weighted' | 'timed'>('weighted')
   const [bodyweight, setBodyweight] = useState(false)
@@ -285,6 +288,15 @@ export function LogSetModal({
                 <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
               </svg>
             </button>
+            {onOpenGymMode ? (
+              <button
+                type="button"
+                className="min-h-11 px-3 rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[12px] font-medium text-[#e0e0e0]"
+                onClick={onOpenGymMode}
+              >
+                Gym mode
+              </button>
+            ) : null}
             <button
               type="button"
               className="min-h-11 min-w-11 rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[13px] text-[#e0e0e0]"

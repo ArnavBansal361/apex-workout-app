@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { claudeParseImport } from '../lib/anthropicCoach'
+import { sanitizeWorkoutImport } from '../lib/parseWorkoutImport'
 import { APEX_COACH_PROFILE_KEY } from '../lib/persist'
-import type { AppPersisted } from '../types'
 import { ApexLogo } from './ApexLogo'
 
 type Props = {
@@ -11,17 +11,6 @@ type Props = {
 
 const inp =
   'w-full min-h-12 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]'
-
-function sanitizeImport(raw: unknown): Partial<AppPersisted> {
-  if (!raw || typeof raw !== 'object') return {}
-  const o = raw as Record<string, unknown>
-  const out: Partial<AppPersisted> = {}
-  if (Array.isArray(o.setLogs)) out.setLogs = o.setLogs as AppPersisted['setLogs']
-  if (Array.isArray(o.bodyweightLogs)) out.bodyweightLogs = o.bodyweightLogs as AppPersisted['bodyweightLogs']
-  if (Array.isArray(o.cardioEntries)) out.cardioEntries = o.cardioEntries as AppPersisted['cardioEntries']
-  if (Array.isArray(o.schedule)) out.schedule = o.schedule as AppPersisted['schedule']
-  return out
-}
 
 export function Onboarding({ onComplete }: Props) {
   const { state, updateSettings, mergeImport, notify } = useWorkout()
@@ -49,7 +38,7 @@ export function Onboarding({ onComplete }: Props) {
       setBusy(true)
       try {
         const raw = await claudeParseImport(state, notes)
-        const partial = sanitizeImport(raw)
+        const partial = sanitizeWorkoutImport(raw, state)
         if (
           partial.setLogs?.length ||
           partial.cardioEntries?.length ||

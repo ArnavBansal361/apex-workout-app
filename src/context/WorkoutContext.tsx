@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { EXERCISES } from '../data/exercises'
 import { applyWorkoutHistorySeedIfNeeded } from '../data/seedWorkoutHistory'
+import { normalizeImportedSetLogs } from '../lib/parseWorkoutImport'
 import { clearStoredTokens } from '../lib/googleCalendar'
 import {
   APEX_COACH_INIT_FLAG,
@@ -57,6 +58,7 @@ import type {
   AppPersisted,
   CardioEntry,
   ChatMessage,
+  CoachChatImage,
   Exercise,
   FriendEntry,
   MuscleGroup,
@@ -118,11 +120,16 @@ type Ctx = {
   deleteTemplate: (id: string) => void
   loadTemplate: (id: string) => void
   applyPresetPlan: (exerciseIds: string[]) => void
+  applyCoachPlanToToday: (exerciseIds: string[]) => void
   updateScheduleDay: (dateKeyVal: string, patch: Partial<ScheduleDay>) => void
   batchPatchSchedule: (patches: { dateKey: string; patch: Partial<ScheduleDay> }[]) => void
   disconnectGoogleCalendar: () => void
   updateSettings: (patch: Partial<Settings>) => void
-  pushChat: (role: 'user' | 'model', text: string) => void
+  pushChat: (
+    role: 'user' | 'model',
+    text: string,
+    opts?: { workoutPlan?: boolean; image?: CoachChatImage },
+  ) => void
   clearChat: () => void
   hideExercise: (exerciseId: string) => void
   resolveExerciseById: (exerciseId: string) => Exercise | null
@@ -736,6 +743,22 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     notify('Preset loaded into My Plan')
   }, [notify])
 
+  const applyCoachPlanToToday = useCallback((exerciseIds: string[]) => {
+    setState((s) => {
+      const validIds = new Set([
+        ...EXERCISES.map((e) => e.id),
+        ...s.customExercises.map((e) => e.id),
+      ])
+      const hidden = new Set(s.hiddenExerciseIds)
+      const merged = [...s.todayPlanExerciseIds]
+      for (const id of exerciseIds) {
+        if (!validIds.has(id) || hidden.has(id) || merged.includes(id)) continue
+        merged.push(id)
+      }
+      return { ...s, todayPlanExerciseIds: merged }
+    })
+  }, [])
+
   const updateScheduleDay = useCallback((dateKeyVal: string, patch: Partial<ScheduleDay>) => {
     setState((s) => ({
       ...s,
@@ -771,20 +794,36 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
   }, [])
 
-  const pushChat = useCallback((role: 'user' | 'model', text: string) => {
-    if (role === 'user' && isCoachUiPromptLine(text)) return
-    const cleanedModel =
-      role === 'model' ? limitCoachReplySentences(sanitizeCoachBubbleText(text)) : ''
-    if (role === 'model' && !cleanedModel.trim()) return
-    const body =
-      role === 'model' ? cleanedModel : redactLeakedApiMetadataFromText(text.trim())
-    if (role === 'user' && !body) return
-    const msg: ChatMessage = { id: crypto.randomUUID(), role, text: body, at: Date.now() }
-    setState((s) => ({
-      ...s,
-      chatMessages: normalizeCoachChatMessages([...s.chatMessages, msg]),
-    }))
-  }, [])
+  const pushChat = useCallback(
+    (
+      role: 'user' | 'model',
+      text: string,
+      opts?: { workoutPlan?: boolean; image?: ChatMessage['image'] },
+    ) => {
+      if (role === 'user' && isCoachUiPromptLine(text) && !opts?.image) return
+      let cleanedModel = role === 'model' ? sanitizeCoachBubbleText(text) : ''
+      if (role === 'model' && !opts?.workoutPlan) {
+        cleanedModel = limitCoachReplySentences(cleanedModel)
+      }
+      if (role === 'model' && !cleanedModel.trim()) return
+      const body =
+        role === 'model' ? cleanedModel : redactLeakedApiMetadataFromText(text.trim())
+      if (role === 'user' && !body && !opts?.image) return
+      const msg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role,
+        text: body,
+        at: Date.now(),
+        ...(opts?.workoutPlan ? { workoutPlan: true } : {}),
+        ...(opts?.image ? { image: opts.image } : {}),
+      }
+      setState((s) => ({
+        ...s,
+        chatMessages: normalizeCoachChatMessages([...s.chatMessages, msg]),
+      }))
+    },
+    [],
+  )
 
   const clearChat = useCallback(() => {
     try {
@@ -951,9 +990,15 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       const importedCardio = partial.cardioEntries
         ? normalizeImportedCardio(partial.cardioEntries)
         : []
+      const importedSets = partial.setLogs
+        ? normalizeImportedSetLogs(partial.setLogs, {
+            customExercises: s.customExercises,
+            atMs: Date.now(),
+          })
+        : []
       const next: AppPersisted = {
         ...s,
-        setLogs: partial.setLogs ? [...s.setLogs, ...partial.setLogs] : s.setLogs,
+        setLogs: importedSets.length ? [...s.setLogs, ...importedSets] : s.setLogs,
         bodyweightLogs: partial.bodyweightLogs
           ? [...s.bodyweightLogs, ...partial.bodyweightLogs]
           : s.bodyweightLogs,
@@ -1177,6 +1222,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       deleteTemplate,
       loadTemplate,
       applyPresetPlan,
+      applyCoachPlanToToday,
       updateScheduleDay,
       batchPatchSchedule,
       disconnectGoogleCalendar,
@@ -1239,6 +1285,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       deleteTemplate,
       loadTemplate,
       applyPresetPlan,
+      applyCoachPlanToToday,
       updateScheduleDay,
       batchPatchSchedule,
       disconnectGoogleCalendar,

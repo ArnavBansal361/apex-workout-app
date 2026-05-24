@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -31,7 +31,7 @@ import {
 } from '../lib/anthropicCoach'
 import { formatMoodLift } from '../lib/workoutMood'
 import { computeStrengthAge, formatStrengthAgeLiftLabel } from '../lib/strengthAge'
-import { computePerformanceInsights } from '../lib/performanceInsights'
+import { PerformanceInsightsCard } from './PerformanceInsightsCard'
 import type { MoodLiftStats } from '../lib/supabase'
 import { dateKey } from '../lib/dates'
 import {
@@ -65,8 +65,12 @@ import {
   trainerConnectErrorMessage,
   type TrainerShareType,
 } from '../lib/trainer'
+import { extractExerciseIdsFromCoachPlan } from '../lib/coachWorkoutPlan'
 import {
-  normalizeImportedCardio,
+  parseWorkoutTextLocally,
+  sanitizeWorkoutImport,
+} from '../lib/parseWorkoutImport'
+import {
   getCoachMessageDisplayText,
   isCoachUiPromptLine,
   applyApexAppearanceFromStorage,
@@ -92,7 +96,8 @@ import {
   type GymBarcodeFormat,
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
-import type { AppPersisted, SetLog, ChatMessage } from '../types'
+import { coachImageDataUrl, prepareCoachChatImage } from '../lib/coachChatImage'
+import type { AppPersisted, ChatMessage, CoachChatImage } from '../types'
 import { DEFAULT_WATER_GOAL_OZ, WATER_LOG_INCREMENT_OZ } from '../types'
 import {
   DEFAULT_MACRO_GOAL_CALORIES,
@@ -114,8 +119,8 @@ const AI_PILLS: { id: AiSub; label: string }[] = [
 
 function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) => void }) {
   return (
-    <div className="overflow-x-auto -mx-1 px-1 pb-1">
-      <div className="flex gap-2 min-w-min">
+    <div className="pb-1">
+      <div className="flex flex-wrap gap-2">
         {AI_PILLS.map((p) => {
           const on = active === p.id
           return (
@@ -156,22 +161,63 @@ type AiCoachPanelProps = {
 }
 
 export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanelProps) {
-  const { state, pushChat, clearChat, notify, todayKey } = useWorkout()
+  const { state, pushChat, clearChat, notify, todayKey, applyCoachPlanToToday, resolveExerciseById } =
+    useWorkout()
   const [chatInput, setChatInput] = useState('')
+  const [pendingImage, setPendingImage] = useState<CoachChatImage | null>(null)
   const [busy, setBusy] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const coachSuggestions = useMemo(() => dailyCoachSuggestions(todayKey), [todayKey])
 
-  async function runCoachTurn(userText: string, opts?: { hideUserBubble?: boolean }) {
-    const msg = userText.trim()
-    if (!msg || busy) return
+  async function onAttachImage(file: File) {
+    try {
+      setPendingImage(await prepareCoachChatImage(file))
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not attach photo')
+    }
+  }
 
-    const flow = resolvePlanPersonalizationFlow(state.chatMessages, msg, opts)
-    if (flow.type === 'ask') {
-      if (flow.pushUserBubble && !isCoachUiPromptLine(msg)) {
-        pushChat('user', msg)
+  async function runCoachTurn(
+    userText: string,
+    opts?: { hideUserBubble?: boolean; image?: CoachChatImage },
+  ) {
+    const msg = userText.trim()
+    const image = opts?.image
+    if ((!msg && !image) || busy) return
+
+    if (!image && msg) {
+      const flow = resolvePlanPersonalizationFlow(state.chatMessages, msg, opts)
+      if (flow.type === 'ask') {
+        if (flow.pushUserBubble && !isCoachUiPromptLine(msg)) {
+          pushChat('user', msg)
+        }
+        pushChat('model', flow.questionText)
+        return
       }
-      pushChat('model', flow.questionText)
-      return
+      if (flow.type === 'generate') {
+        const planPending: ChatMessage = {
+          id: 'pending-user',
+          role: 'user',
+          text: msg,
+          at: 0,
+        }
+        const planHistory = [...state.chatMessages, planPending]
+        const pushUser = !opts?.hideUserBubble && !isCoachUiPromptLine(msg)
+        if (pushUser) pushChat('user', msg)
+        setBusy(true)
+        try {
+          const reply = await claudeCoachComplete(state, planHistory, {
+            mode: 'workout_plan',
+            planAnswers: flow.answers,
+          })
+          pushChat('model', reply, { workoutPlan: true })
+        } catch (e) {
+          notify(e instanceof Error ? e.message : 'Coach error')
+        } finally {
+          setBusy(false)
+        }
+        return
+      }
     }
 
     const pending: ChatMessage = {
@@ -179,28 +225,13 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
       role: 'user',
       text: msg,
       at: 0,
+      ...(image ? { image } : {}),
     }
     const historyForApi = [...state.chatMessages, pending]
-    const pushUser = !opts?.hideUserBubble && !isCoachUiPromptLine(msg)
+    const pushUser =
+      !opts?.hideUserBubble && (Boolean(image) || !isCoachUiPromptLine(msg))
 
-    if (flow.type === 'generate') {
-      if (pushUser) pushChat('user', msg)
-      setBusy(true)
-      try {
-        const reply = await claudeCoachComplete(state, historyForApi, {
-          mode: 'workout_plan',
-          planAnswers: flow.answers,
-        })
-        pushChat('model', reply)
-      } catch (e) {
-        notify(e instanceof Error ? e.message : 'Coach error')
-      } finally {
-        setBusy(false)
-      }
-      return
-    }
-
-    if (pushUser) pushChat('user', msg)
+    if (pushUser) pushChat('user', msg, image ? { image } : undefined)
     setBusy(true)
     try {
       const reply = await claudeCoachComplete(state, historyForApi)
@@ -213,15 +244,31 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
   }
 
   async function sendCoach() {
-    if (!chatInput.trim()) return
     const msg = chatInput.trim()
+    const image = pendingImage
+    if (!msg && !image) return
     setChatInput('')
-    await runCoachTurn(msg)
+    setPendingImage(null)
+    await runCoachTurn(msg, { image: image ?? undefined })
+  }
+
+  function applyPlanToToday(planText: string) {
+    const ids = extractExerciseIdsFromCoachPlan(planText, state.customExercises)
+    if (!ids.length) {
+      notify('No exercises found in this plan — try asking for specific movement names')
+      return
+    }
+    applyCoachPlanToToday(ids)
+    const names = ids
+      .map((id) => resolveExerciseById(id)?.name ?? id)
+      .slice(0, 4)
+    const more = ids.length > names.length ? ` +${ids.length - names.length} more` : ''
+    notify(`Added ${ids.length} exercise${ids.length === 1 ? '' : 's'} to today: ${names.join(', ')}${more}`)
   }
 
   const shellClass =
     variant === 'sidebar'
-      ? 'flex flex-col h-full min-h-0'
+      ? 'flex flex-col flex-1 min-h-0 min-w-0'
       : 'flex flex-col min-h-[min(70vh,32rem)] max-h-[calc(100dvh-11rem)]'
 
   const isSidebar = variant === 'sidebar'
@@ -229,85 +276,153 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
   return (
     <div className={`${shellClass}${isSidebar ? ' apex-coach-sidebar' : ''}`}>
       {showTitle ? <p className="apex-section-label shrink-0 mb-3">Coach</p> : null}
-      <div className="relative flex flex-1 min-h-0 flex-col">
-        <button
-          type="button"
-          disabled={busy}
-          className="apex-coach-clear-btn absolute top-2 right-2 z-10"
-          aria-label="Clear chat"
-          onClick={() => {
-            clearChat()
-            notify('Chat cleared')
-          }}
-        >
-          <i className="ti ti-trash" aria-hidden />
-        </button>
-        <div className="apex-coach-chat-scroll flex-1 min-h-0 overflow-y-auto space-y-3 rounded-[16px] p-4 pt-10 mb-2">
-          {state.chatMessages.length === 0 ? (
-            <p className="apex-coach-empty-hint font-normal text-[#a8a8b0] leading-relaxed">
-              Ask for form cues, programming ideas, or recovery tips. Your goals, this week&apos;s logged work,
-              schedule, and streak are sent with every message.
-            </p>
-          ) : null}
-          {state.chatMessages.map((m) => {
-            const display = getCoachMessageDisplayText(m)
-            if (!display) return null
-            return (
-              <div
-                key={m.id}
-                className={`apex-coach-bubble max-w-[92%] rounded-[12px] font-normal leading-relaxed border ${
-                  m.role === 'user'
-                    ? 'apex-coach-bubble--user ml-auto text-white border-transparent'
-                    : 'apex-coach-bubble--model mr-auto apex-coach-bubble-ai border-white/[0.08] text-white'
-                }`}
-                style={m.role === 'user' ? { backgroundColor: '#2a2a2a' } : undefined}
-              >
-                {display}
-              </div>
-            )
-          })}
-          {busy ? (
-            <div className="apex-coach-dots" role="status" aria-label="Loading">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : null}
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-2 shrink-0 mt-2">
-        {coachSuggestions.map((label) => (
+      <div className="apex-coach-sidebar-messages flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+        <div className="relative flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
           <button
-            key={label}
             type="button"
             disabled={busy}
-            className={`apex-btn min-h-10 px-2 font-medium leading-snug text-[#e8e8ec] border-white/[0.12] disabled:opacity-45 ${
-              isSidebar ? 'text-[13px]' : 'text-[12px]'
-            }`}
-            onClick={() => void runCoachTurn(label, { hideUserBubble: true })}
+            className="apex-coach-clear-btn absolute top-2 right-2 z-10"
+            aria-label="Clear chat"
+            onClick={() => {
+              clearChat()
+              setPendingImage(null)
+              notify('Chat cleared')
+            }}
           >
-            {label}
+            <i className="ti ti-trash" aria-hidden />
           </button>
-        ))}
+          <div className="apex-coach-chat-scroll flex-1 min-h-0 min-w-0 space-y-3 rounded-[16px] p-4 pt-10">
+            {state.chatMessages.length === 0 ? (
+              <p className="apex-coach-empty-hint m-0 font-normal text-[#a8a8b0] leading-relaxed">
+                Ask for form cues, programming ideas, or recovery tips — or attach a photo (form check, meal, etc.).
+                Your goals, this week&apos;s logged work, schedule, and streak are sent with every message.
+              </p>
+            ) : null}
+            {state.chatMessages.map((m) => {
+              const display = getCoachMessageDisplayText(m)
+              if (!display && !m.image) return null
+              const isUser = m.role === 'user'
+              return (
+                <div
+                  key={m.id}
+                  className={`apex-coach-message flex w-full min-w-0 max-w-full flex-col gap-2 ${
+                    isUser ? 'ml-auto items-end' : 'mr-auto items-start'
+                  }`}
+                >
+                  <div
+                    className={`apex-coach-bubble w-full min-w-0 max-w-full rounded-[12px] font-normal border ${
+                      isUser
+                        ? 'apex-coach-bubble--user text-white border-transparent'
+                        : 'apex-coach-bubble--model apex-coach-bubble-ai border-white/[0.08] text-white'
+                    }`}
+                    style={isUser ? { backgroundColor: '#2a2a2a' } : undefined}
+                  >
+                    {m.image ? (
+                      <img
+                        src={coachImageDataUrl(m.image)}
+                        alt={isUser ? 'Photo you sent' : 'Attached'}
+                        className="apex-coach-bubble__image mb-2 max-h-48 w-full rounded-[10px] object-contain bg-black/20"
+                      />
+                    ) : null}
+                    {display ? <p className="apex-coach-bubble__text m-0">{display}</p> : null}
+                  </div>
+                  {m.workoutPlan ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="apex-btn-primary min-h-9 max-w-full px-4 text-[12px] font-medium disabled:opacity-50"
+                      onClick={() => applyPlanToToday(m.text)}
+                    >
+                      Apply to today
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })}
+            {busy ? (
+              <div className="apex-coach-dots" role="status" aria-label="Loading">
+                <span />
+                <span />
+                <span />
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <div className="shrink-0 flex gap-2 pt-3 border-t border-white/[0.08] mt-2">
-        <input
-          className={`min-h-11 flex-1 ${inp}`}
-          placeholder="Message coach…"
-          value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void sendCoach()
-          }}
-        />
-        <button
-          type="button"
-          disabled={busy}
-          className="apex-btn-primary min-h-11 px-5 text-[13px] font-medium disabled:opacity-50"
-          onClick={() => void sendCoach()}
-        >
-          Send
-        </button>
+      <div className="apex-coach-sidebar-footer shrink-0 min-w-0 w-full pt-2">
+        <div className="grid grid-cols-1 gap-2">
+          {coachSuggestions.map((label) => (
+            <button
+              key={label}
+              type="button"
+              disabled={busy}
+              className={`apex-btn min-h-10 min-w-0 w-full px-2 font-medium leading-snug text-left text-[#e8e8ec] border-white/[0.12] disabled:opacity-45 ${
+                isSidebar ? 'text-[13px]' : 'text-[12px]'
+              }`}
+              onClick={() => void runCoachTurn(label, { hideUserBubble: true })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {pendingImage ? (
+          <div className="relative mt-2 inline-flex max-w-full">
+            <img
+              src={coachImageDataUrl(pendingImage)}
+              alt="Photo to send"
+              className="max-h-24 max-w-full rounded-[12px] border border-white/[0.12] object-contain bg-black/30"
+            />
+            <button
+              type="button"
+              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.15] bg-[#1a1a1a] text-[#ececee] text-[14px] touch-manipulation"
+              aria-label="Remove photo"
+              disabled={busy}
+              onClick={() => setPendingImage(null)}
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
+        <div className="flex min-w-0 items-center gap-2 pt-3 border-t border-white/[0.08] mt-2">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="sr-only"
+            aria-hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file) void onAttachImage(file)
+            }}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
+            aria-label="Attach photo"
+            onClick={() => imageInputRef.current?.click()}
+          >
+            <i className="ti ti-photo-plus text-[20px] leading-none" aria-hidden />
+          </button>
+          <input
+            className={`min-h-11 min-w-0 flex-1 ${inp}`}
+            placeholder="Message coach…"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void sendCoach()
+            }}
+          />
+          <button
+            type="button"
+            disabled={busy || (!chatInput.trim() && !pendingImage)}
+            className="apex-btn-primary min-h-11 shrink-0 px-4 text-[13px] font-medium disabled:opacity-50"
+            onClick={() => void sendCoach()}
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -321,39 +436,6 @@ function downloadText(filename: string, text: string) {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
-}
-
-function ensureSetLogIds(logs: SetLog[]): SetLog[] {
-  return logs.map((l) => {
-    const row = l as SetLog & { id?: string }
-    return row.id ? row : { ...row, id: crypto.randomUUID() }
-  })
-}
-
-function sanitizeMerge(raw: unknown): Partial<AppPersisted> {
-  if (!raw || typeof raw !== 'object') return {}
-  const o = raw as Record<string, unknown>
-  const out: Partial<AppPersisted> = {}
-  if (Array.isArray(o.setLogs)) {
-    const logs = o.setLogs.filter(Boolean) as SetLog[]
-    out.setLogs = ensureSetLogIds(logs)
-  }
-  if (Array.isArray(o.bodyweightLogs)) {
-    const bw = o.bodyweightLogs as AppPersisted['bodyweightLogs']
-    out.bodyweightLogs = bw.map((b) =>
-      b.id ? b : { ...b, id: crypto.randomUUID() },
-    )
-  }
-  if (Array.isArray(o.cardioEntries) && o.cardioEntries.length) {
-    out.cardioEntries = normalizeImportedCardio(o.cardioEntries)
-  }
-  if (Array.isArray(o.schedule) && o.schedule.length) {
-    out.schedule = (o.schedule as AppPersisted['schedule']).map((d) => ({
-      ...d,
-      plannedExerciseIds: d.plannedExerciseIds ?? [],
-    }))
-  }
-  return out
 }
 
 const inp = 'apex-input w-full min-h-12 px-3 py-2.5'
@@ -370,10 +452,11 @@ function AiParserPanel({
   onParse: () => void
 }) {
   return (
-    <div className="apex-card p-5 space-y-3">
+    <div className="apex-card min-w-0 max-w-full p-5 space-y-3">
       <p className="apex-section-label">Import with AI</p>
-      <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
-        Paste workout notes, preview structured entries, then confirm before they are saved.
+      <p className="m-0 text-[12px] font-medium text-[#a0a0a8] leading-relaxed break-words">
+        Paste workout notes (e.g. &quot;3 sets of 10 bench press at 135 lbs&quot;), preview, then save to
+        today&apos;s log.
       </p>
       <textarea
         className="apex-input w-full min-h-32 px-3 py-3 resize-y"
@@ -426,8 +509,8 @@ function AiFormTipsPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <label className="block">
+    <div className="min-w-0 max-w-full space-y-4">
+      <label className="block min-w-0">
         <span className="apex-section-label block mb-2">Exercise name</span>
         <input
           className={`${inp}`}
@@ -449,15 +532,21 @@ function AiFormTipsPanel() {
         <div className="space-y-4">
           <div>
             <p className="apex-section-label mb-2">Form tips</p>
-            <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{tips.formTips}</p>
+            <p className="m-0 text-[13px] font-medium text-[#a8a8b0] leading-relaxed break-words whitespace-pre-wrap">
+              {tips.formTips}
+            </p>
           </div>
           <div>
             <p className="apex-section-label mb-2">Common mistakes</p>
-            <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{tips.commonMistakes}</p>
+            <p className="m-0 text-[13px] font-medium text-[#a8a8b0] leading-relaxed break-words whitespace-pre-wrap">
+              {tips.commonMistakes}
+            </p>
           </div>
           <div>
             <p className="apex-section-label mb-2">Beginner advice</p>
-            <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">{tips.beginnerAdvice}</p>
+            <p className="m-0 text-[13px] font-medium text-[#a8a8b0] leading-relaxed break-words whitespace-pre-wrap">
+              {tips.beginnerAdvice}
+            </p>
           </div>
         </div>
       ) : null}
@@ -491,11 +580,11 @@ function AiInsightsPanel() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 max-w-full space-y-3">
       {visible.map((w: BurnoutWarning) => (
         <div
           key={w.muscle}
-          className="rounded-[12px]"
+          className="min-w-0 max-w-full rounded-[12px]"
           style={{
             background: 'var(--apex-surface-nested)',
             border: '0.5px solid var(--apex-border)',
@@ -510,7 +599,10 @@ function AiInsightsPanel() {
             />
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-medium text-white">High {w.muscle.toLowerCase()} volume</p>
-              <p className="mt-2 text-[13px] font-normal leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <p
+                className="mt-2 m-0 text-[13px] font-normal leading-relaxed break-words"
+                style={{ color: 'rgba(255,255,255,0.5)' }}
+              >
                 Your {w.muscle.toLowerCase()} volume this week is {w.pctAbove}% above your 4-week average.
                 Consider a deload or lighter accessory work.
               </p>
@@ -550,16 +642,30 @@ export function AiHub({
       return
     }
     setBusy(true)
+    const normOpts = { customExercises: state.customExercises, atMs: Date.now() }
+    let apiError: string | null = null
     try {
-      const raw = await claudeParseImport(state, importText)
-      const partial = sanitizeMerge(raw)
+      let partial: Partial<AppPersisted> = {}
+      try {
+        const raw = await claudeParseImport(state, importText)
+        partial = sanitizeWorkoutImport(raw, state)
+      } catch (e) {
+        apiError = e instanceof Error ? e.message : 'Parse failed'
+        partial = parseWorkoutTextLocally(importText, normOpts)
+      }
+
+      if (!partial.setLogs?.length) {
+        const local = parseWorkoutTextLocally(importText, normOpts)
+        if (local.setLogs?.length) partial = { ...partial, setLogs: local.setLogs }
+      }
+
       if (
         !partial.setLogs?.length &&
         !partial.cardioEntries?.length &&
         !partial.bodyweightLogs?.length &&
         !partial.schedule
       ) {
-        notify('No entries found — try different wording')
+        notify(apiError ?? 'No entries found — try different wording')
         return
       }
       setImportPreview(partial)
@@ -572,28 +678,61 @@ export function AiHub({
 
   function confirmImportMerge() {
     if (!importPreview) return
-    mergeImport(importPreview)
+    const setCount = importPreview.setLogs?.length ?? 0
+    mergeImport(importPreview, { silent: true })
+    if (setCount > 0) {
+      notify(
+        setCount === 1
+          ? "Logged 1 exercise to today's workout"
+          : `Logged ${setCount} exercises to today's workout`,
+      )
+    } else {
+      notify('Import saved')
+    }
     setImportPreview(null)
     setImportText('')
   }
 
+  const hubShellClass =
+    variant === 'sidebar'
+      ? 'flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden'
+      : 'space-y-4'
+
+  const aiSubContent =
+    aiSub === 'coach' ? (
+      <AiCoachPanel variant={variant} showTitle={false} />
+    ) : aiSub === 'parser' ? (
+      <AiParserPanel
+        importText={importText}
+        setImportText={setImportText}
+        busy={busy}
+        onParse={() => void runParseImport()}
+      />
+    ) : aiSub === 'form' ? (
+      <AiFormTipsPanel />
+    ) : (
+      <AiInsightsPanel />
+    )
+
   return (
     <>
-      <div className="space-y-4">
-        <AiPillNav active={aiSub} onChange={setAiSub} />
-        {aiSub === 'coach' ? (
-          <AiCoachPanel variant={variant} showTitle={false} />
-        ) : null}
-        {aiSub === 'parser' ? (
-          <AiParserPanel
-            importText={importText}
-            setImportText={setImportText}
-            busy={busy}
-            onParse={() => void runParseImport()}
-          />
-        ) : null}
-        {aiSub === 'form' ? <AiFormTipsPanel /> : null}
-        {aiSub === 'insights' ? <AiInsightsPanel /> : null}
+      <div className={hubShellClass}>
+        <div className={variant === 'sidebar' ? 'shrink-0 pb-3' : undefined}>
+          <AiPillNav active={aiSub} onChange={setAiSub} />
+        </div>
+        {variant === 'sidebar' ? (
+          <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+            {aiSub === 'coach' ? (
+              aiSubContent
+            ) : (
+              <div className="apex-coach-sidebar-scroll flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
+                {aiSubContent}
+              </div>
+            )}
+          </div>
+        ) : (
+          aiSubContent
+        )}
       </div>
       {importPreview ? (
         <div
@@ -607,7 +746,7 @@ export function AiHub({
           >
             <h3 className="text-[13px] font-normal text-[#e0e0e0]">Import preview</h3>
             <p className="mt-2 text-[13px] font-normal text-[#a8a8b0] leading-relaxed">
-              These entries will be merged into your data. Existing logs stay; new rows are appended.
+              Set logs are added to today&apos;s workout. Other entries are merged into your data.
             </p>
             <ul className="mt-4 space-y-2 text-[13px] font-normal text-[#e0e0e0]">
               <li>
@@ -641,7 +780,7 @@ export function AiHub({
                     <li key={l.id}>
                       {l.exerciseName}
                       {l.kind === 'weighted'
-                        ? ` · ${l.bodyweight ? 'BW' : l.weight} × ${l.reps}`
+                        ? ` · ${l.sets}×${l.reps} @ ${l.bodyweight ? 'BW' : `${l.weight ?? 0} ${state.settings.unit}`}`
                         : ` · ${l.durationSec}s`}
                     </li>
                   ))}
@@ -661,7 +800,7 @@ export function AiHub({
                 className="apex-btn-primary min-h-12 flex-1 text-[13px] font-medium"
                 onClick={confirmImportMerge}
               >
-                Save merge
+                Log to today
               </button>
             </div>
           </div>
@@ -743,10 +882,6 @@ export function ProfileTab({
     const sorted = [...state.bodyweightLogs].sort((a, b) => b.at - a.at)
     return sorted[0] ?? null
   }, [state.bodyweightLogs])
-
-  const performanceInsights = useMemo(
-    () => computePerformanceInsights(state),
-  [state.setLogs, state.sleepLogs, state.mealLogs, state.settings.unit])
 
   const strengthAge = useMemo(
     () =>
@@ -1079,22 +1214,6 @@ export function ProfileTab({
           )}
         </div>
 
-        {performanceInsights.eligible && performanceInsights.insights.length > 0 ? (
-          <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
-            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Performance insights</p>
-            <ul className="mt-3 space-y-2.5">
-              {performanceInsights.insights.map((insight) => (
-                <li
-                  key={insight.id}
-                  className="text-[0.8125rem] font-medium text-[#ececee] leading-relaxed pl-3 border-l-2"
-                  style={{ borderLeftColor: 'var(--apex-accent)' }}
-                >
-                  {insight.text}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </section>
 
       {!isDesktop ? (
@@ -1134,6 +1253,7 @@ export function ProfileTab({
           >
             Achievements
           </button>
+          <PerformanceInsightsCard className={isDesktop ? 'col-span-2' : ''} />
           {trainerMode ? (
             <>
               <div className={`apex-card p-5 space-y-3 ${isDesktop ? 'col-span-2' : ''}`}>

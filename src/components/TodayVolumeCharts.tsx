@@ -54,6 +54,14 @@ type ChartProps = {
 
 const BAR_ROW_HEIGHT = 36
 const BAR_CHART_PAD = 16
+const MUSCLE_GROUP_COUNT = 6
+
+/** Plot area height shared by weekly volume bars and muscle balance radar. */
+function weekVolumePlotHeight(muscleCount = MUSCLE_GROUP_COUNT): number {
+  return Math.max(200, muscleCount * BAR_ROW_HEIGHT + BAR_CHART_PAD)
+}
+
+const RADAR_CHART_MARGIN = { top: 24, right: 28, bottom: 24, left: 28 }
 
 const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: ChartProps) {
   const chart = useApexChartColors()
@@ -63,7 +71,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
     [state.setLogs, state.settings.unit, anchorMs],
   )
   const maxVol = Math.max(1, ...barData.map((d) => d.volume))
-  const chartHeight = Math.max(200, barData.length * BAR_ROW_HEIGHT + BAR_CHART_PAD)
+  const chartHeight = weekVolumePlotHeight(barData.length)
   const labelMargin = useMemo(() => {
     const longest = barData.reduce((m, d) => Math.max(m, d.label.length), 8)
     return Math.min(120, Math.max(72, longest * 6.5))
@@ -128,6 +136,7 @@ const MuscleBalanceRadar = memo(
     radarStroke,
     radarFill,
     radarFillOpacity,
+    plotHeight,
   }: {
     data: RadarPoint[]
     gridStroke: string
@@ -135,6 +144,7 @@ const MuscleBalanceRadar = memo(
     radarStroke: string
     radarFill: string
     radarFillOpacity: number
+    plotHeight: number
   }) {
     const renderAngleTick = useMemo(
       () =>
@@ -172,16 +182,14 @@ const MuscleBalanceRadar = memo(
     )
     const radiusDomain = useMemo(() => [0, 100] as const, [])
 
-    const radarHeight = 280
-
     return (
-      <ResponsiveContainer width="100%" height={radarHeight} debounce={1}>
+      <ResponsiveContainer width="100%" height={plotHeight} debounce={1}>
         <RadarChart
           data={data}
           cx="50%"
           cy="50%"
-          outerRadius="50%"
-          margin={{ top: 40, right: 52, bottom: 40, left: 52 }}
+          outerRadius="78%"
+          margin={RADAR_CHART_MARGIN}
         >
           <PolarGrid stroke={gridStroke} strokeWidth={0.5} />
           <PolarAngleAxis
@@ -210,7 +218,8 @@ const MuscleBalanceRadar = memo(
     prev.labelFill === next.labelFill &&
     prev.radarStroke === next.radarStroke &&
     prev.radarFill === next.radarFill &&
-    prev.radarFillOpacity === next.radarFillOpacity,
+    prev.radarFillOpacity === next.radarFillOpacity &&
+    prev.plotHeight === next.plotHeight,
 )
 
 const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: ChartProps) {
@@ -227,6 +236,7 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
   const darkRadar = chart.radarStroke === '#ffffff'
   const radarFill = darkRadar ? '#ffffff' : 'rgba(0,0,0,0.12)'
   const radarFillOpacity = darkRadar ? RADAR_FILL_OPACITY : 1
+  const plotHeight = weekVolumePlotHeight()
 
   return (
     <div className={CHART_BODY_CLASS}>
@@ -250,7 +260,10 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
           ))}
         </div>
       ) : null}
-      <div className="w-full min-w-0 overflow-visible" style={{ height: 280 }}>
+      <div
+        className="apex-muscle-balance-plot w-full min-w-0 overflow-visible"
+        style={{ height: plotHeight }}
+      >
         <MuscleBalanceRadar
           data={radarData}
           gridStroke={chart.grid}
@@ -258,6 +271,7 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
           radarStroke={chart.radarStroke}
           radarFill={radarFill}
           radarFillOpacity={radarFillOpacity}
+          plotHeight={plotHeight}
         />
       </div>
     </div>
@@ -299,8 +313,9 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
     () => weeklyVolumeHorizontalBarData(state, weekAnchorMs(weekKey)),
     [state.setLogs, state.settings.unit, weekKey],
   )
-  const barBlockHeight = Math.max(200, barData.length * BAR_ROW_HEIGHT + BAR_CHART_PAD) + 56
-  const radarBlockHeight = 280 + 56
+  const plotHeight = weekVolumePlotHeight(barData.length)
+  const barBlockHeight = plotHeight + 56
+  const radarBlockHeight = plotHeight + 56
   const chartBlockHeight = slide === 0 ? barBlockHeight : radarBlockHeight
 
   if (sessionDays < MIN_SESSIONS_FOR_VOLUME_CHART) {
