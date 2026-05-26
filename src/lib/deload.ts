@@ -1,6 +1,7 @@
 import type { AppPersisted, SetLog } from '../types'
 import type { LastWeightedSetDefaults } from './lastSession'
-import { getLastWeightedSetForExercise, getLastWorkoutSession } from './lastSession'
+import { getExerciseWeightPrefill } from './exerciseLastWeight'
+import { getLastWorkoutSession } from './lastSession'
 import { weeklyVolumeSeries } from './stats'
 import { currentWeekStartKey } from './volumeStats'
 
@@ -95,7 +96,7 @@ export function getWeightedPrefillForExercise(
   unit: 'lbs' | 'kg',
   deloadActiveWeekStart: string | null,
 ): LastWeightedSetDefaults | null {
-  const base = getLastWeightedSetForExercise(logs, exerciseId)
+  const base = getExerciseWeightPrefill(logs, exerciseId)
   return applyDeloadToPrefill(base, unit, deloadActiveWeekStart)
 }
 

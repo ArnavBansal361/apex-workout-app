@@ -139,10 +139,16 @@ const PLATE_OPACITY_KG: Record<number, number> = {
 export function platesPerSide(
   totalWeight: number,
   unit: 'lbs' | 'kg',
+  barWeight?: number,
 ): { barLabel: string; chips: PlateChip[] } | null {
   if (!Number.isFinite(totalWeight) || totalWeight <= 0) return null
-  const bar = unit === 'lbs' ? 45 : 20
-  const barLabel = unit === 'lbs' ? '45lb bar' : '20kg bar'
+  const bar =
+    barWeight != null && Number.isFinite(barWeight) && barWeight > 0
+      ? barWeight
+      : unit === 'lbs'
+        ? 45
+        : 20
+  const barLabel = unit === 'lbs' ? `${bar}lb bar` : `${bar}kg bar`
   const sizes = unit === 'lbs' ? [45, 35, 25, 10, 5, 2.5] : [25, 20, 15, 10, 5, 2.5, 1.25]
   const opacityMap = unit === 'lbs' ? PLATE_OPACITY_LBS : PLATE_OPACITY_KG
   let perSide = (totalWeight - bar) / 2

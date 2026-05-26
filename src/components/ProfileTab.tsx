@@ -14,14 +14,16 @@ import { BodyMeasurementsSection } from './BodyMeasurementsSection'
 import { useWorkout } from '../context/WorkoutContext'
 import {
   muscleGroupsThisWeek,
-  minutesThisWeek,
+  prsThisMonth,
   sessionsThisWeek,
   setsThisWeek,
   streakCurrent,
 } from '../lib/achievements'
-import { computePersonalRecords } from '../lib/personalRecords'
-import { getLevelInfo } from '../lib/xpLevel'
-import { exportFullDataCsv } from '../lib/csv'
+import {
+  computePersonalRecords,
+  computePersonalRecordDisplayRows,
+} from '../lib/personalRecords'
+import { getLevelInfo, xpBarLabels } from '../lib/xpLevel'
 import {
   claudeCoachComplete,
   claudeExerciseFormTips,
@@ -29,25 +31,29 @@ import {
   dailyCoachSuggestions,
   resolvePlanPersonalizationFlow,
 } from '../lib/anthropicCoach'
-import { formatMoodLift } from '../lib/workoutMood'
-import { computeStrengthAge, formatStrengthAgeLiftLabel } from '../lib/strengthAge'
+import { computeStrengthAge } from '../lib/strengthAge'
 import { LongevityScoreCard } from './LongevityScoreCard'
 import { PerformanceInsightsCard } from './PerformanceInsightsCard'
-import type { MoodLiftStats } from '../lib/supabase'
 import { dateKey } from '../lib/dates'
 import {
   connectClientToTrainer,
-  disconnectTrainerClient,
   fetchMyTrainerConnection,
   fetchTrainerClientSummaries,
   fetchUserWorkoutStateForTrainer,
-  fetchLeaderboard,
-  fetchAverageMoodLift,
+  addFriendByCode,
+  buildFriendsLeaderboardRows,
+  ensureFriendProfile,
+  fetchGlobalLeaderboardByXp,
+  fetchLeaderboardXpForUsers,
   formatLeaderboardVolume,
   insertTrainerNote,
   supabase,
   upsertTrainerCode,
   upsertUserWorkoutState,
+  upsertTendedPostWorkoutCheckin,
+  type AddFriendResult,
+  type FriendLeaderboardRow,
+  type FriendProfileRow,
   type LeaderboardEntry,
   type TrainerClientSummary,
   type TrainerConnectionRow,
@@ -75,17 +81,29 @@ import {
   getCoachMessageDisplayText,
   isCoachUiPromptLine,
   applyApexAppearanceFromStorage,
-  APEX_COACH_PROFILE_KEY,
   APEX_THEME_STORAGE_KEY,
   APEX_FONT_SIZE_STORAGE_KEY,
+  readDistanceUnit,
+  writeDistanceUnit,
+  readWorkoutRemindersEnabled,
+  writeWorkoutRemindersEnabled,
+  readWeeklySummaryEnabled,
+  writeWeeklySummaryEnabled,
+  readPostWorkoutCheckinEnabled,
+  writePostWorkoutCheckinEnabled,
+  type ApexDistanceUnit,
   type ApexThemeMode,
   type ApexFontSizeMode,
 } from '../lib/persist'
+import {
+  isSpotifyConfigured,
+  isSpotifyConnected,
+  startSpotifyOAuth,
+} from '../lib/spotify'
 import { bodyweightSeries, useApexChartColors, weeklyVolumeSeries } from '../lib/stats'
 import { currentWeekStartKey, detectBurnoutWarnings } from '../lib/volumeStats'
 import type { BurnoutWarning } from '../lib/volumeStats'
 import {
-  formatGoogleCalendarExpiryLabel,
   isGoogleCalendarConfigured,
   isGoogleCalendarConnected,
   startGoogleCalendarOAuth,
@@ -99,17 +117,9 @@ import {
 } from '../lib/gymBarcode'
 import { coachImageDataUrl, prepareCoachChatImage } from '../lib/coachChatImage'
 import type { AppPersisted, ChatMessage, CoachChatImage } from '../types'
-import { DEFAULT_WATER_GOAL_OZ, WATER_LOG_INCREMENT_OZ } from '../types'
-import {
-  DEFAULT_MACRO_GOAL_CALORIES,
-  DEFAULT_MACRO_GOAL_CARBS_G,
-  DEFAULT_MACRO_GOAL_FAT_G,
-  DEFAULT_MACRO_GOAL_PROTEIN_G,
-} from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { PROFILE_AVATAR_IDS, ProfileAvatarGlyph } from './ProfileAvatarIcons'
-type Sub = 'stats' | 'settings' | 'ai'
-type AiSub = 'coach' | 'parser' | 'form' | 'insights'
+type Sub = 'stats' | 'ai'
+export type AiSub = 'coach' | 'parser' | 'form' | 'insights'
 
 const AI_PILLS: { id: AiSub; label: string }[] = [
   { id: 'coach', label: 'Coach' },
@@ -438,16 +448,6 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
   )
 }
 
-function downloadText(filename: string, text: string) {
-  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 const inp = 'apex-input w-full min-h-12 px-3 py-2.5'
 
 function AiParserPanel({
@@ -636,10 +636,13 @@ export function AiHub({
   aiSub,
   setAiSub,
   variant = 'tab',
+  showNav = true,
 }: {
   aiSub: AiSub
   setAiSub: (s: AiSub) => void
   variant?: 'tab' | 'sidebar'
+  /** When false, hide pill nav (e.g. mobile AI tab hub picks the section). */
+  showNav?: boolean
 }) {
   const { state, mergeImport, notify } = useWorkout()
   const [importText, setImportText] = useState('')
@@ -727,9 +730,11 @@ export function AiHub({
   return (
     <>
       <div className={hubShellClass}>
-        <div className={variant === 'sidebar' ? 'shrink-0 pb-3' : undefined}>
-          <AiPillNav active={aiSub} onChange={setAiSub} />
-        </div>
+        {showNav ? (
+          <div className={variant === 'sidebar' ? 'shrink-0 pb-3' : undefined}>
+            <AiPillNav active={aiSub} onChange={setAiSub} />
+          </div>
+        ) : null}
         {variant === 'sidebar' ? (
           <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
             {aiSub === 'coach' ? (
@@ -838,6 +843,561 @@ function readFontSizeMode(): ApexFontSizeMode {
   return 'medium'
 }
 
+function fontSizeStopLabel(size: ApexFontSizeMode): string {
+  if (size === 'small') return 'S'
+  if (size === 'large' || size === 'xlarge') return 'L'
+  return 'M'
+}
+
+function fontSizeStopIndex(size: ApexFontSizeMode): number {
+  if (size === 'small') return 0
+  if (size === 'large' || size === 'xlarge') return 2
+  return 1
+}
+
+function fontSizeFromStop(index: number): ApexFontSizeMode {
+  if (index <= 0) return 'small'
+  if (index >= 2) return 'large'
+  return 'medium'
+}
+
+function IosSwitch({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      className={`apex-ios-switch${checked ? ' is-on' : ''}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="apex-ios-switch__thumb" />
+    </button>
+  )
+}
+
+function SettingsSegment({
+  value,
+  left,
+  right,
+  onChange,
+}: {
+  value: string
+  left: { id: string; label: string }
+  right: { id: string; label: string }
+  onChange: (id: string) => void
+}) {
+  return (
+    <div className="apex-settings-segment" role="group">
+      <button
+        type="button"
+        className={`apex-settings-segment__btn${value === left.id ? ' is-active' : ''}`}
+        onClick={() => onChange(left.id)}
+      >
+        {left.label}
+      </button>
+      <button
+        type="button"
+        className={`apex-settings-segment__btn${value === right.id ? ' is-active' : ''}`}
+        onClick={() => onChange(right.id)}
+      >
+        {right.label}
+      </button>
+    </div>
+  )
+}
+
+const ME_ACTUAL_AGE_YEARS = 30
+
+function initialsForName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts[0]!.slice(0, 1)}${parts[parts.length - 1]!.slice(0, 1)}`.toUpperCase()
+  }
+  return (parts[0]?.slice(0, 1) ?? 'A').toUpperCase()
+}
+
+function StrengthAgeSemicircle({ strengthAge }: { strengthAge: number }) {
+  const max = 70
+  const pct = Math.min(1, Math.max(0, strengthAge / max))
+  const arcLen = Math.PI * 50
+  const dash = pct * arcLen
+  const younger = strengthAge < ME_ACTUAL_AGE_YEARS
+  return (
+    <div className="apex-me-strength-gauge">
+      <svg viewBox="0 0 120 68" width="120" height="68" aria-hidden>
+        <path
+          d="M 12 58 A 48 48 0 0 1 108 58"
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 12 58 A 48 48 0 0 1 108 58"
+          fill="none"
+          stroke="#3d7ab5"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${arcLen}`}
+        />
+      </svg>
+      <p className="apex-me-strength-gauge__tag">{younger ? 'YOUNGER' : 'OLDER'}</p>
+    </div>
+  )
+}
+
+type MeTabProfileProps = {
+  displayName: string
+  profileInitials: string
+  lifetimeXp: number
+  levelLabel: string
+  xpLeft: string
+  xpRight: string
+  progressPct: number
+  sessionsWeek: number
+  setsWeek: number
+  streakDays: number
+  prsMonth: number
+  prRows: ReturnType<typeof computePersonalRecordDisplayRows>
+  strengthAge: ReturnType<typeof computeStrengthAge>
+  appearanceTheme: ApexThemeMode
+  onToggleTheme: () => void
+  friendCode: string | null
+  friendRows: FriendLeaderboardRow[]
+  friendLoading: boolean
+  onCopyFriendCode: () => void
+  onAddFriend: () => void
+  onViewAllPr: () => void
+  onViewAllLeaderboard: () => void
+  onOpenSettings: () => void
+}
+
+function MeTabProfileView({
+  displayName,
+  profileInitials,
+  lifetimeXp,
+  levelLabel,
+  xpLeft,
+  xpRight,
+  progressPct,
+  sessionsWeek,
+  setsWeek,
+  streakDays,
+  prsMonth,
+  prRows,
+  strengthAge,
+  appearanceTheme,
+  onToggleTheme,
+  friendCode,
+  friendRows,
+  friendLoading,
+  onCopyFriendCode,
+  onAddFriend,
+  onViewAllPr,
+  onViewAllLeaderboard,
+  onOpenSettings,
+}: MeTabProfileProps) {
+  const sortedFriends = friendRows
+  const topFive = sortedFriends.slice(0, 5)
+  const meInTop = topFive.some((r) => r.isMe)
+  const listTop = meInTop ? topFive : sortedFriends.filter((r) => !r.isMe).slice(0, 4)
+  const meRow = sortedFriends.find((r) => r.isMe)
+  const showMePinned = Boolean(meRow && !meInTop)
+
+  const ageDelta =
+    strengthAge.strengthAge != null ? ME_ACTUAL_AGE_YEARS - strengthAge.strengthAge : null
+
+  return (
+    <div className="apex-me-tab space-y-5">
+      <header className="apex-me-header">
+        <div className="apex-me-header__row">
+          <div className="apex-me-header__identity">
+            <span className="apex-me-avatar" aria-hidden>
+              {profileInitials.slice(0, 1)}
+            </span>
+            <div className="min-w-0">
+              <h1 className="apex-me-username">{displayName}</h1>
+              <p className="apex-me-level-line">
+                {levelLabel} · {lifetimeXp} XP
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            className="apex-me-theme-toggle"
+            aria-label="Settings"
+            onClick={onOpenSettings}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 15a3 3 0 100-6 3 3 0 000 6z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="apex-me-theme-toggle"
+            aria-label={appearanceTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={onToggleTheme}
+          >
+            {appearanceTheme === 'dark' ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
+          </button>
+          </div>
+        </div>
+        <div className="apex-me-xp-track">
+          <div className="apex-me-xp-fill" style={{ width: `${progressPct}%` }} />
+        </div>
+        <div className="apex-me-xp-labels">
+          <span>{xpLeft}</span>
+          <span>{xpRight}</span>
+        </div>
+      </header>
+
+      <div className="apex-me-stats-grid">
+        <div className="apex-me-stat-card">
+          <p className="apex-me-stat-card__label">SESSIONS</p>
+          <p className="apex-me-stat-card__value tabular-nums">{sessionsWeek}</p>
+          <p className="apex-me-stat-card__sub">this wk</p>
+        </div>
+        <div className="apex-me-stat-card">
+          <p className="apex-me-stat-card__label">SETS</p>
+          <p className="apex-me-stat-card__value tabular-nums">{setsWeek}</p>
+          <p className="apex-me-stat-card__sub">this wk</p>
+        </div>
+        <div className="apex-me-stat-card">
+          <p className="apex-me-stat-card__label">STREAK</p>
+          <p className="apex-me-stat-card__value tabular-nums">{streakDays}</p>
+          <p className="apex-me-stat-card__sub">days</p>
+        </div>
+        <div className="apex-me-stat-card">
+          <p className="apex-me-stat-card__label">PRS</p>
+          <p className="apex-me-stat-card__value tabular-nums">{prsMonth}</p>
+          <p className="apex-me-stat-card__sub">this mo</p>
+        </div>
+      </div>
+
+      <section>
+        <div className="apex-me-section-head">
+          <h2 className="apex-me-section-title">PERSONAL RECORDS</h2>
+          <button type="button" className="apex-me-link" onClick={onViewAllPr}>
+            See all
+          </button>
+        </div>
+        <div className="apex-me-card">
+          {prRows.length ? (
+            <ul className="apex-me-pr-list">
+              {prRows.slice(0, 4).map((row, i) => (
+                <li key={row.exerciseId}>
+                  {i > 0 ? <div className="apex-me-pr-divider" aria-hidden /> : null}
+                  <div className="apex-me-pr-row">
+                    <div className="min-w-0">
+                      <p className="apex-me-pr-name">{row.exerciseName}</p>
+                      <p className="apex-me-pr-date">{row.dateLabel}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="apex-me-pr-weight">{row.weightLabel ?? row.detail}</p>
+                      {row.improvementLabel ? (
+                        <p className="apex-me-pr-delta">{row.improvementLabel}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="apex-me-empty">Log sets to build your PR board.</p>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <div className="apex-me-card apex-me-strength-card">
+          <div className="apex-me-strength-card__gauge">
+            {strengthAge.strengthAge != null ? (
+              <StrengthAgeSemicircle strengthAge={strengthAge.strengthAge} />
+            ) : (
+              <div className="apex-me-strength-placeholder">—</div>
+            )}
+          </div>
+          <div className="apex-me-strength-card__copy">
+            <p className="apex-me-strength-label">Your strength age</p>
+            {strengthAge.strengthAge != null && ageDelta != null ? (
+              <>
+                <p className="apex-me-strength-age tabular-nums">{strengthAge.strengthAge}</p>
+                <p className="apex-me-strength-sub">
+                  {Math.abs(ageDelta)} years {ageDelta > 0 ? 'younger' : ageDelta < 0 ? 'older' : 'same as'}{' '}
+                  than your actual age
+                </p>
+              </>
+            ) : (
+              <p className="apex-me-strength-sub">
+                {strengthAge.missingBodyweight
+                  ? 'Log bodyweight and key lifts to calculate'
+                  : 'Log bench, squat, deadlift, or press for strength age'}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="apex-me-section-head">
+          <h2 className="apex-me-section-title">LEADERBOARD</h2>
+          <button type="button" className="apex-me-link" onClick={onViewAllLeaderboard}>
+            View all
+          </button>
+        </div>
+        <div className="apex-me-card">
+          {friendLoading ? (
+            <p className="apex-me-empty">Loading friends…</p>
+          ) : (
+            <ul className="apex-me-lb-list">
+              {listTop.map((row, index) => (
+                <li key={row.id} className="apex-me-lb-row">
+                  <span className="apex-me-lb-rank tabular-nums">{index + 1}</span>
+                  <span
+                    className={`apex-me-lb-avatar apex-me-lb-avatar--shade-${row.avatarShade}${row.isBot ? ' apex-me-lb-avatar--bot' : ''}`}
+                  >
+                    {initialsForName(row.name)}
+                  </span>
+                  <span className="apex-me-lb-name truncate">{row.name}</span>
+                  <span className="apex-me-lb-xp tabular-nums">{row.xp} XP</span>
+                </li>
+              ))}
+              {showMePinned && meRow ? (
+                <>
+                  <li className="apex-me-lb-ellipsis" aria-hidden>
+                    ···
+                  </li>
+                  <li className="apex-me-lb-row apex-me-lb-row--me">
+                    <span className="apex-me-lb-rank tabular-nums">
+                      {sortedFriends.findIndex((r) => r.id === meRow.id) + 1}
+                    </span>
+                    <span className="apex-me-lb-avatar apex-me-lb-avatar--shade-0">
+                      {initialsForName(meRow.name)}
+                    </span>
+                    <span className="apex-me-lb-name truncate">{meRow.name}</span>
+                    <span className="apex-me-lb-xp tabular-nums">{meRow.xp} XP</span>
+                  </li>
+                </>
+              ) : null}
+            </ul>
+          )}
+        </div>
+        <div className="apex-me-friend-code-row">
+          <span className="apex-me-friend-code-label">
+            Your code: <strong className="tabular-nums">{friendCode ?? '······'}</strong>
+          </span>
+          <button
+            type="button"
+            className="apex-me-copy-btn"
+            aria-label="Copy friend code"
+            disabled={!friendCode}
+            onClick={onCopyFriendCode}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </button>
+        </div>
+        <button type="button" className="apex-me-add-friend-btn" onClick={onAddFriend}>
+          + Add friend
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function GlobalLeaderboardOverlay({
+  open,
+  rows,
+  loading,
+  userId,
+  onClose,
+}: {
+  open: boolean
+  rows: LeaderboardEntry[]
+  loading: boolean
+  userId: string
+  onClose: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="apex-me-overlay fixed inset-0 z-[92] flex flex-col bg-[#090d14] text-white">
+      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+        <button type="button" className="apex-me-back" onClick={onClose}>
+          ‹ Back
+        </button>
+        <h1 className="text-[17px] font-medium">Global leaderboard</h1>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {loading ? (
+          <p className="text-[13px] text-white/45">Loading…</p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((row, index) => {
+              const isMe = row.user_id === userId
+              return (
+                <li
+                  key={row.user_id}
+                  className={`apex-me-card flex items-center gap-3 px-4 py-3 ${isMe ? 'ring-1 ring-[#3d7ab5]/40' : ''}`}
+                >
+                  <span className="apex-me-lb-rank tabular-nums w-6">{index + 1}</span>
+                  <span className="apex-me-lb-avatar apex-me-lb-avatar--shade-1">
+                    {initialsForName(row.display_name)}
+                  </span>
+                  <span className="flex-1 truncate text-[14px]">{row.display_name}</span>
+                  <span className="text-[13px] tabular-nums text-white/70">{row.xp} XP</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PrListOverlay({
+  open,
+  rows,
+  onClose,
+}: {
+  open: boolean
+  rows: ReturnType<typeof computePersonalRecordDisplayRows>
+  onClose: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="apex-me-overlay fixed inset-0 z-[92] flex flex-col bg-[#090d14] text-white">
+      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+        <button type="button" className="apex-me-back" onClick={onClose}>
+          ‹ Back
+        </button>
+        <h1 className="text-[17px] font-medium">Personal records</h1>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <ul className="apex-me-card apex-me-pr-list">
+          {rows.map((row, i) => (
+            <li key={row.exerciseId}>
+              {i > 0 ? <div className="apex-me-pr-divider" aria-hidden /> : null}
+              <div className="apex-me-pr-row">
+                <div className="min-w-0">
+                  <p className="apex-me-pr-name">{row.exerciseName}</p>
+                  <p className="apex-me-pr-date">{row.dateLabel}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="apex-me-pr-weight">{row.weightLabel ?? row.detail}</p>
+                  {row.improvementLabel ? (
+                    <p className="apex-me-pr-delta">{row.improvementLabel}</p>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function AddFriendSheet({
+  open,
+  code,
+  error,
+  busy,
+  onCodeChange,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean
+  code: string
+  error: string
+  busy: boolean
+  onCodeChange: (v: string) => void
+  onClose: () => void
+  onSubmit: () => void
+}) {
+  if (!open) return null
+  return (
+    <div
+      className="apex-log-set-sheet-overlay fixed inset-0 z-[93] flex items-end justify-center p-0"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="apex-log-set-sheet w-full max-w-lg"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add friend"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="apex-log-set-sheet__handle-wrap">
+          <span className="apex-log-set-sheet__pill" aria-hidden />
+        </div>
+        <h2 className="apex-log-set-sheet__title">Add friend</h2>
+        <p className="apex-me-add-friend-hint">Enter friend code</p>
+        <input
+          className="apex-me-add-friend-input"
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value.toUpperCase())}
+          placeholder="ABC123"
+          autoCapitalize="characters"
+          maxLength={6}
+        />
+        {error ? <p className="apex-me-add-friend-error">{error}</p> : null}
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
+          <button
+            type="button"
+            className="apex-log-set-sheet__log-btn"
+            disabled={busy || !code.trim()}
+            onClick={onSubmit}
+          >
+            {busy ? 'Adding…' : 'Add friend'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
 export function ProfileTab({
   onOpenAchievements,
   layout = 'mobile',
@@ -849,31 +1409,45 @@ export function ProfileTab({
     userId,
     state,
     updateSettings,
-    setCycleStartDateKey,
     notify,
     addBodyweight,
     resetAppData,
-    disconnectGoogleCalendar,
   } = useWorkout()
-  const [sub, setSub] = useState<Sub>(() =>
-    layout === 'desktop' && desktopSection === 'settings' ? 'settings' : 'stats',
-  )
+  const [sub, setSub] = useState<Sub>('stats')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [distanceUnit, setDistanceUnit] = useState<ApexDistanceUnit>(readDistanceUnit)
+  const [workoutReminders, setWorkoutReminders] = useState(readWorkoutRemindersEnabled)
+  const [weeklySummary, setWeeklySummary] = useState(readWeeklySummaryEnabled)
+  const [postWorkoutCheckin, setPostWorkoutCheckin] = useState(readPostWorkoutCheckinEnabled)
+  const [spotifyConnected, setSpotifyConnected] = useState(isSpotifyConnected)
   const [aiSub, setAiSub] = useState<AiSub>('coach')
   const [busy, setBusy] = useState(false)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
-  const [moodLift, setMoodLift] = useState<MoodLiftStats | null>(null)
-  const [moodLiftLoading, setMoodLiftLoading] = useState(false)
   const [appearanceTheme, setAppearanceTheme] = useState<ApexThemeMode>(readThemeMode)
   const [appearanceFontSize, setAppearanceFontSize] = useState<ApexFontSizeMode>(readFontSizeMode)
   const [bwInput, setBwInput] = useState('')
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
-  const [gcalExpiryTick, setGcalExpiryTick] = useState(0)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
   const [gymSettingsOpen, setGymSettingsOpen] = useState(false)
   const [gymDraftNumber, setGymDraftNumber] = useState('')
   const [gymDraftFormat, setGymDraftFormat] = useState<GymBarcodeFormat>('code128')
   const [gymDraftGymName, setGymDraftGymName] = useState('')
+  const [friendProfile, setFriendProfile] = useState<FriendProfileRow | null>(null)
+  const [friendLbRows, setFriendLbRows] = useState<FriendLeaderboardRow[]>([])
+  const [friendLbLoading, setFriendLbLoading] = useState(false)
+  const [addFriendOpen, setAddFriendOpen] = useState(false)
+  const [addFriendCode, setAddFriendCode] = useState('')
+  const [addFriendError, setAddFriendError] = useState('')
+  const [addFriendBusy, setAddFriendBusy] = useState(false)
+  const [globalLbOpen, setGlobalLbOpen] = useState(false)
+  const [globalLbRows, setGlobalLbRows] = useState<LeaderboardEntry[]>([])
+  const [globalLbLoading, setGlobalLbLoading] = useState(false)
+  const [prListOpen, setPrListOpen] = useState(false)
+  const [friendsRefresh, setFriendsRefresh] = useState(0)
+
+  const showSettingsScreen =
+    (isDesktop && desktopSection === 'settings') || (!isDesktop && settingsOpen)
+  const showMeTab = isDesktop ? desktopSection === 'profile' : sub === 'stats' && !settingsOpen
+
   const [trainerMode, setTrainerMode] = useState(readTrainerModeEnabled)
   const [trainerCode, setTrainerCode] = useState(readTrainerCode)
   const [clientConnection, setClientConnection] = useState<TrainerConnectionRow | null>(null)
@@ -1003,14 +1577,19 @@ export function ProfileTab({
   }
 
   useEffect(() => {
-    if (isDesktop) {
-      setSub(desktopSection === 'settings' ? 'settings' : 'stats')
+    const syncSpotify = () => setSpotifyConnected(isSpotifyConnected())
+    syncSpotify()
+    window.addEventListener('storage', syncSpotify)
+    window.addEventListener('focus', syncSpotify)
+    return () => {
+      window.removeEventListener('storage', syncSpotify)
+      window.removeEventListener('focus', syncSpotify)
     }
-  }, [isDesktop, desktopSection])
+  }, [settingsOpen, showSettingsScreen])
 
   useEffect(() => {
     if (!openGymSettingsToken) return
-    if (!isDesktop) setSub('settings')
+    if (!isDesktop) setSettingsOpen(true)
     const cur = readGymBarcode()
     setGymDraftNumber(cur?.number ?? '')
     setGymDraftFormat(cur?.format ?? 'code128')
@@ -1018,51 +1597,103 @@ export function ProfileTab({
     setGymSettingsOpen(true)
   }, [openGymSettingsToken, isDesktop])
 
+  const levelInfo = useMemo(() => getLevelInfo(state.lifetimeXp ?? 0), [state.lifetimeXp])
+  const xpLabels = useMemo(() => xpBarLabels(state.lifetimeXp ?? 0), [state.lifetimeXp])
+  const displayName = state.settings.displayName.trim() || 'Apex Athlete'
+
+  const prDisplayRows = useMemo(
+    () => computePersonalRecordDisplayRows(state.setLogs, state.settings.unit),
+    [state.setLogs, state.settings.unit],
+  )
+
+  const prsMonthCount = useMemo(
+    () => prsThisMonth(state.setLogs),
+    [state.setLogs],
+  )
+
   useEffect(() => {
-    const showStats = isDesktop ? desktopSection === 'profile' : sub === 'stats'
-    if (!showStats) return
+    if (!showMeTab) return
     let cancelled = false
-    setLeaderboardLoading(true)
-    void fetchLeaderboard(50).then((rows) => {
+    setFriendLbLoading(true)
+    void (async () => {
+      const profile = await ensureFriendProfile(userId)
+      if (cancelled) return
+      setFriendProfile(profile)
+      if (!profile) {
+        setFriendLbRows([])
+        setFriendLbLoading(false)
+        return
+      }
+      const friendXp = await fetchLeaderboardXpForUsers(profile.friends)
+      if (cancelled) return
+      setFriendLbRows(
+        buildFriendsLeaderboardRows(
+          userId,
+          displayName,
+          state.lifetimeXp ?? 0,
+          friendXp,
+        ),
+      )
+      setFriendLbLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showMeTab, userId, displayName, state.lifetimeXp, friendsRefresh])
+
+  useEffect(() => {
+    if (!globalLbOpen) return
+    let cancelled = false
+    setGlobalLbLoading(true)
+    void fetchGlobalLeaderboardByXp(50).then((rows) => {
       if (!cancelled) {
-        setLeaderboard(rows)
-        setLeaderboardLoading(false)
+        setGlobalLbRows(rows)
+        setGlobalLbLoading(false)
       }
     })
     return () => {
       cancelled = true
     }
-  }, [sub, isDesktop, desktopSection, state.setLogs, state.lifetimeXp, userId])
+  }, [globalLbOpen])
 
-  useEffect(() => {
-    const showStats = isDesktop ? desktopSection === 'profile' : sub === 'stats'
-    if (!showStats) return
-    let cancelled = false
-    setMoodLiftLoading(true)
-    void fetchAverageMoodLift(userId)
-      .then((stats) => {
-        if (!cancelled) {
-          setMoodLift(stats)
-          setMoodLiftLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMoodLift(null)
-          setMoodLiftLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
+  async function submitAddFriend() {
+    const code = addFriendCode.trim()
+    if (!code) return
+    setAddFriendBusy(true)
+    setAddFriendError('')
+    const result: AddFriendResult = await addFriendByCode(userId, code)
+    setAddFriendBusy(false)
+    if (result === 'ok') {
+      setAddFriendOpen(false)
+      setAddFriendCode('')
+      notify('Friend added')
+      const profile = await ensureFriendProfile(userId)
+      setFriendProfile(profile)
+      if (profile) {
+        const friendXp = await fetchLeaderboardXpForUsers(profile.friends)
+        setFriendLbRows(
+          buildFriendsLeaderboardRows(userId, displayName, state.lifetimeXp ?? 0, friendXp),
+        )
+        setFriendsRefresh((n) => n + 1)
+      }
+      return
     }
-  }, [sub, isDesktop, desktopSection, userId])
+    if (result === 'not_found') setAddFriendError('Code not found')
+    else if (result === 'self') setAddFriendError('That is your own code')
+    else if (result === 'already') setAddFriendError('Already friends')
+    else setAddFriendError('Could not add friend')
+  }
 
-  const levelInfo = useMemo(() => getLevelInfo(state.lifetimeXp ?? 0), [state.lifetimeXp])
-
-  const prRows = useMemo(
-    () => computePersonalRecords(state.setLogs, state.settings.unit),
-    [state.setLogs, state.settings.unit],
-  )
+  function toggleAppearanceTheme() {
+    const next: ApexThemeMode = appearanceTheme === 'dark' ? 'light' : 'dark'
+    try {
+      localStorage.setItem(APEX_THEME_STORAGE_KEY, next)
+    } catch {
+      /* ignore */
+    }
+    setAppearanceTheme(next)
+    applyApexAppearanceFromStorage()
+  }
 
   const clientDetailPr = useMemo(() => {
     if (!clientDetailState) return []
@@ -1101,138 +1732,72 @@ export function ProfileTab({
 
   const gcalConfigured = isGoogleCalendarConfigured()
   const gcalConnected = isGoogleCalendarConnected()
-  const gcalExpiryLabel = useMemo(
-    () => (gcalConnected ? formatGoogleCalendarExpiryLabel() : ''),
-    [gcalConnected, gcalExpiryTick],
-  )
-
-  useEffect(() => {
-    if (sub !== 'settings' || !gcalConnected) return
-    const id = window.setInterval(() => setGcalExpiryTick((n) => n + 1), 30_000)
-    return () => window.clearInterval(id)
-  }, [sub, gcalConnected])
-
   return (
-    <div className={`apex-tab-stack ${isDesktop ? 'pb-4' : 'pb-28'}`}>
-      <section className="apex-card p-6">
-        <div className="flex items-center gap-4">
-          <div
-            className="box-border flex h-[96px] w-[96px] shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#1a1a1a]"
-          >
-            {state.settings.profileAvatarId ? (
-              <ProfileAvatarGlyph id={state.settings.profileAvatarId} className="h-12 w-12 text-[#ececee]" />
-            ) : (
-              <span className="text-[1.25rem] font-black tracking-tight text-white">{profileInitials}</span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="apex-page-sub">Profile</p>
-            <h1 className="text-[1.375rem] font-bold text-[#f4f4f5] tracking-tight leading-tight truncate">
-              {state.settings.displayName.trim() || 'Apex Athlete'}
-            </h1>
-            <p className="mt-1.5 text-[13px] font-medium text-[#a0a0a8] leading-relaxed line-clamp-2">
-              {state.settings.fitnessGoals.trim() || 'Train consistently — stats update as you log work.'}
-            </p>
-          </div>
-        </div>
+    <>
+      <GlobalLeaderboardOverlay
+        open={globalLbOpen}
+        rows={globalLbRows}
+        loading={globalLbLoading}
+        userId={userId}
+        onClose={() => setGlobalLbOpen(false)}
+      />
+      <PrListOverlay open={prListOpen} rows={prDisplayRows} onClose={() => setPrListOpen(false)} />
+      <AddFriendSheet
+        open={addFriendOpen}
+        code={addFriendCode}
+        error={addFriendError}
+        busy={addFriendBusy}
+        onCodeChange={(v) => {
+          setAddFriendCode(v)
+          setAddFriendError('')
+        }}
+        onClose={() => {
+          setAddFriendOpen(false)
+          setAddFriendError('')
+        }}
+        onSubmit={() => void submitAddFriend()}
+      />
+      <div className={`apex-tab-stack ${isDesktop ? 'pb-4' : 'pb-28'}`}>
+      {showMeTab ? (
+        <MeTabProfileView
+          displayName={displayName}
+          profileInitials={profileInitials}
+          lifetimeXp={state.lifetimeXp ?? 0}
+          levelLabel={levelInfo.label}
+          xpLeft={xpLabels.left}
+          xpRight={xpLabels.right}
+          progressPct={Math.round(levelInfo.progressInTier * 100)}
+          sessionsWeek={sessionsThisWeek(state)}
+          setsWeek={setsThisWeek(state)}
+          streakDays={streakDays}
+          prsMonth={prsMonthCount}
+          prRows={prDisplayRows}
+          strengthAge={strengthAge}
+          appearanceTheme={appearanceTheme}
+          onToggleTheme={toggleAppearanceTheme}
+          friendCode={friendProfile?.friend_code ?? null}
+          friendRows={friendLbRows}
+          friendLoading={friendLbLoading}
+          onCopyFriendCode={() => {
+            const code = friendProfile?.friend_code
+            if (!code) return
+            void navigator.clipboard.writeText(code).then(
+              () => notify('Friend code copied'),
+              () => notify('Could not copy code'),
+            )
+          }}
+          onAddFriend={() => setAddFriendOpen(true)}
+          onViewAllPr={() => setPrListOpen(true)}
+          onViewAllLeaderboard={() => setGlobalLbOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      ) : null}
 
-        <div className="mt-5 rounded-[18px] border border-white/[0.06] px-4 py-3.5">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="text-[0.8125rem] font-medium text-[#7d7d88]">Level & XP</p>
-            <p className="text-[12px] font-bold text-[#ececee] tabular-nums">{state.lifetimeXp ?? 0} XP</p>
-          </div>
-          <p className="text-[15px] font-bold text-[#f4f4f5]">{levelInfo.label}</p>
-          <div className="mt-2 h-2 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.round(levelInfo.progressInTier * 100)}%`,
-                backgroundColor: levelInfo.ringColor,
-              }}
-            />
-          </div>
-          <p className="mt-1.5 text-[11px] font-medium text-[#a0a0a8]">
-            {levelInfo.nextThreshold != null
-              ? `${Math.max(0, levelInfo.nextThreshold - (state.lifetimeXp ?? 0))} XP until next level`
-              : 'Elite tier — keep stacking XP'}
-          </p>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-[18px] border border-white/[0.055] p-4">
-            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sessions</p>
-            <p className="apex-stat-num mt-2 tabular-nums">{sessionsThisWeek(state)}</p>
-            <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
-          </div>
-          <div className="rounded-[18px] border border-white/[0.055] p-4">
-            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sets</p>
-            <p className="apex-stat-num mt-2 tabular-nums">{setsThisWeek(state)}</p>
-            <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
-          </div>
-          <div className="rounded-[18px] border border-white/[0.055] p-4">
-            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Minutes</p>
-            <p className="apex-stat-num mt-2 tabular-nums">{minutesThisWeek(state)}</p>
-            <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Cardio · week</p>
-          </div>
-          <div className="rounded-[18px] border border-white/[0.055] p-4">
-            <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
-            <p className="apex-stat-num mt-2 tabular-nums">{streakDays}d</p>
-            <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Keep it going</p>
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
-          <p className="text-[0.75rem] font-medium text-[#7d7d88]">Mood lift</p>
-          {moodLiftLoading ? (
-            <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">…</p>
-          ) : moodLift ? (
-            <>
-              <p className="apex-stat-num mt-2 tabular-nums">{formatMoodLift(moodLift.averageLift)}</p>
-              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">
-                Avg mood improvement per workout · {moodLift.checkinCount}{' '}
-                {moodLift.checkinCount === 1 ? 'check-in' : 'check-ins'}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">—</p>
-              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">
-                Complete a workout check-in to track mood lift
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="mt-3 rounded-[18px] border border-white/[0.055] p-4">
-          <p className="text-[0.75rem] font-medium text-[#7d7d88]">Strength age</p>
-          {strengthAge.strengthAge != null ? (
-            <>
-              <p className="apex-stat-num mt-2 tabular-nums">{strengthAge.strengthAge}</p>
-              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1 leading-relaxed">
-                Avg age of athletes at your strength-to-bodyweight on{' '}
-                {strengthAge.liftsUsed.map(formatStrengthAgeLiftLabel).join(', ')}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="apex-stat-num mt-2 tabular-nums text-[#7d7d88]">—</p>
-              <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1 leading-relaxed">
-                {strengthAge.missingBodyweight
-                  ? 'Log bodyweight and PRs for bench, squat, deadlift, or overhead press'
-                  : 'Log weighted sets for bench, squat, deadlift, or overhead press'}
-              </p>
-            </>
-          )}
-        </div>
-
-      </section>
-
-      {!isDesktop ? (
+      {!isDesktop && !settingsOpen ? (
       <div className="apex-profile-subtabs flex border-b border-white/10">
         {(
           [
             ['stats', 'Stats'],
-            ['settings', 'Settings'],
             ['ai', 'AI'],
           ] as const
         ).map(([k, label]) => (
@@ -1253,8 +1818,8 @@ export function ProfileTab({
       </div>
       ) : null}
 
-      {(isDesktop && desktopSection === 'profile') || (!isDesktop && sub === 'stats') ? (
-        <div className={isDesktop ? 'grid grid-cols-2 gap-4' : 'space-y-5'}>
+      {isDesktop && desktopSection === 'profile' ? (
+        <div className="grid grid-cols-2 gap-4 mt-5">
           <button
             type="button"
             className={`apex-btn apex-stats-achievements-divider w-full text-[14px] font-semibold border-white/[0.1] ${
@@ -1339,91 +1904,6 @@ export function ProfileTab({
                 : 'None yet'}
             </p>
             <p className="text-[12px] font-medium text-[#a0a0a8] mt-2">Hit this week</p>
-          </div>
-          <div className="apex-card p-5">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <p className="apex-section-label">Personal records</p>
-              <span className="rounded-md border border-white/10 bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white/80">
-                PR
-              </span>
-            </div>
-            <p className="text-[12px] font-medium text-[#a0a0a8] mb-3 leading-relaxed">
-              Best logged performance per exercise (max weight, bodyweight reps, or timed hold).
-            </p>
-            {prRows.length ? (
-              <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {prRows.slice(0, 24).map((r) => (
-                  <li
-                    key={r.exerciseId}
-                    className="flex items-center justify-between gap-2 rounded-[12px] border border-white/[0.06] px-3 py-2.5"
-                  >
-                    <span className="min-w-0 truncate text-[13px] font-semibold text-[#ececee]">
-                      {r.exerciseName}
-                    </span>
-                    <span className="shrink-0 rounded-lg border border-white/10 bg-white/10 px-2 py-0.5 text-[11px] font-bold text-white/80 tabular-nums">
-                      {r.detail}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[13px] font-medium text-[#a0a0a8]">Log sets to build your PR board.</p>
-            )}
-          </div>
-          <div className={`apex-card p-5 ${isDesktop ? 'col-span-2' : ''}`}>
-            <p className="apex-section-label mb-1">Weekly leaderboard</p>
-            <p className="text-[13px] font-medium text-[#a0a0a8] mb-5 leading-relaxed">
-              Global ranking by volume lifted this week (lbs). Updates when you log workouts.
-            </p>
-            {leaderboardLoading ? (
-              <p className="text-[13px] font-medium text-[#a0a0a8] py-4">Loading leaderboard…</p>
-            ) : leaderboard.length === 0 ? (
-              <p className="text-[13px] font-medium text-[#a0a0a8] py-4">
-                No entries yet — log a set to appear on the board.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {leaderboard.map((row, index) => {
-                  const isMe = row.user_id === userId
-                  const rank = index + 1
-                  const initials = row.display_name
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0]!)
-                    .join('')
-                    .toUpperCase()
-                  return (
-                    <li
-                      key={row.user_id}
-                      className={`flex items-center justify-between rounded-[14px] border px-4 py-3.5 border-white/[0.08] transition-colors hover:border-white/[0.12] ${
-                        isMe ? 'bg-black/25' : 'bg-black/15'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-[13px] font-normal text-[#a8a8b0] tabular-nums w-8 shrink-0">
-                          #{rank}
-                        </span>
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-[#1a1a1a] text-[11px] font-black tracking-tight text-white">
-                          {initials || 'A'}
-                        </span>
-                        <span className="truncate text-[13px] font-normal text-[#e0e0e0]">
-                          {row.display_name}
-                          {isMe ? (
-                            <span className="ml-2 text-[10px] uppercase tracking-[0.5px] text-[#a8a8b0]">
-                              You
-                            </span>
-                          ) : null}
-                        </span>
-                      </div>
-                      <span className="apex-stat-num shrink-0 tabular-nums text-[13px]">
-                        {formatLeaderboardVolume(row.weekly_volume_lbs)}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
           </div>
           <div className="apex-card p-5 space-y-4">
             <p className="apex-section-label">Log bodyweight</p>
@@ -1540,527 +2020,429 @@ export function ProfileTab({
         </div>
       ) : null}
 
-      {(isDesktop && desktopSection === 'settings') || (!isDesktop && sub === 'settings') ? (
-        <div className="apex-settings-panel">
-          <section className="apex-settings-section">
-            <label className="block">
-              <span className="apex-section-label block mb-2">Display name</span>
-              <input
-                className={`w-full min-h-12 ${inp}`}
-                value={state.settings.displayName}
-                onChange={(e) => updateSettings({ displayName: e.target.value })}
-              />
-            </label>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section">
-            <label className="block">
-              <span className="apex-section-label block mb-2">Daily water goal (oz)</span>
-              <input
-                type="number"
-                min={8}
-                step={8}
-                className={`w-full min-h-12 ${inp}`}
-                value={state.settings.waterGoalOz ?? DEFAULT_WATER_GOAL_OZ}
-                onChange={(e) => {
-                  const v = Number(e.target.value)
-                  if (!Number.isFinite(v) || v < 8) return
-                  updateSettings({ waterGoalOz: Math.round(v) })
-                }}
-              />
-            </label>
-            <p className="text-[12px] font-medium text-[#a0a0a8] mt-2 leading-relaxed">
-              Tap the Water card in Today → More to log {WATER_LOG_INCREMENT_OZ} oz at a time.
-            </p>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-3">
-            <span className="apex-section-label block">Daily macro goals</span>
-            <label className="block">
-              <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Calories</span>
-              <input
-                type="number"
-                min={500}
-                step={50}
-                className={`w-full min-h-12 ${inp}`}
-                value={state.settings.macroGoalCalories ?? DEFAULT_MACRO_GOAL_CALORIES}
-                onChange={(e) => {
-                  const v = Number(e.target.value)
-                  if (!Number.isFinite(v) || v < 500) return
-                  updateSettings({ macroGoalCalories: Math.round(v) })
-                }}
-              />
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <label className="block">
-                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Protein (g)</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  className={`w-full min-h-12 ${inp}`}
-                  value={state.settings.macroGoalProteinG ?? DEFAULT_MACRO_GOAL_PROTEIN_G}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    if (!Number.isFinite(v) || v < 1) return
-                    updateSettings({ macroGoalProteinG: Math.round(v) })
-                  }}
+      {showSettingsScreen ? (
+        <div
+          className={`apex-settings-screen flex flex-col bg-[#090d14] ${
+            !isDesktop ? 'apex-settings-screen--overlay fixed inset-0' : 'min-h-0'
+          }`}
+        >
+          {!isDesktop ? (
+            <header className="apex-settings-screen__header apex-safe-top shrink-0">
+              <button
+                type="button"
+                className="apex-settings-screen__back"
+                aria-label="Back"
+                onClick={() => setSettingsOpen(false)}
+              >
+                ‹
+              </button>
+              <h1 className="apex-settings-screen__title">Settings</h1>
+              <span aria-hidden className="w-[2.75rem]" />
+            </header>
+          ) : (
+            <h1 className="apex-settings-screen__title px-4 pt-2 pb-1 shrink-0">Settings</h1>
+          )}
+          <div className="apex-settings-screen__scroll">
+            <p className="apex-settings-v2-label">Units</p>
+            <div className="apex-settings-v2-card">
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 8h12M8 8V6a2 2 0 012-2h4a2 2 0 012 2v2M6 16h12M8 16v2a2 2 0 002 2h4a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Weight</span>
+                <SettingsSegment
+                  value={state.settings.unit}
+                  left={{ id: 'lbs', label: 'LBS' }}
+                  right={{ id: 'kg', label: 'KG' }}
+                  onChange={(id) => updateSettings({ unit: id as 'lbs' | 'kg' })}
                 />
-              </label>
-              <label className="block">
-                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Carbs (g)</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  className={`w-full min-h-12 ${inp}`}
-                  value={state.settings.macroGoalCarbsG ?? DEFAULT_MACRO_GOAL_CARBS_G}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    if (!Number.isFinite(v) || v < 1) return
-                    updateSettings({ macroGoalCarbsG: Math.round(v) })
-                  }}
-                />
-              </label>
-              <label className="block">
-                <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Fat (g)</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  className={`w-full min-h-12 ${inp}`}
-                  value={state.settings.macroGoalFatG ?? DEFAULT_MACRO_GOAL_FAT_G}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    if (!Number.isFinite(v) || v < 1) return
-                    updateSettings({ macroGoalFatG: Math.round(v) })
-                  }}
-                />
-              </label>
-            </div>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-2">
-            <span className="apex-section-label block">Profile</span>
-            <button
-              type="button"
-              className="apex-card w-full min-h-12 px-4 flex items-center justify-between gap-3 text-left touch-manipulation hover:border-white/[0.14]"
-              onClick={() => {
-                const cur = readGymBarcode()
-                setGymDraftNumber(cur?.number ?? '')
-                setGymDraftFormat(cur?.format ?? 'code128')
-                setGymDraftGymName(cur?.gymName ?? '')
-                setGymSettingsOpen(true)
-              }}
-            >
-              <span className="text-[13px] font-medium text-[#e0e0e0]">Gym Membership</span>
-              <span className="text-[12px] font-medium text-[#a0a0a8] truncate max-w-[50%]">
-                {gymBarcode ? gymBarcode.number : 'Not set'}
-              </span>
-            </button>
-            <label className="apex-card flex items-center gap-3 min-h-12 px-4 text-[13px] font-normal text-[#e0e0e0] touch-manipulation">
-              <input
-                type="checkbox"
-                checked={trainerMode}
-                onChange={(e) => toggleTrainerMode(e.target.checked)}
-                className="apex-checkbox"
-              />
-              <span className="flex-1">
-                Trainer mode
-                <span className="block text-[11px] font-medium text-[#7d7d88] mt-0.5">Premium</span>
-              </span>
-            </label>
-            {trainerMode ? (
-              <div className="apex-card p-4 space-y-2">
-                <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
-                  Share this code with clients so they can connect in Settings.
-                </p>
-                <p className="text-[22px] font-bold tracking-[0.2em] text-[#ececee] tabular-nums">
-                  {trainerCode || ensureTrainerCode()}
-                </p>
-                <button
-                  type="button"
-                  className="apex-btn w-full min-h-10 text-[12px] font-semibold"
-                  onClick={() => {
-                    const code = trainerCode || ensureTrainerCode()
-                    void navigator.clipboard.writeText(code).then(
-                      () => notify('Trainer code copied'),
-                      () => notify('Could not copy code'),
-                    )
-                  }}
-                >
-                  Copy code
-                </button>
               </div>
-            ) : !trainerMode && clientConnection ? (
-              <div className="apex-card p-4 space-y-3">
-                <p className="text-[13px] font-medium text-[#e0e0e0]">Connected to trainer</p>
-                <p className="text-[12px] font-medium text-[#a0a0a8]">
-                  Code {clientConnection.trainer_code}
-                </p>
-                <button
-                  type="button"
-                  className="apex-btn w-full min-h-10 text-[12px] font-semibold text-[#e85d5d] border-[#e85d5d]/35"
-                  onClick={() => {
-                    void disconnectTrainerClient(userId)
-                      .then(() => {
-                        setClientConnection(null)
-                        notify('Disconnected from trainer')
-                      })
-                      .catch((e) =>
-                        notify(e instanceof Error ? e.message : 'Could not disconnect'),
-                      )
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14M12 5v14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Distance</span>
+                <SettingsSegment
+                  value={distanceUnit}
+                  left={{ id: 'km', label: 'KM' }}
+                  right={{ id: 'mi', label: 'MI' }}
+                  onChange={(id) => {
+                    const u = id as ApexDistanceUnit
+                    setDistanceUnit(u)
+                    writeDistanceUnit(u)
                   }}
-                >
-                  Disconnect
-                </button>
-                <div className="space-y-2 pt-1 border-t border-white/[0.08]">
-                  <p className="apex-section-label">Share with trainer</p>
-                  <label className="flex items-center gap-3 min-h-10 text-[13px] text-[#e0e0e0]">
-                    <input
-                      type="checkbox"
-                      checked={sharePrefs.workoutLogs}
-                      onChange={(e) => toggleSharePref('workout_logs', e.target.checked)}
-                      className="apex-checkbox"
-                    />
-                    Workout logs
-                  </label>
-                  <label className="flex items-center gap-3 min-h-10 text-[13px] text-[#e0e0e0]">
-                    <input
-                      type="checkbox"
-                      checked={sharePrefs.bodyweight}
-                      onChange={(e) => toggleSharePref('bodyweight', e.target.checked)}
-                      className="apex-checkbox"
-                    />
-                    Bodyweight
-                  </label>
-                  <label className="flex items-center gap-3 min-h-10 text-[13px] text-[#e0e0e0]">
-                    <input
-                      type="checkbox"
-                      checked={sharePrefs.personalRecords}
-                      onChange={(e) => toggleSharePref('personal_records', e.target.checked)}
-                      className="apex-checkbox"
-                    />
-                    Personal records
-                  </label>
+                />
+              </div>
+            </div>
+
+            <p className="apex-settings-v2-label">Appearance</p>
+            <div className="apex-settings-v2-card">
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Dark mode</span>
+                <IosSwitch
+                  checked={appearanceTheme === 'dark'}
+                  ariaLabel="Dark mode"
+                  onChange={(on) => {
+                    const next: ApexThemeMode = on ? 'dark' : 'light'
+                    try {
+                      localStorage.setItem(APEX_THEME_STORAGE_KEY, next)
+                    } catch {
+                      /* ignore */
+                    }
+                    setAppearanceTheme(next)
+                    applyApexAppearanceFromStorage()
+                  }}
+                />
+              </div>
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3M9 12h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main">
+                  <p className="apex-settings-v2-row__label">Text size</p>
+                  <p className="apex-settings-v2-row__sub">{fontSizeStopLabel(appearanceFontSize)}</p>
                 </div>
               </div>
-            ) : !trainerMode ? (
-              <div className="apex-card p-4 space-y-3">
-                <p className="apex-section-label">Connect to trainer</p>
+              <div className="apex-settings-text-size">
                 <input
-                  className={inp}
-                  placeholder="6-character code"
-                  value={connectCodeInput}
-                  maxLength={6}
-                  autoCapitalize="characters"
-                  aria-invalid={connectCodeError ? true : undefined}
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={1}
+                  value={fontSizeStopIndex(appearanceFontSize)}
+                  className="apex-settings-text-size__slider"
+                  aria-label="Text size"
                   onChange={(e) => {
-                    setConnectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
-                    if (connectCodeError) setConnectCodeError('')
+                    const size = fontSizeFromStop(Number(e.target.value))
+                    try {
+                      localStorage.setItem(APEX_FONT_SIZE_STORAGE_KEY, size)
+                    } catch {
+                      /* ignore */
+                    }
+                    setAppearanceFontSize(size)
+                    applyApexAppearanceFromStorage()
                   }}
                 />
-                {connectCodeError ? (
-                  <p className="text-[12px] font-medium text-[#e85d5d] leading-relaxed" role="alert">
-                    {connectCodeError}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  disabled={connectCodeInput.length !== 6 || busy}
-                  className="apex-btn-primary w-full min-h-11 text-[13px] font-semibold disabled:opacity-50"
-                  onClick={() => {
-                    setConnectCodeError('')
-                    setBusy(true)
-                    const codeAttempt = connectCodeInput
-                    void connectClientToTrainer(userId, codeAttempt)
-                      .then((row) => {
-                        const wasSame = clientConnection?.trainer_code === row.trainer_code
-                        setClientConnection(row)
-                        setConnectCodeInput('')
-                        persistSharePrefs()
-                        notify(
-                          wasSame ? 'Already connected to this trainer' : 'Connected to trainer',
-                        )
-                      })
-                      .catch((e) => setConnectCodeError(trainerConnectErrorMessage(e)))
-                      .finally(() => setBusy(false))
-                  }}
-                >
-                  Connect
-                </button>
+                <p className="apex-settings-text-size__label">{fontSizeStopLabel(appearanceFontSize)}</p>
               </div>
-            ) : null}
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section">
-            <span className="apex-section-label block mb-2">Profile avatar</span>
-            <p className="text-[12px] font-medium text-[#a0a0a8] mb-3 leading-relaxed">
-              Choose a fitness icon, or use initials from your display name.
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {PROFILE_AVATAR_IDS.map((id) => {
-                const selected = state.settings.profileAvatarId === id
-                return (
+            </div>
+
+            <p className="apex-settings-v2-label">Gym</p>
+            <div className="apex-settings-v2-card">
+              <button
+                type="button"
+                className="apex-settings-v2-row apex-settings-v2-row--tap"
+                onClick={() => {
+                  const cur = readGymBarcode()
+                  setGymDraftNumber(cur?.number ?? '')
+                  setGymDraftFormat(cur?.format ?? 'code128')
+                  setGymDraftGymName(cur?.gymName ?? '')
+                  setGymSettingsOpen(true)
+                }}
+              >
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7V6a2 2 0 012-2h2M4 17v1a2 2 0 002 2h2M16 4h2a2 2 0 012 2v1M20 16v1a2 2 0 01-2 2h-2M7 10h10v4H7z" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Gym barcode</span>
+                <span className="apex-settings-v2-row__value">
+                  {gymBarcode?.number ?? 'Not set'}
+                </span>
+              </button>
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 12a4 4 0 100-8 4 4 0 000 8zM6 20v-1a6 6 0 0112 0v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main">
+                  <p className="apex-settings-v2-row__label">Trainer mode</p>
+                  <p className="apex-settings-v2-row__sub">
+                    Lets a coach prescribe and review your sessions
+                  </p>
+                </div>
+                <IosSwitch
+                  checked={trainerMode}
+                  ariaLabel="Trainer mode"
+                  onChange={toggleTrainerMode}
+                />
+              </div>
+              {trainerMode ? (
+                <div className="apex-settings-v2-trainer-code">
+                  <p className="apex-settings-v2-row__sub text-center">
+                    Share this code with clients
+                  </p>
+                  <p className="apex-settings-v2-trainer-code__value tabular-nums">
+                    {trainerCode || ensureTrainerCode()}
+                  </p>
                   <button
-                    key={id}
                     type="button"
-                    aria-label={`Avatar ${id}`}
-                    aria-pressed={selected}
-                    className={`apex-settings-avatar-btn flex min-h-[3.25rem] items-center justify-center rounded-[14px] border transition-colors active:scale-[0.98] ${
-                      selected
-                        ? 'border-white/25 bg-white/[0.12]'
-                        : 'border-white/[0.08] hover:border-white/[0.14]'
-                    }`}
-                    onClick={() => updateSettings({ profileAvatarId: id })}
+                    className="apex-settings-connect-pill w-full mt-2"
+                    onClick={() => {
+                      const code = trainerCode || ensureTrainerCode()
+                      void navigator.clipboard.writeText(code).then(
+                        () => notify('Trainer code copied'),
+                        () => notify('Could not copy code'),
+                      )
+                    }}
                   >
-                    <ProfileAvatarGlyph id={id} className="h-7 w-7 text-[#ececee]" />
+                    Copy code
                   </button>
-                )
-              })}
-            </div>
-            <button
-              type="button"
-              className="apex-btn mt-3 w-full min-h-11 text-[13px] font-semibold"
-              onClick={() => updateSettings({ profileAvatarId: null })}
-            >
-              Use initials instead
-            </button>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-4">
-            <label className="block">
-              <span className="apex-section-label block mb-2">Fitness goals</span>
-            <textarea
-              className="apex-input mt-1 w-full min-h-24 px-3 py-3 resize-y"
-              value={state.settings.fitnessGoals}
-              onChange={(e) => {
-                const fitnessGoal = e.target.value
-                updateSettings({ fitnessGoals: fitnessGoal })
-                try {
-                  localStorage.setItem(
-                    APEX_COACH_PROFILE_KEY,
-                    JSON.stringify({ fitnessGoal: fitnessGoal.trim() }),
-                  )
-                } catch {
-                  /* ignore */
-                }
-              }}
-            />
-          </label>
-          <div className="apex-unit-segment">
-            <button
-              type="button"
-              className={state.settings.unit === 'lbs' ? 'apex-unit-segment--active' : ''}
-              onClick={() => updateSettings({ unit: 'lbs' })}
-            >
-              lbs
-            </button>
-            <button
-              type="button"
-              className={state.settings.unit === 'kg' ? 'apex-unit-segment--active' : ''}
-              onClick={() => updateSettings({ unit: 'kg' })}
-            >
-              kg
-            </button>
-          </div>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-4">
-            <div className="space-y-1">
-              <span className="apex-section-label block">Cycle tracking</span>
-              <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
-                Optional. Adjusts AI coach intensity by phase. Stored on this device only — never
-                uploaded to the cloud.
-              </p>
-            </div>
-            <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
-              <input
-                type="checkbox"
-                checked={state.settings.cycleTrackingEnabled}
-                onChange={(e) => updateSettings({ cycleTrackingEnabled: e.target.checked })}
-                className="apex-checkbox"
-              />
-              Enable cycle tracking
-            </label>
-            {state.settings.cycleTrackingEnabled ? (
-              <div className="space-y-3 pl-0">
-                <label className="block">
-                  <span className="apex-section-label block mb-2">Cycle start date</span>
+                </div>
+              ) : !trainerMode && !clientConnection ? (
+                <div className="apex-settings-v2-trainer-code">
                   <input
-                    type="date"
-                    className={`w-full min-h-12 ${inp}`}
-                    value={state.cycleStartDateKey ?? ''}
+                    className={`${inp} w-full min-h-11`}
+                    placeholder="6-character trainer code"
+                    value={connectCodeInput}
+                    maxLength={6}
+                    autoCapitalize="characters"
+                    aria-invalid={connectCodeError ? true : undefined}
                     onChange={(e) => {
-                      if (e.target.value) setCycleStartDateKey(e.target.value)
+                      setConnectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                      if (connectCodeError) setConnectCodeError('')
                     }}
                   />
-                </label>
-                <button
-                  type="button"
-                  className="apex-btn min-h-11 w-full text-[13px] font-semibold"
-                  onClick={() => {
-                    const dk = new Date().toISOString().slice(0, 10)
-                    setCycleStartDateKey(dk)
-                    notify('Cycle start set to today')
-                  }}
-                >
-                  Log cycle start as today
-                </button>
-              </div>
-            ) : null}
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-4">
-            <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
-            <input
-              type="checkbox"
-              checked={state.settings.restTimerEnabled}
-              onChange={(e) => updateSettings({ restTimerEnabled: e.target.checked })}
-              className="apex-checkbox"
-            />
-            Start rest countdown after each set
-          </label>
-          <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
-            <input
-              type="checkbox"
-              checked={state.settings.postWorkoutProteinNotificationEnabled}
-              onChange={(e) =>
-                updateSettings({ postWorkoutProteinNotificationEnabled: e.target.checked })
-              }
-              className="apex-checkbox"
-            />
-            Post-workout protein reminder (5 min after session)
-          </label>
-          <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed -mt-2">
-            &ldquo;Good time for protein — your muscles are ready to absorb it.&rdquo; Skipped if you
-            logged a meal in the last 30 minutes. Uses system notifications when allowed.
-          </p>
-          <label className="block">
-            <span className="apex-section-label block mb-2">Rest timer (seconds)</span>
-            <input
-              inputMode="numeric"
-              className={`mt-1 w-full min-h-12 ${inp}`}
-              value={String(state.settings.restTimerSeconds)}
-              onChange={(e) =>
-                updateSettings({ restTimerSeconds: Math.max(0, Number(e.target.value) || 0) })
-              }
-            />
-          </label>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-4">
-            <div className="space-y-2">
-            <span className="apex-section-label block">Theme</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={`apex-btn min-h-11 flex-1 text-[13px] font-semibold ${
-                  appearanceTheme === 'dark' ? 'apex-appearance-btn--active' : ''
-                }`}
-                onClick={() => {
-                  localStorage.setItem(APEX_THEME_STORAGE_KEY, 'dark')
-                  applyApexAppearanceFromStorage()
-                  setAppearanceTheme('dark')
-                }}
-              >
-                Dark
-              </button>
-              <button
-                type="button"
-                className={`apex-btn min-h-11 flex-1 text-[13px] font-semibold ${
-                  appearanceTheme === 'light' ? 'apex-appearance-btn--active' : ''
-                }`}
-                onClick={() => {
-                  localStorage.setItem(APEX_THEME_STORAGE_KEY, 'light')
-                  applyApexAppearanceFromStorage()
-                  setAppearanceTheme('light')
-                }}
-              >
-                Light
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <span className="apex-section-label block">Font size</span>
-            <div className="flex gap-2">
-              {(['small', 'medium', 'large', 'xlarge'] as const).map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  className={`apex-btn min-h-11 flex-1 text-[13px] font-semibold capitalize ${
-                    appearanceFontSize === size ? 'apex-appearance-btn--active' : ''
-                  }`}
-                  onClick={() => {
-                    localStorage.setItem(APEX_FONT_SIZE_STORAGE_KEY, size)
-                    applyApexAppearanceFromStorage()
-                    setAppearanceFontSize(size)
-                  }}
-                >
-                  {size === 'xlarge' ? 'Extra large' : size}
-                </button>
-              ))}
-            </div>
-          </div>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-2">
-            <span className="apex-section-label block">Integrations</span>
-            <div className="apex-card px-4 py-3.5 flex items-center justify-between gap-3 min-h-[3.25rem]">
-              <span className="text-[13px] font-medium text-[#e0e0e0] shrink-0">Google Calendar</span>
-              {gcalConfigured && gcalConnected ? (
-                <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[12px] font-medium">
-                  <span className="inline-flex items-center gap-1.5 text-[#e0e0e0]">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-white/70" aria-hidden />
-                    Connected
-                  </span>
-                  {gcalExpiryLabel ? (
-                    <span className="text-[#7d7d88] tabular-nums">{gcalExpiryLabel}</span>
+                  {connectCodeError ? (
+                    <p className="text-[12px] text-[#ff7a85] mt-2" role="alert">
+                      {connectCodeError}
+                    </p>
                   ) : null}
                   <button
                     type="button"
-                    className="text-[#a0a0a8] underline underline-offset-2 decoration-white/20 hover:text-[#e0e0e0]"
-                    onClick={() => disconnectGoogleCalendar()}
+                    disabled={connectCodeInput.length !== 6 || busy}
+                    className="apex-settings-connect-pill w-full mt-3 disabled:opacity-50"
+                    onClick={() => {
+                      setConnectCodeError('')
+                      setBusy(true)
+                      void connectClientToTrainer(userId, connectCodeInput)
+                        .then((row) => {
+                          setClientConnection(row)
+                          setConnectCodeInput('')
+                          persistSharePrefs()
+                          notify('Connected to trainer')
+                        })
+                        .catch((e) => setConnectCodeError(trainerConnectErrorMessage(e)))
+                        .finally(() => setBusy(false))
+                    }}
                   >
-                    Disconnect
+                    Connect
                   </button>
                 </div>
-              ) : gcalConfigured ? (
-                <button
-                  type="button"
-                  className="apex-btn-primary min-h-9 px-4 text-[12px] font-semibold shrink-0"
-                  onClick={() => {
-                    try {
-                      startGoogleCalendarOAuth()
-                    } catch (e) {
-                      notify(e instanceof Error ? e.message : 'Could not start Google sign-in')
-                    }
-                  }}
-                >
-                  Connect
-                </button>
-              ) : (
-                <span className="text-[12px] font-medium text-[#7d7d88]">Not configured</span>
-              )}
+              ) : null}
             </div>
-          </section>
-          <div className="apex-settings-divider" aria-hidden />
-          <section className="apex-settings-section space-y-2">
-            <button
-              type="button"
-              className="apex-btn w-full min-h-12 text-[14px] font-semibold"
-              onClick={() => downloadText('workout-export.csv', exportFullDataCsv(state))}
-            >
-              Export CSV
-            </button>
-            <button
-              type="button"
-              className="apex-btn w-full min-h-12 text-[14px] font-semibold text-[#e85d5d] border-[#e85d5d]/35"
-              onClick={() => setConfirmResetOpen(true)}
-            >
-              Reset app data
-            </button>
-          </section>
+            <p className="apex-settings-v2-helper">
+              Your barcode lets you check in at participating gyms without a separate card.
+            </p>
+
+            <p className="apex-settings-v2-label">Connections</p>
+            <div className="apex-settings-v2-card">
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 4h8v2M6 10h12M6 14h8M6 18h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <rect x="4" y="4" width="16" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Google Calendar</span>
+                {gcalConfigured && gcalConnected ? (
+                  <span className="apex-settings-connected-link">Connected ›</span>
+                ) : gcalConfigured ? (
+                  <button
+                    type="button"
+                    className="apex-settings-connect-pill"
+                    onClick={() => {
+                      try {
+                        startGoogleCalendarOAuth()
+                      } catch (e) {
+                        notify(e instanceof Error ? e.message : 'Could not start Google sign-in')
+                      }
+                    }}
+                  >
+                    Connect
+                  </button>
+                ) : (
+                  <span className="apex-settings-v2-row__value">Not configured</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="apex-settings-v2-row apex-settings-v2-row--tap"
+                disabled={!isSpotifyConfigured()}
+                onClick={() => {
+                  if (spotifyConnected) return
+                  try {
+                    startSpotifyOAuth()
+                  } catch (e) {
+                    notify(e instanceof Error ? e.message : 'Could not start Spotify sign-in')
+                  }
+                }}
+              >
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main min-w-0">
+                  <p className="apex-settings-v2-row__label">Spotify</p>
+                  {spotifyConnected ? (
+                    <p className="apex-settings-v2-row__sub truncate">Liked Songs · Workout Mix</p>
+                  ) : null}
+                </div>
+                {isSpotifyConfigured() ? (
+                  spotifyConnected ? (
+                    <span className="apex-settings-connected-link">Connected ›</span>
+                  ) : (
+                    <span className="apex-settings-connect-pill">Connect</span>
+                  )
+                ) : (
+                  <span className="apex-settings-v2-row__value">Not configured</span>
+                )}
+              </button>
+            </div>
+
+            <p className="apex-settings-v2-label">Notifications</p>
+            <div className="apex-settings-v2-card">
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2h16l-2-2zM10 20a2 2 0 004 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main">
+                  <p className="apex-settings-v2-row__label">Workout reminders</p>
+                  <p className="apex-settings-v2-row__sub">Daily at 6:30 AM</p>
+                </div>
+                <IosSwitch
+                  checked={workoutReminders}
+                  ariaLabel="Workout reminders"
+                  onChange={(on) => {
+                    setWorkoutReminders(on)
+                    writeWorkoutRemindersEnabled(on)
+                  }}
+                />
+              </div>
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 6h8v3a4 4 0 01-4 4 4 4 0 01-4-4V6zM6 20h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">PR alerts</span>
+                <IosSwitch
+                  checked={state.settings.celebrationsEnabled !== false}
+                  ariaLabel="PR alerts"
+                  onChange={(on) => updateSettings({ celebrationsEnabled: on })}
+                />
+              </div>
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2h16l-2-2zM10 20a2 2 0 004 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main">
+                  <p className="apex-settings-v2-row__label">Weekly summary</p>
+                  <p className="apex-settings-v2-row__sub">Sundays at 8:00 PM</p>
+                </div>
+                <IosSwitch
+                  checked={weeklySummary}
+                  ariaLabel="Weekly summary"
+                  onChange={(on) => {
+                    setWeeklySummary(on)
+                    writeWeeklySummaryEnabled(on)
+                  }}
+                />
+              </div>
+            </div>
+
+            {clientConnection ? (
+              <>
+                <p className="apex-settings-v2-label">Privacy</p>
+                <div className="apex-settings-v2-card">
+                  <div className="apex-settings-v2-row">
+                    <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M7 11V8a5 5 0 0110 0v3M6 11h12v10H6z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <span className="apex-settings-v2-row__main apex-settings-v2-row__label">
+                      Share workouts with trainer
+                    </span>
+                    <IosSwitch
+                      checked={sharePrefs.workoutLogs}
+                      ariaLabel="Share workouts with trainer"
+                      onChange={(on) => toggleSharePref('workout_logs', on)}
+                    />
+                  </div>
+                  <div className="apex-settings-v2-row">
+                    <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 6h8v3a4 4 0 01-4 4 4 4 0 01-4-4V6zM6 20h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <span className="apex-settings-v2-row__main apex-settings-v2-row__label">
+                      Share PRs with trainer
+                    </span>
+                    <IosSwitch
+                      checked={sharePrefs.personalRecords}
+                      ariaLabel="Share PRs with trainer"
+                      onChange={(on) => toggleSharePref('personal_records', on)}
+                    />
+                  </div>
+                </div>
+                <p className="apex-settings-v2-helper">
+                  Choose what your trainer can see when Trainer mode is on.
+                </p>
+              </>
+            ) : null}
+
+            <p className="apex-settings-v2-label">Post-workout</p>
+            <div className="apex-settings-v2-card">
+              <div className="apex-settings-v2-row">
+                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M8 6h8v3a4 4 0 01-4 4 4 4 0 01-4-4V6zM6 20h12"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                <div className="apex-settings-v2-row__main">
+                  <p className="apex-settings-v2-row__label">Post-workout check-in</p>
+                  <p className="apex-settings-v2-row__sub">Two quick questions after each session</p>
+                </div>
+                <IosSwitch
+                  checked={postWorkoutCheckin}
+                  ariaLabel="Post-workout check-in"
+                  onChange={(on) => {
+                    setPostWorkoutCheckin(on)
+                    writePostWorkoutCheckinEnabled(on)
+                    void upsertTendedPostWorkoutCheckin(userId, on).catch(() => {})
+                  }}
+                />
+              </div>
+            </div>
+
+            <p className="apex-settings-footer-version">Apex v3.2.0 · Build 11842</p>
+          </div>
         </div>
       ) : null}
 
@@ -2068,7 +2450,7 @@ export function ProfileTab({
         <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="tab" />
       ) : null}
 
-      {!isDesktop || desktopSection === 'settings' ? (
+      {!showSettingsScreen && (!isDesktop || desktopSection === 'profile') ? (
         <button
           type="button"
           className="apex-sign-out-btn w-full min-h-12 text-[13px] mt-2"
@@ -2380,5 +2762,6 @@ export function ProfileTab({
       ) : null}
 
     </div>
+    </>
   )
 }

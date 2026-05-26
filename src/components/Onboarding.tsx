@@ -1,135 +1,427 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
-import { claudeParseImport } from '../lib/anthropicCoach'
-import { sanitizeWorkoutImport } from '../lib/parseWorkoutImport'
 import { APEX_COACH_PROFILE_KEY } from '../lib/persist'
-import { ApexLogo } from './ApexLogo'
+import { APEX_LOGO_URL } from '../lib/apexBrand'
+import { writeGymBarcode } from '../lib/gymBarcode'
+import { buildTendedUserStateDaySnapshot } from '../lib/tendedUserState'
+import { dateKey } from '../lib/dates'
+import { connectClientToTrainer, upsertTendedUserState } from '../lib/supabase'
+import { trainerConnectErrorMessage } from '../lib/trainer'
+import {
+  isSpotifyConfigured,
+  isSpotifyConnected,
+  startSpotifyOAuth,
+} from '../lib/spotify'
 
 type Props = {
-  onComplete: () => void
+  onComplete: (opts?: { markHealthPromptDone?: boolean }) => void
 }
 
-const inp =
-  'w-full min-h-12 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]'
+function OnboardingField({
+  label,
+  optional,
+  children,
+}: {
+  label: string
+  optional?: boolean
+  children: ReactNode
+}) {
+  return (
+    <label className="apex-onboarding-field block">
+      <span className="apex-onboarding-field__label">
+        {label}
+        {optional ? <span className="apex-onboarding-field__optional"> optional</span> : null}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function OnboardingShell({
+  step,
+  onBack,
+  children,
+  footer,
+}: {
+  step: 1 | 2 | 3
+  onBack?: () => void
+  children: ReactNode
+  footer: ReactNode
+}) {
+  return (
+    <div className="apex-onboarding">
+      <header className="apex-onboarding__top apex-safe-top">
+        {onBack ? (
+          <button type="button" className="apex-onboarding__back" onClick={onBack} aria-label="Back">
+            ‹
+          </button>
+        ) : (
+          <span className="apex-onboarding__back-placeholder" aria-hidden />
+        )}
+        <div className="apex-onboarding__dots" aria-hidden>
+          {([1, 2, 3] as const).map((n) => (
+            <span
+              key={n}
+              className={n === step ? 'apex-onboarding__dot apex-onboarding__dot--active' : 'apex-onboarding__dot'}
+            />
+          ))}
+        </div>
+        <span className="apex-onboarding__counter tabular-nums">
+          {step}/3
+        </span>
+      </header>
+
+      <div className="apex-onboarding__body">{children}</div>
+
+      <footer className="apex-onboarding__footer apex-safe-bottom">{footer}</footer>
+    </div>
+  )
+}
+
+function PrimaryOnboardingButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      className="apex-onboarding__primary"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {label} →
+    </button>
+  )
+}
 
 export function Onboarding({ onComplete }: Props) {
-  const { state, updateSettings, mergeImport, notify } = useWorkout()
+  const {
+    state,
+    userId,
+    updateSettings,
+    notify,
+    appleHealthAvailable,
+    enableAppleHealthSync,
+  } = useWorkout()
+
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [name, setName] = useState(state.settings.displayName)
-  const [goals, setGoals] = useState(state.settings.fitnessGoals)
+  const [goal, setGoal] = useState(state.settings.fitnessGoals)
   const [unit, setUnit] = useState<'lbs' | 'kg'>(state.settings.unit)
-  const [migrationText, setMigrationText] = useState('')
+  const [barcode, setBarcode] = useState(() => '')
+  const [trainerCode, setTrainerCode] = useState('')
+  const [healthConnected, setHealthConnected] = useState(
+    () => state.settings.appleHealthSyncEnabled,
+  )
+  const [spotifyConnected, setSpotifyConnected] = useState(() => isSpotifyConnected())
   const [busy, setBusy] = useState(false)
 
-  async function finish() {
-    const fitnessGoal = goals.trim()
+  function saveStep1() {
+    const fitnessGoal = goal.trim()
     updateSettings({
       displayName: name.trim(),
       fitnessGoals: fitnessGoal,
-      unit,
     })
     try {
       localStorage.setItem(APEX_COACH_PROFILE_KEY, JSON.stringify({ fitnessGoal }))
     } catch {
       /* ignore */
     }
-
-    const notes = migrationText.trim()
-    if (notes) {
-      setBusy(true)
-      try {
-        const raw = await claudeParseImport(state, notes)
-        const partial = sanitizeWorkoutImport(raw, state)
-        if (
-          partial.setLogs?.length ||
-          partial.cardioEntries?.length ||
-          partial.bodyweightLogs?.length ||
-          partial.schedule
-        ) {
-          mergeImport(partial, { silent: true })
-        }
-      } catch (e) {
-        notify(e instanceof Error ? e.message : 'Could not parse migration notes')
-        setBusy(false)
-        return
-      }
-      setBusy(false)
-    }
-
-    onComplete()
   }
 
-  return (
-    <div className="apex-safe-top apex-theme-shell min-h-[100dvh] bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)] px-4 py-6 pb-12">
-      <div className="max-w-lg mx-auto space-y-6">
-        <ApexLogo />
+  async function saveStep2() {
+    updateSettings({ unit })
+    const trimmedBarcode = barcode.trim()
+    if (trimmedBarcode) {
+      writeGymBarcode({ number: trimmedBarcode, format: 'code128' })
+    }
+    const code = trainerCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    if (code.length === 6) {
+      try {
+        await connectClientToTrainer(userId, code)
+      } catch (e) {
+        notify(trainerConnectErrorMessage(e))
+      }
+    }
+    try {
+      const todayKey = dateKey(new Date())
+      const snapshot = buildTendedUserStateDaySnapshot(
+        { ...state, settings: { ...state.settings, unit } },
+        todayKey,
+      )
+      await upsertTendedUserState(userId, snapshot)
+    } catch {
+      /* tended sync is best-effort during onboarding */
+    }
+  }
 
-        <div className="space-y-4">
-          <p className="text-[13px] text-[#a0a0a8]">Welcome — let&apos;s set you up.</p>
-          <h1 className="text-[18px] font-medium text-[#e0e0e0]">Get started</h1>
+  async function finish(markHealthPromptDone: boolean) {
+    setBusy(true)
+    try {
+      onComplete({ markHealthPromptDone })
+    } finally {
+      setBusy(false)
+    }
+  }
 
-          <label className="block space-y-2">
-            <span className="apex-section-label">Display name</span>
+  async function onConnectHealth() {
+    if (!appleHealthAvailable) {
+      setHealthConnected(true)
+      updateSettings({ appleHealthSyncEnabled: true })
+      return
+    }
+    await enableAppleHealthSync()
+    setHealthConnected(true)
+  }
+
+  function onConnectSpotify() {
+    if (!isSpotifyConfigured()) {
+      setSpotifyConnected(true)
+      return
+    }
+    try {
+      startSpotifyOAuth()
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not start Spotify sign-in')
+    }
+  }
+
+  if (step === 1) {
+    return (
+      <OnboardingShell
+        step={1}
+        footer={
+          <PrimaryOnboardingButton
+            label="Get started"
+            disabled={!name.trim()}
+            onClick={() => {
+              saveStep1()
+              setStep(2)
+            }}
+          />
+        }
+      >
+        <div className="apex-onboarding__welcome">
+          <img src={APEX_LOGO_URL} alt="" className="apex-onboarding__logo" width={48} height={48} />
+          <h1 className="apex-onboarding__title">Welcome to Apex</h1>
+          <p className="apex-onboarding__subtitle">Let&apos;s get you set up.</p>
+        </div>
+        <div className="apex-onboarding__fields">
+          <OnboardingField label="YOUR NAME">
             <input
-              className={inp}
+              className="apex-onboarding-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder="Arnav"
+              autoComplete="name"
             />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="apex-section-label">Fitness goal</span>
-            <textarea
-              className="w-full min-h-28 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 py-2 text-[13px] text-[#e0e0e0]"
-              value={goals}
-              onChange={(e) => setGoals(e.target.value)}
-              placeholder="What are you training for?"
+          </OnboardingField>
+          <OnboardingField label="YOUR MAIN GOAL">
+            <input
+              className="apex-onboarding-input"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="e.g. build muscle, get stronger"
             />
-          </label>
+          </OnboardingField>
+        </div>
+      </OnboardingShell>
+    )
+  }
 
-          <div>
-            <span className="apex-section-label block mb-2">Weight unit</span>
-            <div className="apex-unit-segment">
+  if (step === 2) {
+    return (
+      <OnboardingShell
+        step={2}
+        onBack={() => setStep(1)}
+        footer={
+          <div className="apex-onboarding__dual-actions">
+            <button
+              type="button"
+              className="apex-onboarding__skip"
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true)
+                  await saveStep2()
+                  setBusy(false)
+                  setStep(3)
+                })()
+              }}
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              className="apex-onboarding__continue"
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true)
+                  await saveStep2()
+                  setBusy(false)
+                  setStep(3)
+                })()
+              }}
+            >
+              Continue →
+            </button>
+          </div>
+        }
+      >
+        <p className="apex-onboarding__step-tag">STEP 2</p>
+        <h1 className="apex-onboarding__headline">Set up your gym.</h1>
+        <p className="apex-onboarding__lede">Pick your units. The rest is optional.</p>
+
+        <div className="apex-onboarding__fields">
+          <div className="apex-onboarding-field">
+            <span className="apex-onboarding-field__label">WEIGHT UNITS</span>
+            <div className="apex-onboarding-units">
               <button
                 type="button"
-                className={unit === 'lbs' ? 'apex-unit-segment--active' : ''}
-                onClick={() => setUnit('lbs')}
+                className={unit === 'kg' ? 'apex-onboarding-units__btn apex-onboarding-units__btn--on' : 'apex-onboarding-units__btn'}
+                onClick={() => setUnit('kg')}
               >
-                lbs
+                KG
               </button>
               <button
                 type="button"
-                className={unit === 'kg' ? 'apex-unit-segment--active' : ''}
-                onClick={() => setUnit('kg')}
+                className={unit === 'lbs' ? 'apex-onboarding-units__btn apex-onboarding-units__btn--on' : 'apex-onboarding-units__btn'}
+                onClick={() => setUnit('lbs')}
               >
-                kg
+                LBS
               </button>
             </div>
           </div>
 
-          <label className="block space-y-2">
-            <span className="apex-section-label">Import past workouts (optional)</span>
-            <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
-              Paste notes from another app — Apex will parse them with AI after you finish setup.
-            </p>
-            <textarea
-              className="w-full min-h-32 rounded-[12px] border border-[#1e1e1e] bg-[#161616] px-3 py-2 text-[13px] text-[#e0e0e0]"
-              value={migrationText}
-              onChange={(e) => setMigrationText(e.target.value)}
-              placeholder="Paste workout history or notes…"
-            />
-          </label>
+          <OnboardingField label="GYM BARCODE" optional>
+            <div className="apex-onboarding-input-wrap">
+              <span className="apex-onboarding-input-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 6h2v12H4V6zm4 3h1v6H8V9zm3-3h1v12h-1V6zm4 2h1v8h-1V8zm4-2h2v12h-2V6z" fill="currentColor" />
+                </svg>
+              </span>
+              <input
+                className="apex-onboarding-input apex-onboarding-input--icon"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Scan or enter your member ID"
+                autoComplete="off"
+              />
+            </div>
+          </OnboardingField>
 
+          <OnboardingField label="HAVE A TRAINER? ENTER THEIR CODE." optional>
+            <div className="apex-onboarding-input-wrap">
+              <span className="apex-onboarding-input-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <input
+                className="apex-onboarding-input apex-onboarding-input--icon"
+                value={trainerCode}
+                onChange={(e) => setTrainerCode(e.target.value)}
+                placeholder="e.g. APX-7421"
+                autoComplete="off"
+              />
+            </div>
+          </OnboardingField>
+        </div>
+      </OnboardingShell>
+    )
+  }
+
+  return (
+    <OnboardingShell
+      step={3}
+      onBack={() => setStep(2)}
+      footer={
+        <>
+          <PrimaryOnboardingButton
+            label="Finish setup"
+            disabled={busy}
+            onClick={() => void finish(true)}
+          />
           <button
             type="button"
+            className="apex-onboarding__text-skip"
             disabled={busy}
-            className="apex-btn-primary w-full min-h-12 text-[13px] font-medium disabled:opacity-50"
-            onClick={() => void finish()}
+            onClick={() => void finish(true)}
           >
-            {busy ? 'Parsing…' : 'Continue to Today'}
+            Skip for now
           </button>
+        </>
+      }
+    >
+      <p className="apex-onboarding__step-tag">STEP 3</p>
+      <h1 className="apex-onboarding__headline">Connect your apps.</h1>
+      <p className="apex-onboarding__lede">Pull in metrics and music. You can change this anytime.</p>
+
+      <div className="apex-onboarding__integrations">
+        <div className="apex-onboarding-integration">
+          <div className="apex-onboarding-integration__icon apex-onboarding-integration__icon--health">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 21s-6.5-4.35-9-8.2C1.2 9.6 2.4 5.5 6 5.5c2 0 3.2 1.2 4 2.4C11.8 6.7 13 5.5 15 5.5c3.6 0 4.8 4.1 3 7.3-2.5 3.85-6 8.2-6 8.2z"
+                fill="currentColor"
+              />
+            </svg>
+          </div>
+          <div className="apex-onboarding-integration__copy">
+            <p className="apex-onboarding-integration__name">Apple Health</p>
+            <p className="apex-onboarding-integration__desc">
+              Sync workouts, heart rate, sleep, and weight.
+            </p>
+          </div>
+          {healthConnected ? (
+            <span className="apex-onboarding-integration__check" aria-label="Connected">
+              ✓
+            </span>
+          ) : (
+            <button type="button" className="apex-onboarding-integration__connect" onClick={() => void onConnectHealth()}>
+              Connect
+            </button>
+          )}
+        </div>
+
+        <div className="apex-onboarding-integration">
+          <div className="apex-onboarding-integration__icon apex-onboarding-integration__icon--spotify">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 4.2a.9.9 0 01.9.9v6.3a.9.9 0 01-1.8 0V8.1a.9.9 0 01.9-.9zm-3.6 2.1a.9.9 0 011.3 0 4.5 4.5 0 003.6 0 .9.9 0 011.3 1.3 6.3 6.3 0 01-5.2 0 .9.9 0 010-1.3zm7.2 0a.9.9 0 011.3 1.3 6.3 6.3 0 01-5.2 0 .9.9 0 011.3-1.3 4.5 4.5 0 003.6 0z"
+                fill="currentColor"
+              />
+            </svg>
+          </div>
+          <div className="apex-onboarding-integration__copy">
+            <p className="apex-onboarding-integration__name">Spotify</p>
+            <p className="apex-onboarding-integration__desc">
+              Play a workout playlist when you start a session.
+            </p>
+          </div>
+          {spotifyConnected || isSpotifyConnected() ? (
+            <span className="apex-onboarding-integration__check" aria-label="Connected">
+              ✓
+            </span>
+          ) : (
+            <button type="button" className="apex-onboarding-integration__connect" onClick={onConnectSpotify}>
+              Connect
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </OnboardingShell>
   )
 }

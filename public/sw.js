@@ -1,5 +1,5 @@
-const CACHE = 'apex-shell-v2'
-const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/apex-icon.jpg', '/apex-logo.svg']
+const CACHE = 'apex-shell-v3'
+const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/apex-logo.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -11,6 +11,7 @@ import { AchievementsPage } from './components/AchievementsPage'
 import { ExercisesTab } from './components/ExercisesTab'
 import { FullHistory } from './components/FullHistory'
 import { AiHub, ProfileTab } from './components/ProfileTab'
+import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
 import { ScheduleTab } from './components/ScheduleTab'
@@ -87,6 +88,7 @@ export function DashboardShell() {
 
       <RestBanner />
       <PrCelebrationOverlay />
+      <GymSpotifyPrompt />
 
       <aside className="apex-dashboard-nav shrink-0 w-[240px] border-r border-white/[0.08] flex flex-col px-4 py-5">
         <ApexLogo />

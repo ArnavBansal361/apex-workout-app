@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type DragEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { EXERCISE_BY_ID, EXERCISES } from '../data/exercises'
 import { PLAN_PRESETS } from '../data/planPresets'
@@ -13,7 +13,15 @@ import {
   startGoogleCalendarOAuth,
   syncSingleScheduleDay,
 } from '../lib/googleCalendar'
+import {
+  dayHasLoggedWork,
+  estimateDayDurationMinutes,
+  muscleVolumeBalanceRows,
+  totalSetsLoggedThisWeek,
+} from '../lib/scheduleWeekStats'
+import { TRAINING_MODES, trainingModeDef } from '../lib/trainingMode'
 import type { Exercise, MuscleGroup, ScheduleDay, WorkoutTemplate } from '../types'
+import type { TrainingMode } from '../lib/trainingMode'
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 const DND_TYPE = 'application/x-apex-schedule-day'
@@ -78,6 +86,7 @@ function swapFieldsFrom(day: ScheduleDay): Partial<ScheduleDay> {
     workoutName: day.workoutName,
     notes: day.notes,
     plannedExerciseIds: [...day.plannedExerciseIds],
+    trainingMode: day.trainingMode ?? null,
     aiSummary: day.aiSummary,
     googleCalendarEventId: day.googleCalendarEventId,
   }
@@ -140,6 +149,7 @@ type WeekBulkRow = {
   workoutName: string
   notes: string
   plannedExerciseIds: string[]
+  trainingMode: TrainingMode | null
 }
 
 function planIdsEqual(a: string[], b: string[]): boolean {
@@ -210,6 +220,7 @@ function weekBulkDraftFromAiPlan(
         workoutName: d.workoutName,
         notes: d.notes,
         plannedExerciseIds: [...d.plannedExerciseIds],
+        trainingMode: d.trainingMode ?? null,
       }
     }
     const wt = hit.workoutType.trim()
@@ -219,6 +230,7 @@ function weekBulkDraftFromAiPlan(
       workoutName: isRest ? '' : wt,
       notes: timeNote || d.notes,
       plannedExerciseIds: isRest ? [] : [...d.plannedExerciseIds],
+      trainingMode: d.trainingMode ?? null,
     }
   })
 }
@@ -244,6 +256,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   const [draftName, setDraftName] = useState('')
   const [draftNotes, setDraftNotes] = useState('')
   const [draftPlannedIds, setDraftPlannedIds] = useState<string[]>([])
+  const [draftTrainingMode, setDraftTrainingMode] = useState<TrainingMode | null>(null)
   const [draftExSearch, setDraftExSearch] = useState('')
   const [calendarBusy, setCalendarBusy] = useState(false)
   const [dragOverKey, setDragOverKey] = useState<string | null>(null)
@@ -254,6 +267,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   const [bulkExercisesOpenIdx, setBulkExercisesOpenIdx] = useState<number | null>(null)
   const [bulkSearch, setBulkSearch] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
+  const dayCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const scheduleKeys = useMemo(() => new Set(state.schedule.map((d) => d.dateKey)), [state.schedule])
 
@@ -271,6 +285,22 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     [state.schedule, state.customExercises],
   )
 
+  const volumeBalance = useMemo(
+    () => muscleVolumeBalanceRows(state),
+    [state.setLogs, state.schedule, state.customExercises],
+  )
+
+  const setsThisWeekTotal = useMemo(() => totalSetsLoggedThisWeek(state), [state.setLogs])
+
+  const weekOfLabel = useMemo(() => {
+    const first = state.schedule[0]?.dateKey
+    if (!first) return 'WEEK OF —'
+    const d = parseDateKey(first)
+    const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+    const day = d.getDate()
+    return `WEEK OF ${month} ${day}`
+  }, [state.schedule])
+
   const monthLabel = useMemo(() => {
     return calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   }, [calendarMonth])
@@ -280,18 +310,12 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     [calendarMonth],
   )
 
-  const weekTitle = useMemo(() => {
-    const first = state.schedule[0]?.dateKey
-    if (!first) return 'This week'
-    const d0 = parseDateKey(first)
-    return d0.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-  }, [state.schedule])
-
   function open(dk: string) {
     const day = state.schedule.find((s) => s.dateKey === dk)
     setDraftName(day?.workoutName ?? '')
     setDraftNotes(day?.notes ?? '')
     setDraftPlannedIds([...(day?.plannedExerciseIds ?? [])])
+    setDraftTrainingMode(day?.trainingMode ?? null)
     setDraftExSearch('')
     setEditing(dk)
   }
@@ -303,6 +327,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           workoutName: d.workoutName,
           notes: d.notes,
           plannedExerciseIds: [...d.plannedExerciseIds],
+          trainingMode: d.trainingMode ?? null,
         })),
     )
     setBulkDayOpenIdx(null)
@@ -342,16 +367,19 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
       const workoutName = row.workoutName.trim()
       const notes = row.notes.trim()
       const plannedExerciseIds = row.plannedExerciseIds
+      const trainingMode = row.trainingMode ?? null
+      const prevMode = d.trainingMode ?? null
       if (
         workoutName === d.workoutName.trim() &&
         notes === d.notes.trim() &&
+        trainingMode === prevMode &&
         JSON.stringify(plannedExerciseIds) === JSON.stringify(d.plannedExerciseIds)
       ) {
         return
       }
       patches.push({
         dateKey: d.dateKey,
-        patch: { workoutName, notes, plannedExerciseIds },
+        patch: { workoutName, notes, plannedExerciseIds, trainingMode },
       })
     })
     if (!patches.length) {
@@ -424,11 +452,13 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
       workoutName: draftName.trim(),
       notes: draftNotes.trim(),
       plannedExerciseIds: draftPlannedIds,
+      trainingMode: draftTrainingMode,
     }
     updateScheduleDay(dateKeyVal, {
       workoutName: merged.workoutName,
       notes: merged.notes,
       plannedExerciseIds: merged.plannedExerciseIds,
+      trainingMode: merged.trainingMode,
     })
     setEditing(null)
 
@@ -476,6 +506,31 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   const liveTodayKey = todayDateKey(now)
   const todayColIdx = mondayFirstColumnIndex(now)
 
+  function scrollToDayCard(dateKeyVal: string) {
+    dayCardRefs.current[dateKeyVal]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function renderMuscleTagPills(muscles: MuscleGroup[]) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {muscles.map((mg) => (
+          <span key={mg} className="apex-schedule-muscle-pill">
+            {mg}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  function renderRestTags() {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        <span className="apex-schedule-muscle-pill apex-schedule-muscle-pill--muted">Mobility</span>
+        <span className="apex-schedule-muscle-pill apex-schedule-muscle-pill--muted">Stretch</span>
+      </div>
+    )
+  }
+
   function renderMuscleDots(muscles: MuscleGroup[], size: 'sm' | 'md' = 'sm') {
     const dot =
       size === 'sm' ? 'h-1.5 w-1.5 rounded-full shrink-0' : 'h-2 w-2 rounded-full shrink-0'
@@ -494,13 +549,23 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   }
 
   return (
-    <div className="apex-tab-stack pb-28">
-      <header>
-        <p className="apex-page-sub">Calendar</p>
-        <h1 className="apex-page-title mt-1">Schedule</h1>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
-          Plan the week, spot muscle balance, drag days to reshuffle. Sync optional to Google Calendar.
-        </p>
+    <div className={`${viewMode === 'week' ? 'apex-schedule' : 'apex-tab-stack'} pb-28`}>
+      <header className={viewMode === 'week' ? 'apex-schedule-header' : undefined}>
+        {viewMode === 'week' ? (
+          <>
+            <p className="apex-schedule-eyebrow">{weekOfLabel}</p>
+            <h1 className="apex-schedule-title">Schedule</h1>
+            <p className="apex-schedule-subtitle">Plan your week, spot muscle balance.</p>
+          </>
+        ) : (
+          <>
+            <p className="apex-page-sub">Calendar</p>
+            <h1 className="apex-page-title mt-1">Schedule</h1>
+            <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+              Plan the week, spot muscle balance, drag days to reshuffle. Sync optional to Google Calendar.
+            </p>
+          </>
+        )}
       </header>
 
       {!hasGcalToken ? (
@@ -524,44 +589,78 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
         </div>
       ) : null}
 
-      {/* Weekly muscle balance */}
-      <section className="apex-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <p className="apex-section-label">This week · muscle balance</p>
-            <p className="mt-1 text-[12px] font-medium text-[#a0a0a8]">
-              Days per group (from planned exercises). Wider bars = more exposure.
-            </p>
+      {viewMode === 'week' ? (
+        <section className="apex-schedule-volume">
+          <div className="apex-schedule-volume__head">
+            <p className="apex-schedule-volume__label">Volume balance</p>
+            <span className="apex-schedule-volume__meta">sets this week</span>
           </div>
-        </div>
-        {muscleBalance.rows.length ? (
-          <ul className="space-y-3">
-            {muscleBalance.rows.map(({ group, days }) => (
-              <li key={group} className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-[11px] font-medium text-[#a0a0a8]">
-                  {group}
-                </span>
-                <div className="flex-1 min-w-0 h-2.5 rounded-full bg-white/[0.06] border border-white/[0.06] overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-300"
-                    style={{
-                      width: `${(days / muscleBalance.max) * 100}%`,
-                      backgroundColor: MUSCLE_SCHEDULE_COLOR[group],
-                    }}
-                  />
-                </div>
-                <span className="w-8 shrink-0 text-right text-[13px] font-bold tabular-nums text-[#e4e4e8]">
-                  {days}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[13px] font-medium text-[#9898a0]">
-            Add planned exercises to days below — balance bars fill in automatically.
-          </p>
-        )}
-      </section>
+          <div className="apex-schedule-volume__card">
+            <ul className="apex-schedule-volume__list">
+              {volumeBalance.map(({ group, done, target }) => {
+                const pct = target > 0 ? Math.min(100, (done / target) * 100) : done > 0 ? 100 : 0
+                return (
+                  <li key={group} className="apex-schedule-volume__row">
+                    <span className="apex-schedule-volume__muscle">{group}</span>
+                    <div className="apex-schedule-volume__bar-track">
+                      <div
+                        className="apex-schedule-volume__bar-fill"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="apex-schedule-volume__count tabular-nums">
+                      {done} / {target}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+            {setsThisWeekTotal === 0 ? (
+              <p className="apex-schedule-volume__empty">
+                Log sets this week to fill volume bars — targets come from your planned exercises.
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : (
+        <section className="apex-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="apex-section-label">This week · muscle balance</p>
+              <p className="mt-1 text-[12px] font-medium text-[#a0a0a8]">
+                Days per group (from planned exercises). Wider bars = more exposure.
+              </p>
+            </div>
+          </div>
+          {muscleBalance.rows.length ? (
+            <ul className="space-y-3">
+              {muscleBalance.rows.map(({ group, days }) => (
+                <li key={group} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0 text-[11px] font-medium text-[#a0a0a8]">
+                    {group}
+                  </span>
+                  <div className="flex-1 min-w-0 h-2.5 rounded-full bg-white/[0.06] border border-white/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-300"
+                      style={{
+                        width: `${(days / muscleBalance.max) * 100}%`,
+                        backgroundColor: MUSCLE_SCHEDULE_COLOR[group],
+                      }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-[13px] font-bold tabular-nums text-[#e4e4e8]">
+                    {days}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13px] font-medium text-[#9898a0]">
+              Add planned exercises to days below — balance bars fill in automatically.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -602,95 +701,112 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
 
         {viewMode === 'week' ? (
           <>
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="apex-page-sub">Week view</p>
-                <h2 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-0.5">{weekTitle}</h2>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1 px-0.5">
-              {WEEKDAY_LABELS.map((label, idx) => (
-                <div
-                  key={label}
-                  className={`text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] rounded-t-md py-1 ${
-                    idx === todayColIdx
-                      ? 'text-[#f4f4f5] bg-white/[0.08]'
-                      : 'text-[#9898a0]'
-                  }`}
-                >
-                  {label}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5 items-stretch">
+            <div className="apex-schedule-strip" role="tablist" aria-label="Week days">
               {state.schedule.map((d, idx) => {
                 const isToday = d.dateKey === liveTodayKey
-                const isTodayCol = idx === todayColIdx
                 const dt = parseDateKey(d.dateKey)
-                const title = d.workoutName.trim() || 'Rest'
-                const dayInitial = WEEKDAY_LABELS[idx]?.slice(0, 1) ?? formatShortWeekday(dt).slice(0, 1)
-                const muscleTags = plannedMuscleGroups(d, state.customExercises)
-                const primaryMuscle = muscleTags[0]
-                const cellTint = primaryMuscle
-                  ? '#1a1a1a'
-                  : undefined
-                const isDrop = dragOverKey === d.dateKey
-
+                const label = WEEKDAY_LABELS[idx] ?? formatShortWeekday(dt).slice(0, 3).toUpperCase()
+                const logged = dayHasLoggedWork(state, d.dateKey)
                 return (
-                  <div
+                  <button
                     key={d.dateKey}
-                    onDragOver={(e) => onDragOverDay(e, d.dateKey)}
-                    onDragLeave={() => setDragOverKey((k) => (k === d.dateKey ? null : k))}
-                    onDrop={(e) => onDropDay(e, d.dateKey)}
-                    className={`flex min-h-[6.5rem] sm:min-h-[7.5rem] flex-col rounded-[14px] border border-white/[0.08] p-1 sm:p-1.5 transition-all duration-200 touch-manipulation ${
-                      isTodayCol ? 'bg-white/[0.04]' : ''
-                    } ${isToday ? 'ring-1 ring-white/20' : ''}`}
-                    style={{
-                      ...(cellTint ? { background: cellTint } : {}),
-                      ...(isDrop ? { boxShadow: '0 0 0 2px rgba(255,255,255,0.45)' } : {}),
-                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={isToday}
+                    className={`apex-schedule-strip-pill${isToday ? ' apex-schedule-strip-pill--today' : ''}`}
+                    onClick={() => scrollToDayCard(d.dateKey)}
                   >
-                    <div className="flex items-center justify-between gap-0.5 px-0.5 pt-0.5">
-                      <span className="text-[11px] font-black tabular-nums text-[#d4d4dc]">{dayInitial}</span>
-                      <div
-                        draggable
-                        onDragStart={(e) => onDragStartDay(e, d.dateKey)}
-                        className="cursor-grab rounded-md p-0.5 text-[10px] text-[#a0a0a8] hover:bg-white/10 active:cursor-grabbing touch-none"
-                        title="Drag to swap day"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-hidden
-                      >
-                        ⣿
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="mt-0.5 flex min-h-0 flex-1 w-full flex-col items-center rounded-lg px-1 pb-1.5 pt-0.5 text-center"
-                      onClick={() => open(d.dateKey)}
-                    >
-                      {hasPlannedWork(d) && muscleTags.length ? (
-                        <div className="mb-0.5 flex justify-center">{renderMuscleDots(muscleTags)}</div>
-                      ) : null}
-                      <p className="w-full text-[9px] sm:text-[10px] font-bold leading-tight text-[#f0f0f2] line-clamp-3 break-words">
-                        {title}
-                      </p>
-                      {isToday ? (
-                        <span className="apex-schedule-today-pill mt-1 text-[7px] sm:text-[8px] font-bold uppercase tracking-wider">
-                          Today
-                        </span>
-                      ) : null}
-                      {d.googleCalendarEventId ? (
-                        <span className="mt-0.5 rounded border border-white/10 px-1 py-px text-[7px] font-semibold uppercase tracking-wide text-white/50">
-                          Cal
-                        </span>
-                      ) : null}
-                    </button>
-                  </div>
+                    <span className="apex-schedule-strip-pill__dow">{label}</span>
+                    <span className="apex-schedule-strip-pill__date">{dt.getDate()}</span>
+                    {isToday ? (
+                      <span className="apex-schedule-strip-pill__dot apex-schedule-strip-pill__dot--today" aria-hidden />
+                    ) : logged ? (
+                      <span className="apex-schedule-strip-pill__dot" aria-hidden />
+                    ) : (
+                      <span className="apex-schedule-strip-pill__dot-spacer" aria-hidden />
+                    )}
+                  </button>
                 )
               })}
             </div>
+
+            <div className="apex-schedule-week-actions">
+              <button
+                type="button"
+                className="apex-schedule-week-actions__month"
+                onClick={() => {
+                  setViewMode('month')
+                  jumpMonthToScheduleWeek()
+                }}
+              >
+                Month
+              </button>
+              <button
+                type="button"
+                className="apex-schedule-week-actions__plan"
+                disabled={planWeekAiBusy}
+                onClick={() => void handlePlanThisWeek()}
+              >
+                {planWeekAiBusy ? 'Planning…' : 'Plan this week'}
+              </button>
+            </div>
+
+            <section className="apex-schedule-this-week">
+              <h2 className="apex-schedule-this-week__title">This week</h2>
+              <div className="apex-schedule-day-list">
+                {state.schedule.map((d, idx) => {
+                  const isToday = d.dateKey === liveTodayKey
+                  const dt = parseDateKey(d.dateKey)
+                  const dow = WEEKDAY_LABELS[idx] ?? formatShortWeekday(dt)
+                  const dateLabel = dt.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                  const workoutName = d.workoutName.trim()
+                  const isRest = !hasPlannedWork(d) || !workoutName || /^rest$/i.test(workoutName)
+                  const title = isRest ? 'Rest' : workoutName
+                  const muscleTags = plannedMuscleGroups(d, state.customExercises)
+                  const durationMin = estimateDayDurationMinutes(d, state.customExercises)
+
+                  return (
+                    <div
+                      key={d.dateKey}
+                      ref={(el) => {
+                        dayCardRefs.current[d.dateKey] = el
+                      }}
+                      className={`apex-schedule-day-card${isToday ? ' apex-schedule-day-card--today' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="apex-schedule-day-card__btn"
+                        onClick={() => open(d.dateKey)}
+                      >
+                        <div className="apex-schedule-day-card__top">
+                          <p className="apex-schedule-day-card__meta">
+                            {dow} · {dateLabel}
+                            {d.trainingMode ? (
+                              <span className="apex-schedule-day-card__mode">
+                                {trainingModeDef(d.trainingMode).label}
+                              </span>
+                            ) : null}
+                          </p>
+                          {durationMin > 0 ? (
+                            <span className="apex-schedule-day-card__duration">
+                              <i className="ti ti-clock" aria-hidden />
+                              {durationMin} min
+                            </span>
+                          ) : null}
+                        </div>
+                        <h3 className="apex-schedule-day-card__workout">{title}</h3>
+                        <div className="apex-schedule-day-card__tags">
+                          {isRest ? renderRestTags() : renderMuscleTagPills(muscleTags)}
+                        </div>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
           </>
         ) : (
           <>
@@ -841,6 +957,24 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 onChange={(e) => setDraftName(e.target.value)}
                 placeholder="Rest"
               />
+            </label>
+            <label className="mt-4 block">
+              <span className="apex-section-label block mb-2">Training mode (optional)</span>
+              <select
+                className="apex-input mt-1 w-full min-h-12 px-3 text-[13px] font-medium"
+                value={draftTrainingMode ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setDraftTrainingMode(v ? (v as TrainingMode) : null)
+                }}
+              >
+                <option value="">None</option>
+                {TRAINING_MODES.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label} — {m.hint}
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="mt-5">
               <span className="apex-section-label block mb-2">Quick presets</span>
@@ -1142,6 +1276,28 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         }
                         placeholder="Rest"
                       />
+                    </label>
+                    <label className="block">
+                      <span className="apex-section-label block mb-1.5">Training mode (optional)</span>
+                      <select
+                        className="apex-input w-full min-h-11 px-3 text-[13px] font-medium"
+                        value={row.trainingMode ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setWeekBulkDraft((rows) =>
+                            rows.map((r, j) =>
+                              j === i ? { ...r, trainingMode: v ? (v as TrainingMode) : null } : r,
+                            ),
+                          )
+                        }}
+                      >
+                        <option value="">None</option>
+                        {TRAINING_MODES.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <button
                       type="button"

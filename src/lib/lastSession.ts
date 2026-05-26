@@ -1,5 +1,5 @@
 import type { SetLog, WeightedSetLog } from '../types'
-import { dateKey } from './dates'
+import { dateKey, parseDateKey } from './dates'
 
 export type LastWeightedSetDefaults = {
   bodyweight: boolean
@@ -25,26 +25,42 @@ export function getLastWeightedSetForExercise(
   }
 }
 
-/** Summary line for “last time” in log modal — most recent prior log for exercise */
+function calendarDaysBetween(earlierDayKey: string, laterDayKey: string): number {
+  const a = parseDateKey(earlierDayKey).getTime()
+  const b = parseDateKey(laterDayKey).getTime()
+  return Math.max(0, Math.round((b - a) / 86_400_000))
+}
+
+/** e.g. "Last: 135 lbs × 8 reps · 3 days ago" — weighted logs only; null if never logged. */
+export function formatExerciseLastHistoryLine(
+  logs: SetLog[],
+  exerciseId: string,
+  unit: 'lbs' | 'kg',
+  nowMs: number = Date.now(),
+): string | null {
+  const last = logs
+    .filter((l): l is WeightedSetLog => l.exerciseId === exerciseId && l.kind === 'weighted')
+    .sort((a, b) => b.at - a.at)[0]
+  if (!last) return null
+
+  const todayKey = dateKey(new Date(nowMs))
+  const logDayKey = dateKey(new Date(last.at))
+  const days = calendarDaysBetween(logDayKey, todayKey)
+  const daysLabel =
+    days === 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`
+
+  const load = last.bodyweight ? 'Bodyweight' : `${last.weight ?? 0} ${unit}`
+  return `Last: ${load} × ${last.reps} reps · ${daysLabel}`
+}
+
+/** Summary line for log modal / exercise cards. */
 export function formatLastSessionLine(
   logs: SetLog[],
   exerciseId: string,
   unit: 'lbs' | 'kg',
+  nowMs?: number,
 ): string | null {
-  const prior = logs
-    .filter((l) => l.exerciseId === exerciseId)
-    .sort((a, b) => b.at - a.at)
-  const last = prior[0]
-  if (!last) return null
-  const when = new Date(last.at).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-  if (last.kind === 'weighted') {
-    const w = last.bodyweight ? 'Bodyweight' : `${last.weight ?? 0} ${unit}`
-    return `Last time (${when}): ${w} × ${last.reps} · ${last.sets} set(s)`
-  }
-  return `Last time (${when}): ${last.durationSec}s hold`
+  return formatExerciseLastHistoryLine(logs, exerciseId, unit, nowMs)
 }
 
 export type WorkoutSessionSnapshot = {

@@ -64,7 +64,24 @@ export function trainingModeFraming(mode: TrainingMode): string {
   return BY_ID[mode].framing
 }
 
+const MODE_IDS = new Set(TRAINING_MODES.map((m) => m.id))
+
+export function isTrainingMode(value: unknown): value is TrainingMode {
+  return typeof value === 'string' && MODE_IDS.has(value as TrainingMode)
+}
+
+export function scheduledTrainingModeForDay(
+  schedule: { dateKey: string; trainingMode?: TrainingMode | null }[],
+  dayKey: string,
+): TrainingMode | null {
+  const day = schedule.find((d) => d.dateKey === dayKey)
+  const mode = day?.trainingMode
+  return mode && isTrainingMode(mode) ? mode : null
+}
+
 export function trainingModeCoachInstruction(mode: TrainingMode | null | undefined): string {
-  if (!mode) return ''
-  return `\n\nActive training mode for today's workout: ${BY_ID[mode].label}.\n${BY_ID[mode].coachTone}`
+  if (!mode) {
+    return '\n\nTraining mode for today: not assigned in the weekly plan. Use a neutral, balanced coach tone — no mode-specific framing.'
+  }
+  return `\n\nActive training mode for today (from weekly plan): ${BY_ID[mode].label}.\n${BY_ID[mode].coachTone}`
 }

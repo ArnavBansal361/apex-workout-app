@@ -1,3 +1,4 @@
+import { APEX_LOGO_URL } from '../lib/apexBrand'
 import type { ProfileAvatarId } from '../types'
 
 /* eslint-disable react-refresh/only-export-components -- co-export PROFILE_AVATAR_IDS with glyph component */
@@ -46,9 +47,12 @@ export function ProfileAvatarGlyph({ id, className }: { id: ProfileAvatarId; cla
       )
     case 'mountain':
       return (
-        <svg className={c} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M3 18l6-8 4 5 3-4 5 7H3z" fill="currentColor" />
-        </svg>
+        <img
+          src={APEX_LOGO_URL}
+          alt=""
+          aria-hidden
+          className={`${c} rounded-[4px] object-contain`}
+        />
       )
     case 'trophy':
       return (

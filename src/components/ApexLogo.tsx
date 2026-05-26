@@ -1,3 +1,5 @@
+import { APEX_LOGO_URL } from '../lib/apexBrand'
+
 /** App icon mark — geometric white mountain from /public/apex-logo.svg */
 export function ApexLogo({
   className,
@@ -9,7 +11,7 @@ export function ApexLogo({
 }) {
   return (
     <img
-      src="/apex-logo.svg"
+      src={APEX_LOGO_URL}
       alt=""
       aria-hidden
       width={size}

@@ -1,3 +1,4 @@
+import { equipmentForExercise } from '../lib/equipment'
 import type { Exercise, ExerciseHelp, MuscleGroup } from '../types'
 import { MORE_EXERCISES } from './exercisesMore'
 import { getStretchExerciseHelp, STRETCH_EXERCISE_ENTRIES } from './stretches'
@@ -170,7 +171,7 @@ function buildExerciseCatalog(entries: [string, MuscleGroup][]): Exercise[] {
     const id = slug(name)
     if (seen.has(id)) continue
     seen.add(id)
-    out.push({ id, name, muscleGroup })
+    out.push({ id, name, muscleGroup, equipment: equipmentForExercise(name, muscleGroup) })
   }
   return out
 }

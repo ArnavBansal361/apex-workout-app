@@ -275,6 +275,19 @@ export function muscleGroupsThisWeek(state: AppPersisted): string[] {
   return [...g].sort()
 }
 
+/** PRs logged in the current calendar month. */
+export function prsThisMonth(logs: SetLog[], nowMs = Date.now()): number {
+  const start = new Date(nowMs)
+  start.setDate(1)
+  start.setHours(0, 0, 0, 0)
+  const from = start.getTime()
+  let n = 0
+  for (const l of logs) {
+    if (l.isPr && l.at >= from) n += 1
+  }
+  return n
+}
+
 export function streakCurrent(state: AppPersisted, nowMs: number = Date.now()): number {
   return streakDaysWithShield(
     workoutDaysFromActivity(state),

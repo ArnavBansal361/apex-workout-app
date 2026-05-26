@@ -2,7 +2,7 @@ import { EXERCISE_BY_ID } from '../data/exercises'
 import type {
   AppPersisted,
   MuscleGroup,
-  ReadinessLogEntry,
+  PostWorkoutCheckinLogEntry,
   SetLog,
   WorkoutMoodLogEntry,
 } from '../types'
@@ -28,13 +28,12 @@ import {
 } from './coachInsights'
 import {
   fetchDeloadWeekHistory,
-  fetchReadinessChecksForCoach,
   fetchWorkoutMoodCheckinsForCoach,
   fetchWorkoutSessionsForCoach,
   type DeloadWeekRecord,
 } from './supabase'
 import { cycleContextLines } from './cycleTracking'
-import { trainingModeDef } from './trainingMode'
+import { isTrainingMode, scheduledTrainingModeForDay, trainingModeDef } from './trainingMode'
 import { weeklyVolumeLoadByMuscleLbs } from './volumeStats'
 
 const FOUR_WEEKS_MS = 28 * 24 * 60 * 60 * 1000
@@ -64,28 +63,6 @@ function formatSetLogLine(l: SetLog, unit: 'lbs' | 'kg'): string {
   return `${dk} | ${l.muscleGroup} | ${l.exerciseName} | timed:${l.durationSec}s${l.isPr ? ' PR' : ''}`
 }
 
-function dateKeysSince(nowMs: number, days: number): string[] {
-  const keys: string[] = []
-  for (let i = 0; i < days; i++) {
-    const d = new Date(nowMs)
-    d.setDate(d.getDate() - i)
-    keys.push(dateKey(d))
-  }
-  return keys
-}
-
-function mergeReadinessLogs(
-  local: ReadinessLogEntry[],
-  remote: ReadinessLogEntry[],
-): ReadinessLogEntry[] {
-  const byDay = new Map<string, ReadinessLogEntry>()
-  for (const r of [...remote, ...local]) {
-    const prev = byDay.get(r.dateKey)
-    if (!prev || r.at >= prev.at) byDay.set(r.dateKey, r)
-  }
-  return [...byDay.values()].sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-}
-
 function mergeMoodLogs(
   local: WorkoutMoodLogEntry[],
   remote: WorkoutMoodLogEntry[],
@@ -99,27 +76,18 @@ function mergeMoodLogs(
 }
 
 export type CoachContextExtras = {
-  readinessLogs?: ReadinessLogEntry[]
   workoutMoodLogs?: WorkoutMoodLogEntry[]
   deloadHistory?: DeloadWeekRecord[]
   workoutSessions?: WorkoutSessionModeRow[]
 }
 
-export function todayReadinessLog(
+export function todayWorkoutMoodLog(
   state: AppPersisted,
   dayKey: string,
   extras: CoachContextExtras = {},
-): ReadinessLogEntry | null {
-  const readiness = mergeReadinessLogs(
-    state.readinessLogs ?? [],
-    extras.readinessLogs ?? [],
-  )
-  return [...readiness].filter((r) => r.dateKey === dayKey).sort((a, b) => b.at - a.at)[0] ?? null
-}
-
-export type ResolvedCoachContext = {
-  context: string
-  todayReadiness: ReadinessLogEntry | null
+): WorkoutMoodLogEntry | null {
+  const moods = mergeMoodLogs(state.workoutMoodLogs ?? [], extras.workoutMoodLogs ?? [])
+  return [...moods].filter((m) => m.dateKey === dayKey).sort((a, b) => b.at - a.at)[0] ?? null
 }
 
 export function buildApexCoachContext(
@@ -134,13 +102,6 @@ export function buildApexCoachContext(
   const name = state.settings.displayName?.trim() || 'Athlete'
   const unit = state.settings.unit
   const ws = weekStartMonday(now)
-
-  const readiness = mergeReadinessLogs(
-    state.readinessLogs ?? [],
-    extras.readinessLogs ?? [],
-  )
-  const last7Keys = new Set(dateKeysSince(nowMs, 7))
-  const readiness7 = readiness.filter((r) => last7Keys.has(r.dateKey))
 
   const allMoodLogs = mergeMoodLogs(state.workoutMoodLogs ?? [], extras.workoutMoodLogs ?? [])
   const moodLogs = allMoodLogs.filter((m) => parseDateKey(m.dateKey).getTime() >= cutoffMs)
@@ -161,13 +122,13 @@ export function buildApexCoachContext(
   const sleepAvg = sleepWeeklyAverages(state, nowMs)
   const waterAvgOz = waterWeeklyAverageOz(state, nowMs)
 
-  const trainingMode = state.gymSession.trainingMode
+  const trainingMode = scheduledTrainingModeForDay(state.schedule, todayKey)
   const modeLines = trainingMode
     ? [
-        `Current training mode: ${trainingModeDef(trainingMode).label}`,
+        `Today's planned training mode: ${trainingModeDef(trainingMode).label}`,
         `Mode framing: ${trainingModeDef(trainingMode).framing}`,
       ]
-    : ['Current training mode: (not set this session)']
+    : ["Today's planned training mode: (not assigned in weekly plan)"]
 
   const historySets = [...state.setLogs]
     .filter((l) => l.at >= cutoffMs)
@@ -182,22 +143,27 @@ export function buildApexCoachContext(
         `${dateKey(new Date(c.at))} | ${c.name} | ${c.durationMinutes != null ? `${c.durationMinutes} min` : 'no duration'}`,
     )
 
-  const todayReadiness = todayReadinessLog(state, todayKey, extras)
+  const todayMood = todayWorkoutMoodLog(state, todayKey, extras)
 
-  const readinessLines = readiness7.length
-    ? readiness7.map((r) => {
-        const cog =
-          r.cognitiveFatigue != null ? `cognitive_fatigue:${r.cognitiveFatigue}` : 'cognitive_fatigue:n/a'
-        return `${r.dateKey} | score:${r.combinedScore} | tier:${r.recommendation} | recovery:${r.recovery} ${cog} stress:${r.stress} sleep_q:${r.sleepQuality}`
-      })
-    : ['(none in past 7 days)']
+  const postCheckins = (state.postWorkoutCheckins ?? []).filter(
+    (c) => parseDateKey(c.dateKey).getTime() >= cutoffMs,
+  )
+  const postCheckinLines = postCheckins.length
+    ? postCheckins.map(
+        (c) => `${c.dateKey} | session feel:${c.feelRating}/5 | energy after:${c.energyRating}/5`,
+      )
+    : ['(none in past 4 weeks)']
 
   const moodLines = moodLogs.length
     ? moodLogs.map(
         (m) =>
-          `${m.dateKey} | mood before:${m.moodBefore} after:${m.moodAfter} | lift:+${m.moodLift}`,
+          `${m.dateKey} | going in:${m.moodBefore}/5 now:${m.moodAfter}/5 | lift:+${m.moodLift}`,
       )
     : ['(none in past 4 weeks)']
+
+  const todayPostCheckin = [...(state.postWorkoutCheckins ?? [])]
+    .filter((c) => c.dateKey === todayKey)
+    .sort((a, b) => b.at - a.at)[0] as PostWorkoutCheckinLogEntry | undefined
 
   const sched = state.schedule
     .map((d) => {
@@ -206,7 +172,11 @@ export function buildApexCoachContext(
         .filter(Boolean)
         .join(', ')
       const planPart = planned ? ` | planned: ${planned}` : ''
-      return `${d.dateKey}: ${d.workoutName.trim() || 'Rest'}${planPart}${d.notes?.trim() ? ` — ${d.notes.trim()}` : ''}`
+      const modePart =
+        d.trainingMode && isTrainingMode(d.trainingMode)
+          ? ` | mode: ${trainingModeDef(d.trainingMode).label}`
+          : ''
+      return `${d.dateKey}: ${d.workoutName.trim() || 'Rest'}${planPart}${modePart}${d.notes?.trim() ? ` — ${d.notes.trim()}` : ''}`
     })
     .join('\n')
 
@@ -253,9 +223,13 @@ export function buildApexCoachContext(
       : `Average rest between sets: ${restStats.configuredSec}s rest-timer default (not enough gaps in logs to estimate)`,
     'Post-workout mood trends (past 14 days):',
     ...moodTrend.map((l) => `  ${l}`),
-    todayReadiness
-      ? `Today's readiness check: cognitive fatigue ${todayReadiness.cognitiveFatigue ?? 'not logged'}/5, stress ${todayReadiness.stress}/5, recovery ${todayReadiness.recovery}/5, sleep quality ${todayReadiness.sleepQuality}/5 (combined score ${todayReadiness.combinedScore}, tier ${todayReadiness.recommendation})`
-      : "Today's readiness check: not logged yet",
+    'Post-workout feel + energy check-ins (past 4 weeks):',
+    ...postCheckinLines,
+    todayPostCheckin
+      ? `Today's post-workout check-in: session feel ${todayPostCheckin.feelRating}/5, energy now ${todayPostCheckin.energyRating}/5`
+      : todayMood
+        ? `Today's post-workout check-in: felt going in ${todayMood.moodBefore}/5, now ${todayMood.moodAfter}/5 (lift +${todayMood.moodLift})`
+        : "Today's post-workout check-in: not logged yet",
     '',
     '--- Current week volume by muscle group (lbs load) ---',
     volLines.join('\n'),
@@ -263,10 +237,7 @@ export function buildApexCoachContext(
     '--- Personal records / best performances (all exercises) ---',
     ...prLines,
     '',
-    '--- Readiness scores (past 7 days) ---',
-    ...readinessLines,
-    '',
-    '--- Workout mood check-ins (past 4 weeks, detail) ---',
+    '--- Post-workout mood check-ins (past 4 weeks, detail) ---',
     ...moodLines,
     '',
     '--- Recovery averages (past 7 days) ---',
@@ -313,32 +284,26 @@ export function truncateCoachContextBlock(ctx: string): string {
   return head + trimmedTail
 }
 
-/** Builds truncated coach context, merging Supabase readiness/mood when signed in. */
+/** Builds truncated coach context, merging Supabase mood logs when signed in. */
 export async function resolveCoachContextBlock(
   state: AppPersisted,
   options?: { userId?: string; nowMs?: number },
-): Promise<ResolvedCoachContext> {
+): Promise<string> {
   const nowMs = options?.nowMs ?? Date.now()
-  const todayKey = dateKey(new Date(nowMs))
   let extras: CoachContextExtras = {}
   if (options?.userId) {
     try {
-      const [readinessLogs, workoutMoodLogs, deloadHistory, workoutSessions] =
-        await Promise.all([
-          fetchReadinessChecksForCoach(options.userId, 7),
-          fetchWorkoutMoodCheckinsForCoach(options.userId, 28),
-          fetchDeloadWeekHistory(options.userId, 12),
-          fetchWorkoutSessionsForCoach(options.userId, 90),
-        ])
-      extras = { readinessLogs, workoutMoodLogs, deloadHistory, workoutSessions }
+      const [workoutMoodLogs, deloadHistory, workoutSessions] = await Promise.all([
+        fetchWorkoutMoodCheckinsForCoach(options.userId, 28),
+        fetchDeloadWeekHistory(options.userId, 12),
+        fetchWorkoutSessionsForCoach(options.userId, 90),
+      ])
+      extras = { workoutMoodLogs, deloadHistory, workoutSessions }
     } catch (e) {
       if (import.meta.env.DEV) {
         console.warn('[Apex Coach] remote coach data fetch failed', e)
       }
     }
   }
-  return {
-    context: truncateCoachContextBlock(buildApexCoachContext(state, nowMs, extras)),
-    todayReadiness: todayReadinessLog(state, todayKey, extras),
-  }
+  return truncateCoachContextBlock(buildApexCoachContext(state, nowMs, extras))
 }

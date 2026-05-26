@@ -1,9 +1,10 @@
 import type { AppPersisted, ChatMessage, ExerciseHelp } from '../types'
 import { cycleCoachInstruction } from './cycleTracking'
 import { resolveCoachContextBlock } from './coachContext'
-import { dateKey, formatCoachTodayLine, parseDateKey } from './dates'
-import { readinessCoachInstruction } from './readiness'
-import { trainingModeCoachInstruction } from './trainingMode'
+import { touchAiIntelligenceUpdated } from './aiIntelligenceStatus'
+import { workoutDaysFromLogs } from './achievements'
+import { dateKey, formatCoachTodayLine, parseDateKey, weekStartMonday } from './dates'
+import { scheduledTrainingModeForDay, trainingModeCoachInstruction } from './trainingMode'
 import { weeklyVolumeSeries } from './stats'
 import type { PrimaryCalendarEvent } from './googleCalendar'
 import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
@@ -123,14 +124,14 @@ function coachTodaySystemPrefix(nowMs: number): string {
 const COACH_SYSTEM = `- Respond in plain conversational text only. Never use markdown, bullet points, numbered lists, headers, tables, dividers, or emoji.
 - Keep every reply to a maximum of 3 sentences total. Be direct and specific.
 - Sound like a knowledgeable coach who has trained this athlete for months — warm but not chatty, confident, and never generic.
-- Cite real numbers from their context when relevant (volume, readiness, cognitive fatigue, stress, longevity score, mood lift, rest times, injury risk, schedule).
-- When today's readiness check is logged, name cognitive fatigue and stress as X/5 in your reply (do not skip them).
-- If cognitive fatigue is 4–5, recommend zone 2 cardio or mobility instead of heavy lifting unless they clearly want strength work.
-- If stress is 4–5, suggest a shorter session with more rest between sets and lower total volume.
+- Cite real numbers from their context when relevant (volume, post-workout mood before/after, mood lift, longevity score, rest times, injury risk, schedule).
+- When today's post-workout check-in is logged, reference how they felt going in and how they feel now as X/5.
+- If mood going in was 1–2, suggest a lighter session or recovery focus next time unless they want to push.
+- If mood after is 1–2, recommend extra recovery, sleep, or deload before the next hard session.
 - Never give boilerplate advice ("listen to your body", "stay hydrated") unless their data shows a specific gap you can name.
 - Always end with exactly one specific actionable suggestion tied to today's schedule, training mode, or their latest logged data.
 
-You are the Apex AI Coach in the Apex workout app. The athlete context block is refreshed on every message. It includes: today's date; whether today is a scheduled rest or workout day; training mode and mode streak; deload history and active deload; longevity score; menstrual cycle phase when enabled; post-workout mood trends (14 days); most and least trained muscle groups; average workout duration and rest between sets; injury risk level; goals and streak; full workout history (4 weeks); all PRs; weekly volume by muscle; readiness (7 days) with cognitive fatigue and stress; detailed mood logs; sleep and water averages; and the weekly schedule. Use that data — if a section is empty, say so briefly and still help with what you do know.`
+You are the Apex AI Coach in the Apex workout app. The athlete context block is refreshed on every message. It includes: today's date; whether today is a scheduled rest or workout day; training mode and mode streak; deload history and active deload; longevity score; menstrual cycle phase when enabled; post-workout mood trends (14 days) and today's check-in when logged; most and least trained muscle groups; average workout duration and rest between sets; injury risk level; goals and streak; full workout history (4 weeks); all PRs; weekly volume by muscle; detailed post-workout mood logs (4 weeks); sleep and water averages; and the weekly schedule. Use that data — if a section is empty, say so briefly and still help with what you do know.`
 
 const COACH_VISION_HINT = `- The athlete attached a photo in their latest message. Analyze the image (form, equipment setup, meals, body composition cues, etc.) and connect your answer to their goals and logged training.`
 
@@ -278,7 +279,7 @@ export type CoachCompleteOptions = {
   mode?: 'default' | 'workout_plan'
   planAnswers?: Record<PlanPersonalizationKey, string>
   maxTokens?: number
-  /** When set, merges Supabase readiness/mood with local logs for coach context. */
+  /** When set, merges Supabase mood logs with local logs for coach context. */
   userId?: string
 }
 
@@ -300,18 +301,19 @@ export async function claudeCoachComplete(
   const isPlan = options.mode === 'workout_plan' && isCompletePlanAnswers(planAnswers)
   const nowMs = Date.now()
   const todayLine = coachTodaySystemPrefix(nowMs)
-  const { context: coachContext, todayReadiness } = await resolveCoachContextBlock(state, {
+  const coachContext = await resolveCoachContextBlock(state, {
     userId: options.userId,
     nowMs,
   })
   const planBlock = formatPlanAnswersForSystem(planAnswers)
-  const modeInstruction = trainingModeCoachInstruction(state.gymSession.trainingMode)
+  const modeInstruction = trainingModeCoachInstruction(
+    scheduledTrainingModeForDay(state.schedule, dateKey(new Date(nowMs))),
+  )
   const cycleInstruction = cycleCoachInstruction(state, dateKey(new Date(nowMs)))
-  const readinessInstruction = readinessCoachInstruction(todayReadiness)
   const visionBlock = lastHasImage && !isPlan ? `\n${COACH_VISION_HINT}` : ''
   const system = isPlan
-    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}${cycleInstruction}${readinessInstruction}\n\n--- Athlete context ---\n${coachContext}`
-    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}${readinessInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
+    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context ---\n${coachContext}`
+    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
   const maxTokens = options.maxTokens ?? (isPlan ? 720 : lastHasImage ? 560 : 320)
   const requestBody = {
     model: CLAUDE_MODEL,
@@ -355,17 +357,46 @@ export async function claudeCoachComplete(
 }
 
 export type DailyMotivationInput = {
+  displayName: string
   streak: number
+  daysTrainedThisWeek: number
   lastPrExercise: string
   lastPrWeight: string
+  prsThisWeek: string[]
   volumeTrend: string
+  setsLoggedThisWeek: number
+  isRestDayToday: boolean
+  /** Last up to 7 daily lines (prior days) so the model avoids repetition. */
+  recentMotivations: string[]
+  /** Rotate style: data, mindset, recovery, performance, encouragement. */
+  styleHint: string
+  todayDateKey: string
+}
+
+const DAILY_MOTIVATION_STYLES = [
+  'data-driven observation tied to their numbers',
+  'mindset coaching — process and consistency',
+  'recovery advice — sleep, deload, or post-workout mood',
+  'performance insight — progression or technique focus',
+  'straight encouragement without repeating data points',
+] as const
+
+function dailyMotivationStyleHint(dateKey: string): string {
+  let h = 0
+  for (let i = 0; i < dateKey.length; i++) h = (h * 31 + dateKey.charCodeAt(i)) >>> 0
+  return DAILY_MOTIVATION_STYLES[h % DAILY_MOTIVATION_STYLES.length]!
 }
 
 export function buildDailyMotivationInput(
   state: AppPersisted,
   streak: number,
   nowMs: number = Date.now(),
+  recentMotivations: string[] = [],
+  isRestDayToday = false,
 ): DailyMotivationInput {
+  const todayDateKey = dateKey(new Date(nowMs))
+  const weekStart = weekStartMonday(new Date(nowMs)).getTime()
+  const displayName = state.settings.displayName.trim() || 'there'
   const prLogs = [...state.setLogs].filter((l) => l.isPr).sort((a, b) => b.at - a.at)
   const last = prLogs[0]
   let lastPrExercise = 'none yet'
@@ -380,6 +411,28 @@ export function buildDailyMotivationInput(
       lastPrWeight = `${last.durationSec} second hold`
     }
   }
+  const prsThisWeek = prLogs
+    .filter((l) => l.at >= weekStart)
+    .slice(0, 5)
+    .map((l) => {
+      if (l.kind === 'weighted') {
+        const load = l.bodyweight
+          ? `BW × ${l.reps}`
+          : `${l.weight ?? 0} ${state.settings.unit} × ${l.reps}`
+        return `${l.exerciseName} (${load})`
+      }
+      return `${l.exerciseName} (${l.durationSec}s)`
+    })
+  const workoutDays = workoutDaysFromLogs(state.setLogs)
+  let daysTrainedThisWeek = 0
+  for (const dk of workoutDays) {
+    const t = parseDateKey(dk).getTime()
+    if (t >= weekStart) daysTrainedThisWeek++
+  }
+  let setsLoggedThisWeek = 0
+  for (const l of state.setLogs) {
+    if (l.at >= weekStart) setsLoggedThisWeek++
+  }
   const series = weeklyVolumeSeries(state, nowMs)
   const thisWeek = series[series.length - 1]?.volume ?? 0
   const lastWeek = series[series.length - 2]?.volume ?? 0
@@ -390,25 +443,67 @@ export function buildDailyMotivationInput(
   } else if (thisWeek > 0) {
     volumeTrend += ' (no volume logged last week)'
   }
-  return { streak, lastPrExercise, lastPrWeight, volumeTrend }
+  return {
+    displayName,
+    streak,
+    daysTrainedThisWeek,
+    lastPrExercise,
+    lastPrWeight,
+    prsThisWeek,
+    volumeTrend,
+    setsLoggedThisWeek,
+    isRestDayToday,
+    recentMotivations,
+    styleHint: dailyMotivationStyleHint(todayDateKey),
+    todayDateKey,
+  }
 }
 
-const DAILY_MOTIVATION_SYSTEM = `In one sentence, give a specific motivating observation about this user's recent training. Use their actual data. Be direct, not generic. No quotes, no hashtags, no exclamation marks.`
+const DAILY_MOTIVATION_SYSTEM = `Write exactly one sentence of daily motivation for this lifter.
+
+Rules:
+- Address them by first name when a name is provided (first word of display name).
+- Sound like it was written only for them — cite real numbers from their data (PRs, streak, days trained, volume).
+- Use their real training data when the chosen style calls for it; do not invent numbers.
+- Today's assigned style is given in the user message — follow that angle only.
+- Do not repeat themes, metaphors, or phrases from the "Previous daily lines" list (prior days). Use fresh wording.
+- Do not repeat themes or phrases from previous days.
+- Vary across days between: data-driven observations, mindset coaching, recovery advice, performance insights, and encouragement.
+- Never sign as a coach, never mention "Coach Mara", "Apex Method", or any brand attribution.
+- Be direct and specific, not generic. No quotes, no hashtags, no exclamation marks.`
 
 function sanitizeDailyMotivation(text: string): string {
   return text
     .replace(/["'#]/g, '')
     .replace(/!/g, '')
+    .replace(/\s*[-–—]\s*Coach Mara.*$/i, '')
+    .replace(/\s*Coach Mara[^.]*\.?/gi, '')
+    .replace(/\s*Apex Method[^.]*\.?/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
 export async function fetchDailyMotivation(input: DailyMotivationInput): Promise<string> {
   const apiKey = getAnthropicApiKey()
+  const prior =
+    input.recentMotivations.length > 0
+      ? input.recentMotivations.map((line, i) => `${i + 1}. ${line}`).join('\n')
+      : '(none — first motivation stored)'
+  const firstName = input.displayName.split(/\s+/)[0] || input.displayName
   const user = [
-    `Training streak: ${input.streak} day(s)`,
+    `Date: ${input.todayDateKey}`,
+    `Display name: ${input.displayName} (address as ${firstName})`,
+    `Today's style: ${input.styleHint}`,
+    `Calendar today: ${input.isRestDayToday ? 'rest day scheduled' : 'workout day scheduled'}`,
+    `Training streak: ${input.streak} consecutive day(s)`,
+    `Days with logged work this week: ${input.daysTrainedThisWeek}`,
+    `Sets logged this week: ${input.setsLoggedThisWeek}`,
     `Most recent PR: ${input.lastPrExercise}${input.lastPrWeight ? ` — ${input.lastPrWeight}` : ''}`,
+    `PRs this week: ${input.prsThisWeek.length ? input.prsThisWeek.join('; ') : 'none yet'}`,
     `Volume trend: ${input.volumeTrend}`,
+    '',
+    'Previous daily lines (do not echo these themes or phrases):',
+    prior,
   ].join('\n')
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
@@ -437,6 +532,7 @@ export async function fetchDailyMotivation(input: DailyMotivationInput): Promise
   }
   const text = sanitizeDailyMotivation(sanitizeCoachBubbleText(extractAssistantText(data)))
   if (!text) throw new Error('Empty motivation response')
+  touchAiIntelligenceUpdated()
   return text
 }
 
@@ -524,7 +620,7 @@ export async function claudeOneSentenceWorkoutSummary(
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 256,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${(await resolveCoachContextBlock(state, { nowMs: Date.now() })).context}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
       messages: [{ role: 'user', content: user }],
     }),
   })
@@ -572,7 +668,7 @@ ${rawText.slice(0, 12000)}`
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 8192,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${(await resolveCoachContextBlock(state, { nowMs: Date.now() })).context}`,
+      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
       messages: [{ role: 'user', content: user }],
     }),
   })

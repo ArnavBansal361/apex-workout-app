@@ -1,22 +1,33 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import { getExerciseHelp } from '../data/exercises'
 import {
   getStretchDefinition,
-  STRETCH_DEFINITIONS,
   STRETCH_SECTION_ORDER,
   type StretchSection,
 } from '../data/stretches'
 import { claudeExerciseFormTips } from '../lib/anthropicCoach'
 import { strengthProgressSeries, computeStrengthProgressProjection, STRENGTH_PROJECTION_WEEKS } from '../lib/overload'
 import { formatLong } from '../lib/dates'
+import { formatExerciseLastHistoryLine } from '../lib/lastSession'
 import type { Exercise, MuscleGroup, SetLog } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExerciseMuscleDiagram } from './ExerciseFormGif'
+import { MuscleGroupTargetingCard } from './MuscleGroupTargetingCard'
 import { QuickLogModal } from './QuickLogModal'
 
 const FILTERS: (MuscleGroup | 'All')[] = [
   'All',
+  'Chest',
+  'Back',
+  'Legs',
+  'Shoulders',
+  'Arms',
+  'Core',
+  'Stretches',
+]
+
+const GROUP_ORDER: MuscleGroup[] = [
   'Chest',
   'Back',
   'Legs',
@@ -186,9 +197,10 @@ function StrengthProgressChart({
   )
 }
 
-export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
+export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
   const { visibleExercises, hideExercise, state, addPlanExercise, notify, toggleFavoriteExercise, addCustomExercise } =
     useWorkout()
+  const searchRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<MuscleGroup | 'All'>('All')
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -217,44 +229,50 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
 
   const favoriteSet = useMemo(() => new Set(state.favoriteExerciseIds), [state.favoriteExerciseIds])
 
-  const favoriteExercises = useMemo(() => {
-    const byId = new Map(visibleExercises.map((e) => [e.id, e]))
-    return state.favoriteExerciseIds
-      .map((id) => byId.get(id))
-      .filter((e): e is NonNullable<typeof e> => Boolean(e))
-  }, [visibleExercises, state.favoriteExerciseIds])
+  const exerciseCountLabel = useMemo(() => {
+    const n = visibleExercises.length
+    return n >= 300 ? '300+' : String(n)
+  }, [visibleExercises.length])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     return visibleExercises
-      .filter((e) => !favoriteSet.has(e.id))
       .filter((e) => filter === 'All' || e.muscleGroup === filter)
       .filter(
         (e) =>
           !s ||
           e.name.toLowerCase().includes(s) ||
-          e.muscleGroup.toLowerCase().includes(s),
+          e.muscleGroup.toLowerCase().includes(s) ||
+          e.equipment.toLowerCase().includes(s),
       )
-  }, [visibleExercises, q, filter, favoriteSet])
+  }, [visibleExercises, q, filter])
 
-  const favoritesFiltered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return favoriteExercises
-      .filter((e) => filter === 'All' || e.muscleGroup === filter)
-      .filter(
-        (e) =>
-          !s ||
-          e.name.toLowerCase().includes(s) ||
-          e.muscleGroup.toLowerCase().includes(s),
-      )
-  }, [favoriteExercises, q, filter])
+  const sortedFiltered = useMemo(
+    () => [...filtered].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [filtered],
+  )
 
   const grouped = useMemo(() => {
-    const m = new Map<MuscleGroup, typeof filtered>()
+    const m = new Map<MuscleGroup, Exercise[]>()
     for (const e of filtered) {
       const arr = m.get(e.muscleGroup) ?? []
       arr.push(e)
       m.set(e.muscleGroup, arr)
+    }
+    for (const [mg, list] of m) {
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      m.set(mg, list)
     }
     return m
   }, [filtered])
@@ -271,179 +289,145 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
     return m
   }, [filtered, filter])
 
-  const order = FILTERS.filter((f) => f !== 'All') as MuscleGroup[]
+  const showTargetingCard = filter !== 'All'
   const active = activeId ? visibleExercises.find((e) => e.id === activeId) : null
   const help = active ? getExerciseHelp(active) : null
   const activeStretch = active ? getStretchDefinition(active.id) : null
+  const activeLastHistoryLine = useMemo(
+    () =>
+      active
+        ? formatExerciseLastHistoryLine(state.setLogs, active.id, state.settings.unit)
+        : null,
+    [active, state.setLogs, state.settings.unit],
+  )
 
-  function renderExerciseCard(e: Exercise, favoriteStar: boolean) {
+  function renderExerciseRow(e: Exercise) {
+    const favorited = favoriteSet.has(e.id)
     const stretch = getStretchDefinition(e.id)
+    const equipmentLabel = stretch ? 'Bodyweight' : e.equipment
     return (
-      <div
-        key={e.id}
-        className="relative min-h-[6.5rem] overflow-hidden group apex-exercise-tile apex-card-interactive"
-      >
+      <div key={e.id} className="apex-library-row">
         <button
           type="button"
-          className={`absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border transition-all active:scale-95 ${
-            favoriteStar
-              ? 'border-white/10 text-white/70 hover:bg-white/10'
-              : 'border-white/[0.1] text-[#a0a0a8] hover:border-white/20 hover:text-white hover:bg-white/[0.06]'
-          }`}
-          aria-label={
-            favoriteStar ? `Remove ${e.name} from favorites` : `Add ${e.name} to favorites`
-          }
-          onClick={(ev) => {
-            ev.stopPropagation()
-            toggleFavoriteExercise(e.id)
-          }}
-        >
-          <span className="text-[15px] leading-none" aria-hidden>
-            {favoriteStar ? '★' : '☆'}
-          </span>
-        </button>
-        <button
-          type="button"
-          className="absolute top-2 right-2 z-10 flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.1] text-[18px] font-bold leading-none text-[#ececee] transition-all hover:bg-white/[0.12] active:scale-95"
-          aria-label={`Add ${e.name} to plan`}
-          onClick={(ev) => {
-            ev.stopPropagation()
-            addPlanExercise(e.id)
-            notify('Added to today’s plan')
-          }}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          className="min-h-[6.5rem] w-full px-3 py-3 pl-11 pr-11 text-left flex flex-col justify-end"
+          className="apex-library-row__main"
           onClick={() => setActiveId(e.id)}
         >
-          <span className="text-[15px] font-semibold text-[#f0f0f2] leading-snug line-clamp-3 tracking-tight">
-            {e.name}
-          </span>
-          {stretch ? (
-            <span className="text-[10px] font-medium text-[#9898a0] mt-1 line-clamp-2">
-              {stretch.targets[0]}
-              {stretch.targets.length > 1 ? ` +${stretch.targets.length - 1}` : ''} · {stretch.hold}
-            </span>
-          ) : null}
+          <span className="apex-library-row__name">{e.name}</span>
+          <span className="apex-library-row__equipment">{equipmentLabel}</span>
+        </button>
+        <button
+          type="button"
+          className={`apex-library-row__star${favorited ? ' apex-library-row__star--on' : ''}`}
+          aria-label={
+            favorited ? `Remove ${e.name} from favorites` : `Add ${e.name} to favorites`
+          }
+          onClick={() => toggleFavoriteExercise(e.id)}
+        >
+          <i className={`ti ${favorited ? 'ti-star-filled' : 'ti-star'}`} aria-hidden />
         </button>
       </div>
     )
   }
 
   return (
-    <div className="apex-tab-stack pb-28">
-      <header>
-        <p className="apex-page-sub">Library</p>
-        <h1 className="apex-page-title mt-1">Exercises</h1>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed max-w-[20rem]">
-          {filter === 'Stretches'
-            ? `${STRETCH_DEFINITIONS.length} stretches with hold times, target muscles, and step-by-step instructions.`
-            : 'Search, filter by muscle, tap for form cues — add anything to today’s plan.'}
-        </p>
+    <div className="apex-library pb-28">
+      <header className="apex-library-header">
+        <div className="apex-library-header__top">
+          <div className="min-w-0">
+            <p className="apex-library-eyebrow">Library</p>
+            <h1 className="apex-library-title">Exercises</h1>
+            <p className="apex-library-subtitle">300+ movements, filters by muscle.</p>
+          </div>
+          <button
+            type="button"
+            className="apex-library-stretch-btn"
+            aria-label="Browse stretches"
+            onClick={() => setFilter('Stretches')}
+          >
+            <i className="ti ti-accessibility" aria-hidden />
+          </button>
+        </div>
         <button
           type="button"
-          className="mt-4 min-h-11 w-full max-w-[20rem] rounded-[14px] border border-white/[0.1] bg-white/[0.04] px-4 text-[13px] font-semibold text-[#ececee] transition-colors hover:bg-white/[0.08] active:scale-[0.99]"
+          className="mt-3 text-[12px] font-medium text-[#7d7d88] touch-manipulation hover:text-[#a0a0a8]"
           onClick={() => {
             setCreateOpen(true)
-            setCreateName('')
-            setCreateMuscle('Chest')
+            resetCreateForm()
           }}
         >
           Create custom exercise
         </button>
       </header>
 
-      <div className="apex-search-wrap">
-        <div className="apex-search-inner">
-          <svg
-            className="shrink-0 opacity-45"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M20 20l-4-4" strokeLinecap="round" />
-          </svg>
-          <input
-            className="min-h-10 flex-1 bg-transparent border-0 p-0 text-[15px] font-medium text-[#ececee] placeholder:text-[#9898a0] placeholder:font-normal focus:outline-none focus:ring-0"
-            placeholder="Search exercises…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+      <div className="apex-library-search">
+        <i className="ti ti-search apex-library-search__icon" aria-hidden />
+        <input
+          ref={searchRef}
+          className="apex-library-search__input"
+          placeholder={`Search ${exerciseCountLabel} exercises`}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <kbd className="apex-library-search__kbd" aria-hidden>
+          ⌘K
+        </kbd>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 touch-pan-x">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className={`shrink-0 min-h-11 min-w-11 px-4 rounded-full text-[13px] font-semibold transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
-              filter === f ? 'text-white' : 'text-white/35 hover:text-white/55'
-            }`}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
+      <div className="apex-library-filters" role="tablist" aria-label="Muscle group">
+        {FILTERS.map((f) => {
+          const on = filter === f
+          return (
+            <button
+              key={f}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              className={`apex-library-pill${on ? ' apex-library-pill--active' : ''}`}
+              onClick={() => setFilter(f)}
+            >
+              {f}
+            </button>
+          )
+        })}
       </div>
 
-      {favoritesFiltered.length ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">Favorites</h2>
-            <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
-              {favoritesFiltered.length}
-            </span>
-          </div>
-          <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-            {favoritesFiltered.map((e) => renderExerciseCard(e, true))}
-          </div>
-        </section>
-      ) : null}
+      {showTargetingCard ? <MuscleGroupTargetingCard muscleGroup={filter} /> : null}
 
-      {filter === 'Stretches' && stretchSections
-        ? STRETCH_SECTION_ORDER.map((sec) => {
-            const list = stretchSections.get(sec)
-            if (!list?.length) return null
-            return (
-              <section key={sec} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{sec}</h2>
-                  <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
-                    {list.length}
-                  </span>
-                </div>
-                <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-                  {list.map((e) => renderExerciseCard(e, false))}
-                </div>
-              </section>
-            )
-          })
-        : order.map((mg) => {
-            const list = grouped.get(mg)
-            if (!list?.length) return null
-            return (
-              <section key={mg} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#f0f0f2] tracking-tight">{mg}</h2>
-                  <span className="text-[11px] font-semibold text-[#9898a0] tabular-nums ml-auto">
-                    {list.length}
-                  </span>
-                </div>
-                <div className={`grid gap-3 ${gridCols === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
-                  {list.map((e) => renderExerciseCard(e, false))}
-                </div>
-              </section>
-            )
-          })}
+      {filter === 'Stretches' && stretchSections ? (
+        STRETCH_SECTION_ORDER.map((sec) => {
+          const list = stretchSections.get(sec)
+          if (!list?.length) return null
+          return (
+            <section key={sec} className="apex-library-section">
+              <div className="apex-library-section-head">
+                <h2 className="apex-library-section-title">
+                  {sec.toUpperCase()} · {list.length}
+                </h2>
+                <span className="apex-library-section-sort">A–Z</span>
+              </div>
+              <div className="apex-library-list">{list.map((e) => renderExerciseRow(e))}</div>
+            </section>
+          )
+        })
+      ) : filter !== 'All' ? (
+        <div className="apex-library-list">{sortedFiltered.map((e) => renderExerciseRow(e))}</div>
+      ) : (
+        GROUP_ORDER.map((mg) => {
+          const list = grouped.get(mg)
+          if (!list?.length) return null
+          return (
+            <section key={mg} className="apex-library-section">
+              <div className="apex-library-section-head">
+                <h2 className="apex-library-section-title">
+                  {mg.toUpperCase()} · {list.length}
+                </h2>
+                <span className="apex-library-section-sort">A–Z</span>
+              </div>
+              <div className="apex-library-list">{list.map((e) => renderExerciseRow(e))}</div>
+            </section>
+          )
+        })
+      )}
 
       {active && help ? (
         <div
@@ -458,6 +442,11 @@ export function ExercisesTab({ gridCols = 2 }: ExercisesTabProps) {
             <div className="flex justify-between gap-2 items-start">
               <div>
                 <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight">{active.name}</h3>
+                {activeLastHistoryLine ? (
+                  <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                    {activeLastHistoryLine}
+                  </p>
+                ) : null}
                 <p className="text-[12px] font-semibold text-[#a0a0a8] uppercase tracking-wider mt-1">
                   {activeStretch
                     ? `${activeStretch.targets.join(' · ')} · ${activeStretch.hold}`

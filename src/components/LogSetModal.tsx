@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { resolveBarWeight, readBarWeightPrefs } from '../lib/barWeightPrefs'
+import { getExerciseWeightPrefill } from '../lib/exerciseLastWeight'
 import type { LastWeightedSetDefaults } from '../lib/lastSession'
+import { getLastWeightedSetForExercise } from '../lib/lastSession'
 import { platesPerSide } from '../lib/stats'
-import type { Exercise } from '../types'
+import type { Exercise, SetLog } from '../types'
 
 /** Exercise is included so the parent never relies on a possibly-stale `logTarget` closure. */
 export type LogSetSavePayload = {
@@ -21,16 +24,156 @@ type Props = {
   unit: 'lbs' | 'kg'
   lastSessionLine?: string | null
   initialWeighted?: LastWeightedSetDefaults | null
+  setLogs?: SetLog[]
   onClose: () => void
-  /** Return false to keep the modal open (e.g. superset auto-advance). */
   onSave: (payload: LogSetSavePayload) => void | boolean
-  /** Switch to full-screen gym mode for this exercise. */
   onOpenGymMode?: () => void
+  overlayClassName?: string
 }
 
-const inp =
-  'rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+const PLATE_BG_KG: Record<number, string> = {
+  25: '#c0392b',
+  20: '#2980b9',
+  15: '#f1c40f',
+  10: '#27ae60',
+  5: '#ecf0f1',
+  2.5: '#1a1a1a',
+  1.25: '#4a5568',
+}
 
+const PLATE_BG_LBS: Record<number, string> = {
+  45: '#c0392b',
+  35: '#f1c40f',
+  25: '#27ae60',
+  10: '#2980b9',
+  5: '#ecf0f1',
+  2.5: '#1a1a1a',
+}
+
+function weightIncrement(unit: 'lbs' | 'kg'): number {
+  return unit === 'kg' ? 1.25 : 2.5
+}
+
+function defaultSheetPrefill(unit: 'lbs' | 'kg'): LastWeightedSetDefaults {
+  return {
+    bodyweight: false,
+    weight: unit === 'kg' ? 20 : 45,
+    reps: 8,
+    sets: 1,
+  }
+}
+
+function formatSheetLastLine(
+  logs: SetLog[],
+  exerciseId: string,
+  unit: 'lbs' | 'kg',
+): string | null {
+  const last = getLastWeightedSetForExercise(logs, exerciseId)
+  if (!last) return null
+  if (last.bodyweight) return `Last: Bodyweight × ${last.reps}`
+  return `Last: ${last.weight ?? 0} ${unit} × ${last.reps}`
+}
+
+function formatWeightValue(n: number, unit: 'lbs' | 'kg'): string {
+  const step = weightIncrement(unit)
+  const rounded = Math.round(n / step) * step
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '')
+}
+
+function plateBadgeColors(label: string, unit: 'lbs' | 'kg'): { background: string; color: string } {
+  const n = parseFloat(label)
+  const map = unit === 'kg' ? PLATE_BG_KG : PLATE_BG_LBS
+  const background = map[n] ?? '#3d4f5f'
+  return { background, color: n === 5 ? '#1a1a1a' : '#ffffff' }
+}
+
+function useRepeatingStep(onStep: () => void) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const delayRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    if (delayRef.current) {
+      clearTimeout(delayRef.current)
+      delayRef.current = null
+    }
+  }, [])
+
+  const start = useCallback(() => {
+    stop()
+    onStep()
+    delayRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(onStep, 140)
+      setTimeout(() => {
+        if (!intervalRef.current) return
+        clearInterval(intervalRef.current)
+        intervalRef.current = setInterval(onStep, 55)
+      }, 550)
+    }, 380)
+  }, [onStep, stop])
+
+  useEffect(() => () => stop(), [stop])
+
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault()
+      ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+      start()
+    },
+    onPointerUp: stop,
+    onPointerCancel: stop,
+    onPointerLeave: stop,
+  }
+}
+
+function SheetStepperCard({
+  label,
+  valueNode,
+  onMinus,
+  onPlus,
+  minusLabel,
+  plusLabel,
+}: {
+  label: string
+  valueNode: React.ReactNode
+  onMinus: () => void
+  onPlus: () => void
+  minusLabel: string
+  plusLabel: string
+}) {
+  const minusHold = useRepeatingStep(onMinus)
+  const plusHold = useRepeatingStep(onPlus)
+
+  return (
+    <div className="apex-log-set-sheet__stepper-card">
+      <p className="apex-log-set-sheet__stepper-label">{label}</p>
+      <div className="apex-log-set-sheet__stepper-row">
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={minusLabel}
+          {...minusHold}
+        >
+          −
+        </button>
+        <div className="apex-log-set-sheet__stepper-value">{valueNode}</div>
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={plusLabel}
+          {...plusHold}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Legacy stepper for QuickLogModal / EditSetLogModal */
 export function ApexStepper({
   label,
   value,
@@ -139,110 +282,100 @@ export function LogSetModal({
   open,
   exercise,
   unit,
-  lastSessionLine,
+  lastSessionLine: _lastSessionLine,
   initialWeighted,
+  setLogs = [],
   onClose,
   onSave,
   onOpenGymMode,
+  overlayClassName,
 }: Props) {
   const [mode, setMode] = useState<'weighted' | 'timed'>('weighted')
   const [bodyweight, setBodyweight] = useState(false)
-  const [weight, setWeight] = useState('')
-  const [reps, setReps] = useState(10)
-  const [sets, setSets] = useState(3)
-  const [duration, setDuration] = useState('60')
-  const [note, setNote] = useState('')
-  const [listening, setListening] = useState(false)
+  const [weight, setWeight] = useState(0)
+  const [reps, setReps] = useState(8)
+  const [duration, setDuration] = useState(60)
+  const [plateCalcOpen, setPlateCalcOpen] = useState(false)
+  const [sheetDragY, setSheetDragY] = useState(0)
+  const dragStartY = useRef(0)
+  const dragging = useRef(false)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  const wStep = weightIncrement(unit)
+
+  useEffect(() => {
+    if (!open) {
+      setSheetDragY(0)
+      setPlateCalcOpen(false)
+      dragging.current = false
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open || !exercise) return
-    if (initialWeighted) {
-      setMode('weighted')
-      setBodyweight(initialWeighted.bodyweight)
-      setWeight(
-        initialWeighted.bodyweight || initialWeighted.weight == null
-          ? ''
-          : String(initialWeighted.weight),
-      )
-      setReps(initialWeighted.reps)
-      setSets(initialWeighted.sets)
+    const lastLog = [...setLogs]
+      .filter((l) => l.exerciseId === exercise.id)
+      .sort((a, b) => b.at - a.at)[0]
+    if (lastLog?.kind === 'timed') {
+      setMode('timed')
+      setDuration(Math.max(0, Math.floor(lastLog.durationSec)))
     } else {
       setMode('weighted')
-      setBodyweight(false)
-      setWeight('')
-      setReps(10)
-      setSets(3)
     }
-    setDuration('60')
-    setNote('')
-  }, [open, exercise?.id, initialWeighted])
+
+    const prefill =
+      initialWeighted ??
+      getExerciseWeightPrefill(setLogs, exercise.id) ??
+      defaultSheetPrefill(unit)
+
+    setBodyweight(prefill.bodyweight)
+    setWeight(
+      prefill.bodyweight || prefill.weight == null
+        ? defaultSheetPrefill(unit).weight ?? 0
+        : prefill.weight,
+    )
+    setReps(prefill.reps)
+    setPlateCalcOpen(false)
+  }, [open, exercise?.id, initialWeighted, setLogs, unit])
+
+  const lastLine = useMemo(() => {
+    if (!exercise) return null
+    return formatSheetLastLine(setLogs, exercise.id, unit)
+  }, [exercise, setLogs, unit])
 
   const plateBreakdown = useMemo(() => {
-    if (mode !== 'weighted' || bodyweight) return null
-    const w = Number(weight)
-    if (!Number.isFinite(w) || w <= 0) return null
-    return platesPerSide(w, unit)
-  }, [mode, bodyweight, weight, unit])
-
-  const applyVoice = useCallback(
-    (transcript: string) => {
-      applyVoiceTranscript(
-        transcript,
-        setBodyweight,
-        setWeight,
-        setReps,
-        setSets,
-        setDuration,
-        setMode,
-      )
-    },
-    [],
-  )
+    if (!open || bodyweight || weight <= 0) return null
+    const bar = resolveBarWeight(unit, readBarWeightPrefs())
+    return platesPerSide(weight, unit, bar)
+  }, [open, bodyweight, weight, unit])
 
   if (!open || !exercise) return null
 
   const exerciseSnapshot = exercise
 
-  function startVoice() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) {
+  function adjustWeight(delta: number) {
+    if (bodyweight) {
+      setBodyweight(false)
+      setWeight(defaultSheetPrefill(unit).weight ?? wStep)
       return
     }
-    const r = new SR()
-    r.lang = 'en-US'
-    r.interimResults = false
-    r.maxAlternatives = 1
-    r.onresult = (ev) => {
-      const transcript = ev.results[0]?.[0]?.transcript
-      if (transcript) applyVoice(transcript)
-    }
-    r.onerror = () => setListening(false)
-    r.onend = () => setListening(false)
-    try {
-      r.start()
-      setListening(true)
-    } catch {
-      setListening(false)
-    }
+    setWeight((w) => Math.max(0, Math.round((w + delta) * 100) / 100))
   }
 
   function submit() {
-    const rawW = weight.trim() === '' ? null : Number(weight)
-    const w = rawW != null && Number.isFinite(rawW) ? rawW : null
     const r = Math.max(0, Math.floor(reps))
-    const s = Math.max(1, Math.floor(sets))
-    const d = Math.max(0, Math.floor(Number(duration) || 0))
+    const d = Math.max(0, Math.floor(duration))
     try {
       const shouldClose =
         onSave({
           exercise: exerciseSnapshot,
           mode,
-          weight: bodyweight ? null : w == null ? 0 : w,
+          weight: bodyweight ? null : weight,
           bodyweight,
           reps: r,
-          sets: s,
+          sets: 1,
           durationSec: d,
-          note: note.trim(),
+          note: '',
         }) !== false
       if (shouldClose) onClose()
     } catch (e) {
@@ -250,182 +383,157 @@ export function LogSetModal({
     }
   }
 
+  function onSheetTouchStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return
+    dragStartY.current = e.touches[0].clientY
+    dragging.current = true
+  }
+
+  function onSheetTouchMove(e: React.TouchEvent) {
+    if (!dragging.current || e.touches.length !== 1) return
+    const dy = e.touches[0].clientY - dragStartY.current
+    if (dy > 0) setSheetDragY(dy)
+  }
+
+  function onSheetTouchEnd() {
+    if (sheetDragY > 90) onClose()
+    else setSheetDragY(0)
+    dragging.current = false
+  }
+
+  const weightDisplay = bodyweight ? (
+    <span className="apex-log-set-sheet__num-main">BW</span>
+  ) : (
+    <>
+      <span className="apex-log-set-sheet__num-main tabular-nums">
+        {formatWeightValue(weight, unit)}
+      </span>
+      <span className="apex-log-set-sheet__num-unit">{unit}</span>
+    </>
+  )
+
   return (
     <div
       role="presentation"
-      className="apex-modal-overlay fixed inset-0 z-[70] flex items-end justify-center sm:items-center p-0 sm:p-4"
+      className={`apex-log-set-sheet-overlay fixed inset-0 flex items-end justify-center p-0 ${
+        overlayClassName ?? 'z-[70]'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-t-[12px] sm:rounded-[12px] apex-card apex-modal-panel max-h-[90vh] overflow-y-auto"
-        
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Log set — ${exercise.name}`}
+        className="apex-log-set-sheet w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        style={{
+          transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
+          transition: dragging.current ? 'none' : 'transform 0.22s ease-out',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="apex-section-label">Log set</p>
-            <h2 className="mt-1 text-[13px] font-normal text-[#e0e0e0]">{exercise.name}</h2>
-            {lastSessionLine ? (
-              <p className="mt-2 text-[12px] font-normal text-[#a0a0a8] leading-relaxed">{lastSessionLine}</p>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Voice input"
-              className={`relative min-h-11 min-w-11 rounded-full border border-[#1e1e1e] bg-[#121212] text-[#e0e0e0] flex items-center justify-center ${
-                listening ? 'apex-mic-listening' : ''
-              }`}
-              style={
-                listening
-                  ? { borderColor: 'rgba(255,255,255,0.45)', color: '#ffffff' }
-                  : undefined
-              }
-              onClick={startVoice}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-              </svg>
-            </button>
-            {onOpenGymMode ? (
-              <button
-                type="button"
-                className="min-h-11 px-3 rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[12px] font-medium text-[#e0e0e0]"
-                onClick={onOpenGymMode}
-              >
-                Gym mode
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="min-h-11 min-w-11 rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[13px] text-[#e0e0e0]"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+        <div
+          className="apex-log-set-sheet__handle-wrap"
+          onTouchStart={onSheetTouchStart}
+          onTouchMove={onSheetTouchMove}
+          onTouchEnd={onSheetTouchEnd}
+        >
+          <span className="apex-log-set-sheet__pill" aria-hidden />
         </div>
 
-        <div className="mt-4 flex rounded-[12px] bg-[#121212] p-1 border border-[#1e1e1e]">
-          <button
-            type="button"
-            className={`min-h-11 flex-1 rounded-[8px] text-[13px] font-normal ${
-              mode === 'weighted' ? 'bg-[#161616] text-[#e0e0e0]' : 'text-[#a0a0a8]'
-            }`}
-            onClick={() => setMode('weighted')}
-          >
-            Weighted
-          </button>
-          <button
-            type="button"
-            className={`min-h-11 flex-1 rounded-[8px] text-[13px] font-normal ${
-              mode === 'timed' ? 'bg-[#161616] text-[#e0e0e0]' : 'text-[#a0a0a8]'
-            }`}
-            onClick={() => setMode('timed')}
-          >
-            Timed
-          </button>
-        </div>
+        <h2 className="apex-log-set-sheet__title">{exercise.name}</h2>
+        {lastLine ? <p className="apex-log-set-sheet__last">{lastLine}</p> : null}
 
         {mode === 'weighted' ? (
-          <div className="mt-4 space-y-3">
-            <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
-              <input
-                type="checkbox"
-                checked={bodyweight}
-                onChange={(e) => setBodyweight(e.target.checked)}
-                className="apex-checkbox"
+          <>
+            <div className="apex-log-set-sheet__steppers">
+              <SheetStepperCard
+                label="WEIGHT"
+                valueNode={weightDisplay}
+                onMinus={() => adjustWeight(-wStep)}
+                onPlus={() => adjustWeight(wStep)}
+                minusLabel="Decrease weight"
+                plusLabel="Increase weight"
               />
-              Bodyweight
-            </label>
-            {!bodyweight && (
-              <label className="block">
-                <span className="apex-section-label block mb-2">Weight ({unit})</span>
-                <input
-                  inputMode="decimal"
-                  className={`mt-1 w-full min-h-12 ${inp}`}
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  placeholder="0"
-                />
-                {plateBreakdown ? (
-                  <div className="mt-3">
-                    <p
-                      className="mb-2 text-[10px] font-normal uppercase tracking-[0.08em]"
-                      style={{ color: 'rgba(255,255,255,0.3)' }}
-                    >
-                      Plates per side
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {plateBreakdown.chips.map((chip, i) => (
-                        <span
-                          key={`${chip.label}-${i}`}
-                          className="text-[12px] font-medium text-white"
-                          style={{
-                            borderRadius: 99,
-                            padding: '4px 10px',
-                            border: `0.5px solid rgba(255,255,255,${chip.opacity})`,
-                            background: 'transparent',
-                          }}
-                        >
-                          {chip.label}
-                        </span>
-                      ))}
-                      <span
-                        className="text-[12px] font-medium"
-                        style={{ color: 'rgba(255,255,255,0.3)' }}
-                      >
-                        {plateBreakdown.barLabel}
-                      </span>
+              <SheetStepperCard
+                label="REPS"
+                valueNode={
+                  <span className="apex-log-set-sheet__num-main tabular-nums">{reps}</span>
+                }
+                onMinus={() => setReps((r) => Math.max(0, r - 1))}
+                onPlus={() => setReps((r) => r + 1)}
+                minusLabel="Decrease reps"
+                plusLabel="Increase reps"
+              />
+            </div>
+
+            {!bodyweight && weight > 0 ? (
+              <div className="apex-log-set-sheet__plate-wrap">
+                <button
+                  type="button"
+                  className="apex-log-set-sheet__plate-link"
+                  onClick={() => setPlateCalcOpen((o) => !o)}
+                  aria-expanded={plateCalcOpen}
+                >
+                  🏋️ Plate calculator
+                </button>
+                {plateCalcOpen && plateBreakdown ? (
+                  <div className="apex-log-set-sheet__plate-panel">
+                    <p className="apex-log-set-sheet__plate-heading">Per side</p>
+                    <div className="apex-log-set-sheet__plate-badges">
+                      {plateBreakdown.chips.length ? (
+                        plateBreakdown.chips.map((chip, i) => {
+                          const { background, color } = plateBadgeColors(chip.label, unit)
+                          return (
+                            <span
+                              key={`${chip.label}-${i}`}
+                              className="apex-log-set-sheet__plate-badge"
+                              style={{ background, color }}
+                            >
+                              {chip.label}
+                            </span>
+                          )
+                        })
+                      ) : (
+                        <span className="apex-log-set-sheet__plate-empty">Bar only</span>
+                      )}
                     </div>
+                    <p className="apex-log-set-sheet__plate-bar">{plateBreakdown.barLabel}</p>
                   </div>
                 ) : null}
-              </label>
-            )}
-            <ApexStepper label="Reps" value={reps} onChange={setReps} min={0} />
-            <ApexStepper label="Sets" value={sets} onChange={(n) => setSets(Math.max(1, n))} min={1} />
-          </div>
+              </div>
+            ) : null}
+          </>
         ) : (
-          <div className="mt-4 space-y-3">
-            <label className="block">
-              <span className="apex-section-label block mb-2">Duration (seconds)</span>
-              <input
-                inputMode="numeric"
-                className={`mt-1 w-full min-h-12 ${inp}`}
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-              />
-            </label>
+          <div className="apex-log-set-sheet__steppers apex-log-set-sheet__steppers--single">
+            <SheetStepperCard
+              label="SECONDS"
+              valueNode={
+                <span className="apex-log-set-sheet__num-main tabular-nums">{duration}</span>
+              }
+              onMinus={() => setDuration((d) => Math.max(0, d - 5))}
+              onPlus={() => setDuration((d) => d + 5)}
+              minusLabel="Decrease duration"
+              plusLabel="Increase duration"
+            />
           </div>
         )}
 
-        <label className="mt-4 block">
-          <span className="apex-section-label block mb-2">Note</span>
-          <textarea
-            className={`mt-1 w-full min-h-[4.5rem] rounded-[12px] border border-[#1e1e1e] bg-[#121212] px-3 py-2 text-[16px] font-normal text-[#e0e0e0]`}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </label>
+        {onOpenGymMode ? (
+          <button
+            type="button"
+            className="apex-log-set-sheet__gym-link"
+            onClick={onOpenGymMode}
+          >
+            Open gym mode
+          </button>
+        ) : null}
 
-        <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            className="min-h-12 flex-1 rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
-            onClick={onClose}
-          >
-            Cancel
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
+          <button type="button" className="apex-log-set-sheet__log-btn" onClick={submit}>
+            Log set
           </button>
-          <button
-            type="button"
-            className="apex-btn-primary min-h-12 flex-1 text-[13px] font-medium"
-            onClick={submit}
-          >
-            Save
-          </button>
-        </div>
+        </footer>
       </div>
     </div>
   )

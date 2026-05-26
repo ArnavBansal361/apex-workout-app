@@ -14,21 +14,17 @@ type Props = {
 
 type MoodKey = keyof WorkoutMoodResponses
 
-const QUESTIONS: { key: MoodKey; label: string; low: string; high: string }[] = [
-  { key: 'moodBefore', label: 'Mood before', low: 'Low', high: 'Great' },
-  { key: 'moodAfter', label: 'Mood after', low: 'Low', high: 'Great' },
+const QUESTIONS: { key: MoodKey; label: string }[] = [
+  { key: 'moodBefore', label: 'How did you feel going in?' },
+  { key: 'moodAfter', label: 'How do you feel now?' },
 ]
 
 function ScaleRow({
   label,
-  low,
-  high,
   value,
   onChange,
 }: {
   label: string
-  low: string
-  high: string
   value: number | null
   onChange: (n: number) => void
 }) {
@@ -55,10 +51,6 @@ function ScaleRow({
             </button>
           )
         })}
-      </div>
-      <div className="flex justify-between text-[10px] font-medium text-[#7d7d88] uppercase tracking-wide">
-        <span>{low}</span>
-        <span>{high}</span>
       </div>
     </div>
   )
@@ -105,15 +97,11 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
     onComplete()
   }
 
-  function skip() {
-    onClose()
-  }
-
   return (
     <div
       role="presentation"
       className="apex-modal-overlay fixed inset-0 z-[96] flex items-end justify-center sm:items-center p-4"
-      onClick={skip}
+      onClick={onClose}
     >
       <div
         role="dialog"
@@ -122,34 +110,33 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
         className="w-full max-w-sm apex-card p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="apex-section-label">Check-in</p>
+        <p className="apex-section-label">Post-workout</p>
         <h2 id="mood-checkin-title" className="mt-2 text-[15px] font-semibold text-[#ececee]">
-          How did that session feel?
+          Quick check-in
         </h2>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
-          Two quick taps — we&apos;ll track your mood lift over time.
-        </p>
 
         <div className="mt-5 space-y-5">
           {QUESTIONS.map((q) => (
             <ScaleRow
               key={q.key}
               label={q.label}
-              low={q.low}
-              high={q.high}
               value={responses[q.key] ?? null}
               onChange={(n) => patch(q.key, n)}
             />
           ))}
         </div>
 
-        <div className="mt-6 flex gap-3">
-          <button type="button" className="apex-btn min-h-12 flex-1" onClick={skip}>
+        <div className="mt-6 flex flex-col gap-2">
+          <button
+            type="button"
+            className="apex-btn min-h-12 w-full text-[13px] font-medium text-[#a0a0a8]"
+            onClick={onClose}
+          >
             Skip
           </button>
           <button
             type="button"
-            className="apex-btn-primary min-h-12 flex-1 disabled:opacity-45"
+            className="apex-btn-primary min-h-12 w-full disabled:opacity-45"
             disabled={!complete || saving}
             onClick={() => void save()}
           >
@@ -157,6 +144,143 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const FEEL_EMOJIS = ['😞', '😐', '🙂', '😄', '💪'] as const
+const ENERGY_EMOJIS = ['🪫', '😴', '😐', '⚡', '🔋'] as const
+
+function RatingSliderCard({
+  label,
+  value,
+  emojis,
+  onChange,
+}: {
+  label: string
+  value: number
+  emojis: readonly string[]
+  onChange: (n: number) => void
+}) {
+  const pct = ((value - 1) / 4) * 100
+  return (
+    <div className="apex-post-workout-card">
+      <p className="apex-post-workout-card__label">{label}</p>
+      <input
+        type="range"
+        min={1}
+        max={5}
+        step={1}
+        value={value}
+        className="apex-post-workout-slider"
+        style={{
+          background: `linear-gradient(to right, #3d7ab5 0%, #3d7ab5 ${pct}%, rgba(255,255,255,0.12) ${pct}%, rgba(255,255,255,0.12) 100%)`,
+        }}
+        aria-label={label}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <div className="apex-post-workout-emojis" aria-hidden>
+        {emojis.map((emoji, i) => (
+          <span
+            key={emoji}
+            className={`apex-post-workout-emoji${value === i + 1 ? ' apex-post-workout-emoji--active' : ''}`}
+          >
+            {emoji}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+type PostWorkoutCheckinProps = {
+  open: boolean
+  todayKey: string
+  trainingMode: import('../lib/trainingMode').TrainingMode | null
+  onDone: () => void
+  onSkip: () => void
+}
+
+export function PostWorkoutCheckinScreen({
+  open,
+  todayKey,
+  trainingMode,
+  onDone,
+  onSkip,
+}: PostWorkoutCheckinProps) {
+  const { logPostWorkoutCheckin } = useWorkout()
+  const [feel, setFeel] = useState(3)
+  const [energy, setEnergy] = useState(3)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setVisible(false)
+      return
+    }
+    setFeel(3)
+    setEnergy(3)
+    const id = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(id)
+  }, [open])
+
+  useEffect(() => {
+    document.body.classList.toggle('apex-post-workout-checkin-active', open)
+    return () => document.body.classList.remove('apex-post-workout-checkin-active')
+  }, [open])
+
+  if (!open) return null
+
+  function finish(save: boolean) {
+    if (save) {
+      logPostWorkoutCheckin({
+        dateKey: todayKey,
+        feelRating: feel,
+        energyRating: energy,
+        trainingMode,
+      })
+      onDone()
+    } else {
+      onSkip()
+    }
+  }
+
+  return (
+    <div
+      className={`apex-post-workout-checkin fixed inset-0 z-[102] flex flex-col bg-[#090d14] text-white apex-post-workout-checkin--${
+        visible ? 'in' : 'out'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="post-workout-checkin-title"
+    >
+      <div className="apex-post-workout-checkin__body flex-1 flex flex-col px-5 min-h-0 overflow-y-auto">
+        <h1 id="post-workout-checkin-title" className="apex-post-workout-checkin__title">
+          Nice work.
+        </h1>
+        <div className="apex-post-workout-checkin__sliders">
+          <RatingSliderCard
+            label="How did that feel?"
+            value={feel}
+            emojis={FEEL_EMOJIS}
+            onChange={setFeel}
+          />
+          <RatingSliderCard
+            label="Energy level now"
+            value={energy}
+            emojis={ENERGY_EMOJIS}
+            onChange={setEnergy}
+          />
+        </div>
+      </div>
+      <footer className="apex-post-workout-checkin__footer apex-safe-bottom shrink-0 px-4 pb-4">
+        <button type="button" className="apex-post-workout-done-btn" onClick={() => finish(true)}>
+          Done
+        </button>
+        <button type="button" className="apex-post-workout-skip-btn" onClick={() => finish(false)}>
+          Skip
+        </button>
+      </footer>
     </div>
   )
 }

@@ -1,101 +1,148 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
 import { showRestTimerCompleteNotification } from '../lib/desktopNotifications'
+import { hapticRestTimerComplete } from '../lib/haptics'
+
+function formatRestCountdown(totalSec: number): string {
+  const sec = Math.max(0, Math.floor(totalSec))
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function isGymModeActive(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.body.classList.contains('apex-gym-mode-active')
+  )
+}
 
 export function RestBanner() {
-  const { state, dismissRestTimer, notify } = useWorkout()
+  const { state, dismissRestTimer } = useWorkout()
   const { clock } = useWorkoutTick()
-  const { restTimer, settings } = state
-  const alertedRef = useRef(false)
-  const slideDismissRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const { restTimer, settings, gymSession } = state
+  const completedRef = useRef(false)
+  const dismissTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const [slideIn, setSlideIn] = useState(false)
   const [slideOut, setSlideOut] = useState(false)
-  const [entered, setEntered] = useState(false)
-
-  const visible = settings.restTimerEnabled && !restTimer.dismissed && restTimer.endAt != null
-  const msLeft = visible && restTimer.endAt ? restTimer.endAt - clock : 0
-  const done = visible && msLeft <= 0
-  const left = !visible || done ? 0 : Math.max(0, Math.ceil(msLeft / 1000))
-  const pulse = visible && !done && left > 0 && left <= 10
+  const [gymMode, setGymMode] = useState(isGymModeActive)
 
   useEffect(() => {
-    alertedRef.current = false
+    const sync = () => setGymMode(isGymModeActive())
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const durationSec = Math.max(1, restTimer.durationSec || settings.restTimerSeconds || 90)
+  const startedAt =
+    restTimer.startedAt ??
+    (restTimer.endAt != null ? restTimer.endAt - durationSec * 1000 : null)
+
+  const timerActive =
+    settings.restTimerEnabled &&
+    !restTimer.dismissed &&
+    restTimer.endAt != null &&
+    startedAt != null
+
+  const visible = timerActive && !gymMode
+
+  const durationMs = durationSec * 1000
+  const msLeft = visible && restTimer.endAt ? Math.max(0, restTimer.endAt - clock) : 0
+  const done = visible && msLeft <= 0
+  const secLeft = !visible || done ? 0 : Math.max(0, Math.ceil(msLeft / 1000))
+  const progressPct = visible && !done ? Math.min(100, (msLeft / durationMs) * 100) : 0
+
+  const navHidden = gymSession.active || gymMode
+
+  useEffect(() => {
+    completedRef.current = false
     setSlideOut(false)
-    setEntered(false)
-    if (slideDismissRef.current != null) {
-      window.clearTimeout(slideDismissRef.current)
-      slideDismissRef.current = null
+    setSlideIn(false)
+    if (dismissTimerRef.current != null) {
+      window.clearTimeout(dismissTimerRef.current)
+      dismissTimerRef.current = null
     }
     if (!visible) return
-    const id = window.requestAnimationFrame(() => setEntered(true))
+    const id = window.requestAnimationFrame(() => setSlideIn(true))
     return () => window.cancelAnimationFrame(id)
-  }, [restTimer.endAt, visible])
+  }, [restTimer.endAt, startedAt, visible])
 
   useEffect(() => {
-    if (!visible || !done || restTimer.dismissed || !restTimer.endAt) return
-    if (alertedRef.current) return
-    alertedRef.current = true
-    notify('Rest complete — time for your next set!')
+    if (!visible || !done || completedRef.current) return
+    completedRef.current = true
+    hapticRestTimerComplete()
     showRestTimerCompleteNotification()
-    try {
-      void window.navigator?.vibrate?.([120, 60, 120])
-    } catch {
-      /* ignore */
-    }
     setSlideOut(true)
-    slideDismissRef.current = window.setTimeout(() => {
+    dismissTimerRef.current = window.setTimeout(() => {
       dismissRestTimer()
       setSlideOut(false)
-      setEntered(false)
-    }, 320)
+      setSlideIn(false)
+    }, 250)
     return () => {
-      if (slideDismissRef.current != null) window.clearTimeout(slideDismissRef.current)
+      if (dismissTimerRef.current != null) window.clearTimeout(dismissTimerRef.current)
     }
-  }, [visible, done, restTimer.dismissed, restTimer.endAt, notify, dismissRestTimer])
+  }, [visible, done, dismissRestTimer])
+
+  function skipRest() {
+    setSlideOut(true)
+    dismissTimerRef.current = window.setTimeout(() => {
+      dismissRestTimer()
+      setSlideOut(false)
+      setSlideIn(false)
+    }, 250)
+  }
 
   if (!visible) return null
 
-  const mm = String(Math.floor(left / 60)).padStart(2, '0')
-  const ss = String(left % 60).padStart(2, '0')
-
   return (
     <div
-      className="fixed inset-x-0 z-[55] pointer-events-none"
-      style={{ top: 'max(env(safe-area-inset-top, 0px), 0px)' }}
+      className={`apex-rest-banner fixed inset-x-0 z-[55] pointer-events-none ${
+        navHidden ? 'apex-rest-banner--no-nav' : ''
+      }`}
+      role="status"
+      aria-live="polite"
     >
       <div
-        className={`pointer-events-auto flex w-full items-center justify-between gap-3 px-4 transition-transform duration-300 ease-out ${
-          slideOut || !entered ? '-translate-y-full' : 'translate-y-0'
+        className={`apex-rest-banner__panel pointer-events-auto ${
+          slideIn && !slideOut ? 'apex-rest-banner__panel--in' : 'apex-rest-banner__panel--out'
         }`}
-        style={{
-          height: 44,
-          background: 'var(--apex-surface-card)',
-          borderBottom: '0.5px solid var(--apex-border)',
-        }}
       >
-        <div className="flex items-baseline gap-2 min-w-0">
-          <span className="text-[11px] font-normal text-[var(--apex-text-secondary)]">
-            Rest
-          </span>
-          <span
-            className={`text-[15px] font-medium tabular-nums text-[var(--apex-text-primary)] ${
-              pulse ? 'apex-rest-timer-pulse' : ''
-            }`}
-          >
-            {done ? '0:00' : `${mm}:${ss}`}
-          </span>
+        <div className="apex-rest-banner__track" aria-hidden>
+          <div
+            className="apex-rest-banner__fill"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 shrink-0 touch-manipulation text-[var(--apex-text-secondary)]"
-          onClick={() => {
-            setSlideOut(true)
-            window.setTimeout(() => dismissRestTimer(), 280)
-          }}
-          aria-label="Skip rest"
-        >
-          <i className="ti ti-x text-[14px] leading-none" aria-hidden />
-          <span className="text-[12px] font-normal">Skip</span>
-        </button>
+        <div className="apex-rest-banner__row">
+          <span className="apex-rest-banner__clock" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+              <path
+                d="M12 7v5l3 2"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <div className="apex-rest-banner__text">
+            <span className="apex-rest-banner__label">REST</span>
+            <span className="apex-rest-banner__time tabular-nums">
+              {done ? '0:00' : formatRestCountdown(secLeft)}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="apex-rest-banner__skip"
+            onClick={skipRest}
+            aria-label="Skip rest"
+          >
+            Skip ›
+          </button>
+        </div>
       </div>
     </div>
   )

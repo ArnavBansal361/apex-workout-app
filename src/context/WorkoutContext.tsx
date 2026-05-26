@@ -31,6 +31,7 @@ import {
   OFFLINE_SYNC_TOAST,
   saveState,
   stripNotificationMessage,
+  writePostWorkoutCheckinEnabled,
 } from '../lib/persist'
 import { dateKey, weekStartMonday } from '../lib/dates'
 import { computeWeekSummary } from '../lib/weekSummary'
@@ -39,25 +40,55 @@ import {
   POST_WORKOUT_PROTEIN_DELAY_MS,
   POST_WORKOUT_PROTEIN_MEAL_LOOKBACK_MS,
   POST_WORKOUT_PROTEIN_MESSAGE,
+  showGymArrivalNotification,
+  showGymLeaveNotification,
   showPostWorkoutProteinNotification,
   showWeeklySummaryNotification,
 } from '../lib/desktopNotifications'
+import { startGymGeofenceWatch } from '../lib/gymLocation'
 import { hasMealLoggedWithin } from '../lib/stats'
-import { computeIsPr } from '../lib/pr'
+import { beatsStoredWeightPr, computeIsPr } from '../lib/pr'
 import { evaluateAchievements, streakCurrent } from '../lib/achievements'
-import type { TrainingMode } from '../lib/trainingMode'
+import { scheduledTrainingModeForDay, type TrainingMode } from '../lib/trainingMode'
 import { detectStreakShieldConsumption } from '../lib/streakShield'
 import { cardioElapsedMs, gymElapsedMs } from '../lib/timers'
 import { preserveLocalOnlyFields } from '../lib/cycleTracking'
+import { equipmentForExercise } from '../lib/equipment'
 import { pickDeloadExerciseIds } from '../lib/deload'
-import { syncTendedUserStateSnapshots } from '../lib/tendedUserState'
+import { saveExerciseLastWeight } from '../lib/exerciseLastWeight'
+import {
+  buildSchedulePatchesFromTemplate,
+  todayPlanIdsFromTemplate,
+  type AiWeeklyWorkoutTemplate,
+} from '../lib/aiWorkoutTemplates'
+import { buildTendedUserStateDaySnapshot, syncTendedUserStateSnapshots } from '../lib/tendedUserState'
 import { currentWeekStartKey } from '../lib/volumeStats'
+import {
+  hapticOnSetLogged,
+  hapticOnWorkoutComplete,
+} from '../lib/haptics'
+import { touchAiIntelligenceUpdated } from '../lib/aiIntelligenceStatus'
+import {
+  estimateWorkoutCaloriesKcal,
+  gymSessionStartedAtMs,
+  isAppleHealthAvailable,
+  readAppleHealthTodayMetrics,
+  requestAppleHealthAuthorization,
+  shouldAutoFillSleepFromHealth,
+  writeGymSessionToAppleHealth,
+} from '../lib/appleHealth'
 import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
 import { applyTrainerShareToState, syncTrainerShareFromState } from '../lib/trainer'
 import {
   completeWorkoutSession,
+  ensureFriendProfile,
   fetchLatestCoachNoteForClient,
+  fetchTendedOnboardingComplete,
+  fetchTendedPostWorkoutCheckin,
   fetchUserWorkoutState,
+  upsertTendedOnboardingComplete,
+  upsertTendedUserState,
+  updateLatestWorkoutSessionRatings,
   insertDeloadWeekEvent,
   pickWorkoutStateForHydrate,
   supabase,
@@ -83,6 +114,7 @@ import type {
   TodayLayoutPersist,
   TodaySupersetPair,
   WeightedSetLog,
+  PostWorkoutCheckinLogEntry,
   WorkoutMoodLogEntry,
   WorkoutTemplate,
 } from '../types'
@@ -105,14 +137,16 @@ type Ctx = {
   dismissRestTimer: () => void
   prCelebration: PrCelebrationData | null
   dismissPrCelebration: () => void
+  gymSpotifyPromptOpen: boolean
+  dismissGymSpotifyPrompt: () => void
   addSetLog: (
     partial: Omit<WeightedSetLog, 'id' | 'at' | 'isPr'> | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>,
-    options?: { deferRestTimer?: boolean },
+    options?: { deferRestTimer?: boolean; skipRestTimer?: boolean },
   ) => void
   linkSuperset: (exerciseIdA: string, exerciseIdB: string) => void
   getSupersetPartner: (exerciseId: string) => string | null
   addCardioEntry: (name: string, durationMinutes: number | null) => void
-  completeOnboarding: () => void
+  completeOnboarding: (opts?: { markHealthPromptDone?: boolean }) => void
   resetAppData: () => Promise<void>
   startCardioTimer: () => void
   pauseCardioTimer: () => void
@@ -133,6 +167,7 @@ type Ctx = {
   deleteTemplate: (id: string) => void
   loadTemplate: (id: string) => void
   applyPresetPlan: (exerciseIds: string[]) => void
+  applyAiWeeklyTemplate: (template: AiWeeklyWorkoutTemplate) => void
   applyCoachPlanToToday: (exerciseIds: string[]) => void
   updateScheduleDay: (dateKeyVal: string, patch: Partial<ScheduleDay>) => void
   batchPatchSchedule: (patches: { dateKey: string; patch: Partial<ScheduleDay> }[]) => void
@@ -162,6 +197,9 @@ type Ctx = {
   logSleep: (durationMinutes: number, quality: number) => void
   logReadinessCheck: (entry: Omit<ReadinessLogEntry, 'at'> & { at?: number }) => void
   logWorkoutMoodCheckin: (entry: Omit<WorkoutMoodLogEntry, 'at'> & { at?: number }) => void
+  logPostWorkoutCheckin: (
+    entry: Omit<PostWorkoutCheckinLogEntry, 'at'> & { at?: number },
+  ) => void
   addMealLog: (meal: {
     name: string
     calories: number
@@ -181,6 +219,9 @@ type Ctx = {
   setFriendWeeklySets: (id: string, weeklySets: number) => void
   updateTodayLayout: (layout: TodayLayoutPersist) => void
   completeNotificationPrompt: () => void
+  appleHealthAvailable: boolean
+  syncAppleHealth: () => Promise<void>
+  enableAppleHealthSync: () => Promise<void>
   coachNote: string | null
   refreshCoachNote: () => Promise<void>
 }
@@ -192,34 +233,93 @@ function withAchievements(prev: AppPersisted): AppPersisted {
   return { ...prev, achievements: evaluateAchievements(prev) }
 }
 
-function buildPrCelebration(
-  partial:
-    | Omit<WeightedSetLog, 'id' | 'at' | 'isPr'>
-    | Omit<TimedSetLog, 'id' | 'at' | 'isPr'>,
-  unit: 'lbs' | 'kg',
-): PrCelebrationData {
+function formatPrNum(n: number): string {
+  const rounded = Math.round(n * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+function buildPrCelebration(setLogs: SetLog[], entry: SetLog, unit: 'lbs' | 'kg'): PrCelebrationData {
   const dateLabel = new Date().toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   })
-  if (partial.kind === 'weighted') {
-    const detail = partial.bodyweight
-      ? `BW × ${partial.reps} reps · ${partial.sets} sets`
-      : `${partial.weight ?? 0} ${unit} × ${partial.reps} reps · ${partial.sets} sets`
-    return { exerciseName: partial.exerciseName, detail, dateLabel }
+  const prior = setLogs.filter((l) => l.exerciseId === entry.exerciseId && l.at < entry.at)
+
+  if (entry.kind === 'timed') {
+    const prevTimed = prior.filter((l): l is TimedSetLog => l.kind === 'timed')
+    const lastBest = prevTimed.length ? Math.max(...prevTimed.map((l) => l.durationSec)) : 0
+    const detail = `${entry.durationSec}s hold`
+    return {
+      exerciseName: entry.exerciseName,
+      detail,
+      dateLabel,
+      headlineValue: String(entry.durationSec),
+      headlineUnit: 's',
+      pillLast: lastBest > 0 ? `Last: ${lastBest}s` : null,
+      pillDelta:
+        entry.durationSec > lastBest ? `+${entry.durationSec - lastBest}s` : null,
+    }
   }
+
+  if (entry.bodyweight) {
+    const prevBw = prior.filter(
+      (l): l is WeightedSetLog => l.kind === 'weighted' && l.bodyweight,
+    )
+    const lastReps = prevBw.length ? Math.max(...prevBw.map((l) => l.reps)) : 0
+    const detail = `BW × ${entry.reps} reps · ${entry.sets} sets`
+    return {
+      exerciseName: entry.exerciseName,
+      detail,
+      dateLabel,
+      headlineValue: String(entry.reps),
+      headlineUnit: 'reps',
+      pillLast: lastReps > 0 ? `Last: ${lastReps} reps` : null,
+      pillDelta: entry.reps > lastReps ? `+${entry.reps - lastReps} reps` : null,
+    }
+  }
+
+  const prevWeighted = prior.filter(
+    (l): l is WeightedSetLog => l.kind === 'weighted' && !l.bodyweight && l.weight != null,
+  )
+  const weights = prevWeighted.map((l) => l.weight!).filter((w) => Number.isFinite(w))
+  const maxW = weights.length ? Math.max(...weights) : null
+  const ew = entry.weight ?? 0
+  const detail = `${ew} ${unit} × ${entry.reps} reps · ${entry.sets} sets`
+
+  let pillLast: string | null = null
+  let pillDelta: string | null = null
+  if (maxW != null && Number.isFinite(maxW)) {
+    if (ew > maxW) {
+      pillLast = `Last: ${formatPrNum(maxW)} ${unit}`
+      pillDelta = `+${formatPrNum(ew - maxW)} ${unit}`
+    } else if (ew === maxW) {
+      const atMax = prevWeighted.filter((l) => l.weight === maxW)
+      const maxRepsAtW = atMax.length ? Math.max(...atMax.map((l) => l.reps)) : 0
+      pillLast = `Last: ${formatPrNum(maxW)} ${unit}`
+      if (entry.reps > maxRepsAtW) {
+        pillDelta = `+${entry.reps - maxRepsAtW} reps`
+      }
+    }
+  }
+
   return {
-    exerciseName: partial.exerciseName,
-    detail: `${partial.durationSec}s hold`,
+    exerciseName: entry.exerciseName,
+    detail,
     dateLabel,
+    headlineValue: formatPrNum(ew),
+    headlineUnit: unit,
+    pillLast,
+    pillDelta,
   }
 }
 
 export function WorkoutProvider({ children, userId }: { children: ReactNode; userId: string }) {
   const [state, setState] = useState<AppPersisted>(() => alignScheduleWeek(loadState()))
+  const [appleHealthAvailable, setAppleHealthAvailable] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [prCelebration, setPrCelebration] = useState<PrCelebrationData | null>(null)
+  const [gymSpotifyPromptOpen, setGymSpotifyPromptOpen] = useState(false)
   const [clock, setClock] = useState(() => Date.now())
   const [coachNote, setCoachNote] = useState<string | null>(null)
   const stateRef = useRef(state)
@@ -284,7 +384,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
           localBefore,
           withAchievements(
             alignScheduleWeek(
-              pickWorkoutStateForHydrate(synced, remote.state, remote.updatedAt),
+              pickWorkoutStateForHydrate(localBefore, remote.state, remote.updatedAt),
             ),
           ),
         )
@@ -295,6 +395,17 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       }
       const { data: authData } = await supabase.auth.getUser()
       await upsertLeaderboardEntry(userId, synced, authData.user)
+      void ensureFriendProfile(userId).catch(() => {})
+      const tendedOnboardingDone = await fetchTendedOnboardingComplete(userId).catch(() => false)
+      if (tendedOnboardingDone && !synced.onboardingComplete) {
+        setOnboardingCompleteLocal(true)
+        synced = { ...synced, onboardingComplete: true }
+        setState(synced)
+      }
+      const tendedPostCheckin = await fetchTendedPostWorkoutCheckin(userId).catch(() => null)
+      if (tendedPostCheckin != null) {
+        writePostWorkoutCheckinEnabled(tendedPostCheckin)
+      }
       cloudReadyRef.current = true
       void syncTendedUserStateSnapshots(userId, synced, Date.now()).catch((e) => {
         if (import.meta.env.DEV) console.warn('[Tended state] initial sync failed', e)
@@ -456,14 +567,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   const visibleExercises = useMemo(() => {
     const hidden = new Set(state.hiddenExerciseIds)
     const builtIn = EXERCISES.filter((e) => !hidden.has(e.id))
-    const customs = state.customExercises
-      .filter((e) => !hidden.has(e.id))
-      .map((e) => ({
-        id: e.id,
-        name: e.name,
-        muscleGroup: e.muscleGroup,
-        ...(e.gifUrl?.trim() ? { gifUrl: e.gifUrl.trim() } : {}),
-      }))
+    const customs = state.customExercises.filter((e) => !hidden.has(e.id))
     return [...builtIn, ...customs]
   }, [state.hiddenExerciseIds, state.customExercises])
 
@@ -474,12 +578,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       if (built) return built
       const c = state.customExercises.find((e) => e.id === exerciseId)
       if (!c) return null
-      return {
-        id: c.id,
-        name: c.name,
-        muscleGroup: c.muscleGroup,
-        ...(c.gifUrl?.trim() ? { gifUrl: c.gifUrl.trim() } : {}),
-      }
+      return c
     },
     [state.customExercises, state.hiddenExerciseIds],
   )
@@ -511,7 +610,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         normalized = { ...partial, weight: 0 }
       }
     }
-    let isPrFlag = false
+    let showPrCelebrationFlag = false
+    let saved = false
     setState((s) => {
       const base = { ...normalized, id, at } as Omit<SetLog, 'isPr'>
       let isPr = false
@@ -523,17 +623,31 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       } catch (e) {
         console.error('[Apex] computeIsPr failed; saving set without PR flag', e)
       }
-      isPrFlag = isPr
+      if (normalized.kind === 'weighted' && !normalized.bodyweight) {
+        showPrCelebrationFlag = beatsStoredWeightPr(
+          s.setLogs,
+          base as Omit<WeightedSetLog, 'isPr' | 'id' | 'at'>,
+        )
+      } else {
+        showPrCelebrationFlag = isPr
+      }
       const log = { ...base, isPr } as SetLog
       const setLogs = [...s.setLogs, log]
       const sec = Math.max(1, Math.floor(s.settings.restTimerSeconds) || 90)
       const deferRest = options?.deferRestTimer === true
+      const skipRest = options?.skipRestTimer === true
       const rest =
-        deferRest || !s.settings.restTimerEnabled
-          ? { endAt: null, dismissed: true }
-          : { endAt: at + sec * 1000, dismissed: false }
+        skipRest || deferRest || !s.settings.restTimerEnabled
+          ? { endAt: null, startedAt: null, durationSec: sec, dismissed: true }
+          : {
+              endAt: at + sec * 1000,
+              startedAt: at,
+              durationSec: sec,
+              dismissed: false,
+            }
       const xpGain = XP_PER_SET + (isPr ? XP_PER_PR : 0)
       try {
+        saved = true
         return withAchievements({
           ...s,
           setLogs,
@@ -548,14 +662,28 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         return s
       }
     })
+    if (!saved) return
+    if (normalized.kind === 'weighted') {
+      saveExerciseLastWeight(normalized.exerciseId, {
+        bodyweight: normalized.bodyweight,
+        weight: normalized.weight,
+        reps: normalized.reps,
+        sets: normalized.sets,
+      })
+    }
     if (import.meta.env.DEV) {
       console.log('[Apex] addSetLog saved', id)
     }
+    hapticOnSetLogged()
     requestAnimationFrame(() => {
-      if (isPrFlag) {
-        const unit = stateRef.current.settings.unit
-        setPrCelebration(buildPrCelebration(normalized, unit))
-      }
+      if (!showPrCelebrationFlag) return
+      const unit = stateRef.current.settings.unit
+      const log = stateRef.current.setLogs.find((l) => l.id === id)
+      if (!log) return
+      setPrCelebration(buildPrCelebration(stateRef.current.setLogs, log, unit))
+      void upsertUserWorkoutState(userId, applyTrainerShareToState(stateRef.current)).catch(
+        () => {},
+      )
     })
   }, [notify])
 
@@ -628,20 +756,72 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       start.setHours(0, 0, 0, 0)
       manualStartedAt = start.getTime() + manualMsSinceMidnight
     }
-    setState((s) => ({
-      ...s,
-      gymSession: {
-        active: true,
-        mode,
-        startedAt: mode === 'stopwatch' ? Date.now() : null,
-        manualStartedAt: mode === 'manual' ? manualStartedAt : null,
-        pauseStartedAt: null,
-        accumulatedPauseMs: 0,
-        trainingMode: trainingMode ?? s.gymSession.trainingMode ?? null,
-      },
-    }))
+    const today = dateKey(d)
+    setState((s) => {
+      const fromPlan = scheduledTrainingModeForDay(s.schedule, today)
+      const resolvedMode = trainingMode ?? fromPlan ?? s.gymSession.trainingMode ?? null
+      return {
+        ...s,
+        gymSession: {
+          active: true,
+          mode,
+          startedAt: mode === 'stopwatch' ? Date.now() : null,
+          manualStartedAt: mode === 'manual' ? manualStartedAt : null,
+          pauseStartedAt: null,
+          accumulatedPauseMs: 0,
+          trainingMode: resolvedMode,
+        },
+      }
+    })
     notify('Gym session started')
+    if (stateRef.current.settings.gymSessionSpotifyPromptEnabled) {
+      setGymSpotifyPromptOpen(true)
+    }
   }, [clearPostWorkoutProteinTimer, notify])
+
+  const dismissGymSpotifyPrompt = useCallback(() => {
+    setGymSpotifyPromptOpen(false)
+  }, [])
+
+  useEffect(() => {
+    const { gymLocationDetectionEnabled, gymLocationLat, gymLocationLng, gymLocationLabel } =
+      state.settings
+    if (!gymLocationDetectionEnabled || gymLocationLat == null || gymLocationLng == null) {
+      return
+    }
+
+    return startGymGeofenceWatch(
+      { lat: gymLocationLat, lng: gymLocationLng, label: gymLocationLabel },
+      true,
+      {
+        onEnterGym: () => {
+          if (stateRef.current.gymSession.active) return
+          const shown = showGymArrivalNotification(() => {
+            startGymSession('stopwatch')
+          })
+          if (!shown) {
+            notify(
+              'Are you at the gym? Open Today and tap Start gym session.',
+              8000,
+            )
+          }
+        },
+        onLeaveGym: () => {
+          if (!stateRef.current.gymSession.active) return
+          showGymLeaveNotification()
+          notify('You left the gym area — end your session when you are done.', 8000)
+        },
+        isSessionActive: () => stateRef.current.gymSession.active,
+      },
+    )
+  }, [
+    state.settings.gymLocationDetectionEnabled,
+    state.settings.gymLocationLat,
+    state.settings.gymLocationLng,
+    state.settings.gymLocationLabel,
+    startGymSession,
+    notify,
+  ])
 
   const pauseGymSession = useCallback(() => {
     setState((s) => {
@@ -677,7 +857,10 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
 
     const hadActiveSession = snapshot.gymSession.active
     const sessionTrainingMode = snapshot.gymSession.trainingMode
+    const endedAtMs = Date.now()
+    const sessionStartedAt = gymSessionStartedAtMs(snapshot.gymSession, endedAtMs)
     const earnedWorkoutXp = hadActiveSession && logsToday.length > 0
+    setGymSpotifyPromptOpen(false)
     setState((s) => ({
       ...s,
       gymSession: {
@@ -692,6 +875,25 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       lifetimeXp: earnedWorkoutXp ? (s.lifetimeXp ?? 0) + XP_PER_WORKOUT_COMPLETE : (s.lifetimeXp ?? 0),
     }))
     notify('Gym session ended')
+
+    if (hadActiveSession && logsToday.length > 0) {
+      hapticOnWorkoutComplete(snapshot.settings.celebrationsEnabled)
+    }
+
+    if (
+      hadActiveSession &&
+      snapshot.settings.appleHealthSyncEnabled &&
+      sessionStartedAt != null &&
+      endedAtMs > sessionStartedAt
+    ) {
+      const durationSec = Math.round((endedAtMs - sessionStartedAt) / 1000)
+      const kcal = estimateWorkoutCaloriesKcal(durationSec, logsToday.length)
+      void writeGymSessionToAppleHealth({
+        startedAt: sessionStartedAt,
+        endedAt: endedAtMs,
+        caloriesKcal: kcal,
+      })
+    }
 
     if (hadActiveSession) {
       schedulePostWorkoutProteinNotification()
@@ -814,6 +1016,37 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     notify('Preset loaded into My Plan')
   }, [notify])
 
+  const applyAiWeeklyTemplate = useCallback(
+    (template: AiWeeklyWorkoutTemplate) => {
+      setState((s) => {
+        const patches = buildSchedulePatchesFromTemplate(
+          template,
+          s.schedule,
+          s.hiddenExerciseIds,
+          s.customExercises,
+        )
+        const schedule = s.schedule.map((d) => {
+          const hit = patches.find((p) => p.dateKey === d.dateKey)
+          return hit?.patch ? { ...d, ...hit.patch } : d
+        })
+        const todayIds = todayPlanIdsFromTemplate(
+          template,
+          todayKey,
+          s.hiddenExerciseIds,
+          s.customExercises,
+        )
+        return {
+          ...s,
+          schedule,
+          todayPlanExerciseIds: todayIds,
+          todaySupersetPairs: [],
+        }
+      })
+      notify(`${template.name} applied to this week`)
+    },
+    [notify, todayKey],
+  )
+
   const applyCoachPlanToToday = useCallback((exerciseIds: string[]) => {
     setState((s) => {
       const validIds = new Set([
@@ -898,6 +1131,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         ...s,
         chatMessages: normalizeCoachChatMessages([...s.chatMessages, msg]),
       }))
+      if (role === 'model') touchAiIntelligenceUpdated(msg.at)
     },
     [],
   )
@@ -936,7 +1170,14 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
         ...s,
         customExercises: [
           ...s.customExercises,
-          { id, name: trimmed, muscleGroup, ...(g ? { gifUrl: g } : {}), ...tips },
+          {
+            id,
+            name: trimmed,
+            muscleGroup,
+            equipment: equipmentForExercise(trimmed, muscleGroup),
+            ...(g ? { gifUrl: g } : {}),
+            ...tips,
+          },
         ],
       }))
       notify('Custom exercise added')
@@ -1063,6 +1304,35 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     [],
   )
 
+  const logPostWorkoutCheckin = useCallback(
+    (entry: Omit<PostWorkoutCheckinLogEntry, 'at'> & { at?: number }) => {
+      const full: PostWorkoutCheckinLogEntry = {
+        ...entry,
+        feelRating: Math.min(5, Math.max(1, Math.round(entry.feelRating))),
+        energyRating: Math.min(5, Math.max(1, Math.round(entry.energyRating))),
+        at: entry.at ?? Date.now(),
+      }
+      setState((s) => ({
+        ...s,
+        postWorkoutCheckins: [...(s.postWorkoutCheckins ?? []), full],
+      }))
+      requestAnimationFrame(() => {
+        const snap = applyTrainerShareToState(stateRef.current)
+        void upsertUserWorkoutState(userId, snap).catch(() => {})
+        void updateLatestWorkoutSessionRatings(
+          userId,
+          full.dateKey,
+          full.feelRating,
+          full.energyRating,
+        ).catch(() => {})
+        void upsertTendedUserState(userId, buildTendedUserStateDaySnapshot(snap, full.dateKey)).catch(
+          () => {},
+        )
+      })
+    },
+    [userId],
+  )
+
   const logSleep = useCallback((durationMinutes: number, quality: number) => {
     const minutes = Math.max(0, Math.round(durationMinutes))
     if (minutes <= 0) return
@@ -1170,10 +1440,101 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     applyWorkoutHistorySeedIfNeeded(mergeImport)
   }, [mergeImport])
 
-  const completeOnboarding = useCallback(() => {
-    setOnboardingCompleteLocal(true)
-    setState((s) => ({ ...s, onboardingComplete: true }))
+  const syncAppleHealth = useCallback(async () => {
+    if (!(await isAppleHealthAvailable())) return
+    const metrics = await readAppleHealthTodayMetrics()
+    if (!metrics) return
+    const dk = dateKey(new Date())
+    setState((s) => {
+      const hasSleep = (s.sleepLogs ?? []).some((l) => l.dateKey === dk)
+      let sleepLogs = s.sleepLogs ?? []
+      if (shouldAutoFillSleepFromHealth(metrics, dk, hasSleep) && metrics.sleepMinutes) {
+        const rest = sleepLogs.filter((l) => l.dateKey !== dk)
+        sleepLogs = [
+          ...rest,
+          {
+            id: crypto.randomUUID(),
+            dateKey: dk,
+            durationMinutes: metrics.sleepMinutes,
+            quality: 3,
+            at: Date.now(),
+          },
+        ]
+      }
+      return { ...s, appleHealthToday: metrics, sleepLogs }
+    })
   }, [])
+
+  const enableAppleHealthSync = useCallback(async () => {
+    const granted = await requestAppleHealthAuthorization()
+    setState((s) => ({
+      ...s,
+      settings: { ...s.settings, appleHealthSyncEnabled: granted },
+    }))
+    if (granted) {
+      await syncAppleHealth()
+      notify('Apple Health sync enabled')
+    } else {
+      notify('Allow Apple Health access in Settings to sync')
+    }
+  }, [notify, syncAppleHealth])
+
+  const completeOnboarding = useCallback(
+    (opts?: { markHealthPromptDone?: boolean }) => {
+      setOnboardingCompleteLocal(true)
+      setState((s) => ({
+        ...s,
+        onboardingComplete: true,
+        appleHealthPermissionPromptDone: opts?.markHealthPromptDone
+          ? true
+          : s.appleHealthPermissionPromptDone,
+      }))
+      const next = {
+        ...stateRef.current,
+        onboardingComplete: true,
+        appleHealthPermissionPromptDone: opts?.markHealthPromptDone
+          ? true
+          : stateRef.current.appleHealthPermissionPromptDone,
+      }
+      void upsertUserWorkoutState(userId, applyTrainerShareToState(next)).catch(() => {})
+      void upsertTendedOnboardingComplete(userId).catch(() => {})
+    },
+    [userId],
+  )
+
+  useEffect(() => {
+    void isAppleHealthAvailable().then(setAppleHealthAvailable)
+  }, [])
+
+  useEffect(() => {
+    if (!state.onboardingComplete || state.appleHealthPermissionPromptDone) return
+    void (async () => {
+      const granted = await requestAppleHealthAuthorization()
+      setState((s) => ({
+        ...s,
+        appleHealthPermissionPromptDone: true,
+        settings: {
+          ...s.settings,
+          appleHealthSyncEnabled: granted ? true : s.settings.appleHealthSyncEnabled,
+        },
+      }))
+      if (granted) await syncAppleHealth()
+    })()
+  }, [state.onboardingComplete, state.appleHealthPermissionPromptDone, syncAppleHealth])
+
+  useEffect(() => {
+    if (!state.onboardingComplete || !state.settings.appleHealthSyncEnabled) return
+    void syncAppleHealth()
+    const intervalId = window.setInterval(() => void syncAppleHealth(), 5 * 60 * 1000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void syncAppleHealth()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [state.onboardingComplete, state.settings.appleHealthSyncEnabled, todayKey, syncAppleHealth])
 
   const resetAppData = useCallback(async () => {
     try {
@@ -1238,13 +1599,21 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
           if (!payload.bodyweight && w != null && !Number.isFinite(w)) {
             w = 0
           }
+          const reps = Math.max(0, Math.floor(payload.reps))
+          const sets = Math.max(1, Math.floor(payload.sets))
+          saveExerciseLastWeight(prev.exerciseId, {
+            bodyweight: payload.bodyweight,
+            weight: payload.bodyweight ? null : w,
+            reps,
+            sets,
+          })
           base = {
             ...prev,
             kind: 'weighted',
             weight: payload.bodyweight ? null : w,
             bodyweight: payload.bodyweight,
-            reps: Math.max(0, Math.floor(payload.reps)),
-            sets: Math.max(1, Math.floor(payload.sets)),
+            reps,
+            sets,
             note: payload.note,
           } as Omit<SetLog, 'isPr'>
         } else if (payload.kind === 'timed' && prev.kind === 'timed') {
@@ -1342,6 +1711,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissRestTimer,
       prCelebration,
       dismissPrCelebration,
+      gymSpotifyPromptOpen,
+      dismissGymSpotifyPrompt,
       addSetLog,
       addCardioEntry,
       startCardioTimer,
@@ -1361,6 +1732,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       deleteTemplate,
       loadTemplate,
       applyPresetPlan,
+      applyAiWeeklyTemplate,
       applyCoachPlanToToday,
       updateScheduleDay,
       batchPatchSchedule,
@@ -1381,6 +1753,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       logSleep,
       logReadinessCheck,
       logWorkoutMoodCheckin,
+      logPostWorkoutCheckin,
       addMealLog,
       deleteMealLog,
       mergeImport,
@@ -1396,6 +1769,9 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       resetAppData,
       updateTodayLayout,
       completeNotificationPrompt,
+      appleHealthAvailable,
+      syncAppleHealth,
+      enableAppleHealthSync,
       coachNote,
       refreshCoachNote,
     }),
@@ -1410,6 +1786,8 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissRestTimer,
       prCelebration,
       dismissPrCelebration,
+      gymSpotifyPromptOpen,
+      dismissGymSpotifyPrompt,
       addSetLog,
       addCardioEntry,
       startCardioTimer,
@@ -1429,6 +1807,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       deleteTemplate,
       loadTemplate,
       applyPresetPlan,
+      applyAiWeeklyTemplate,
       applyCoachPlanToToday,
       updateScheduleDay,
       batchPatchSchedule,
@@ -1449,6 +1828,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       logSleep,
       logReadinessCheck,
       logWorkoutMoodCheckin,
+      logPostWorkoutCheckin,
       addMealLog,
       deleteMealLog,
       mergeImport,
@@ -1464,6 +1844,9 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       resetAppData,
       updateTodayLayout,
       completeNotificationPrompt,
+      appleHealthAvailable,
+      syncAppleHealth,
+      enableAppleHealthSync,
       coachNote,
       refreshCoachNote,
     ],

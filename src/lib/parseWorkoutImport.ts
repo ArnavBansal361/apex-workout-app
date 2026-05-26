@@ -74,7 +74,12 @@ export function resolveImportExercise(
     if (byId) return byId
     const custom = customs.find((c) => c.id === id || slugify(c.name) === slugify(id))
     if (custom) {
-      return { id: custom.id, name: custom.name, muscleGroup: custom.muscleGroup }
+      return {
+        id: custom.id,
+        name: custom.name,
+        muscleGroup: custom.muscleGroup,
+        equipment: custom.equipment,
+      }
     }
   }
 
@@ -89,7 +94,12 @@ export function resolveImportExercise(
   }
   for (const c of customs) {
     if (normalizeNameKey(c.name) === nameKey) {
-      return { id: c.id, name: c.name, muscleGroup: c.muscleGroup }
+      return {
+        id: c.id,
+        name: c.name,
+        muscleGroup: c.muscleGroup,
+        equipment: c.equipment,
+      }
     }
   }
 

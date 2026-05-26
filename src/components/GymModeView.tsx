@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { requestGymCardScreenWakeLock } from '../lib/gymBarcode'
+import { formatDuration } from '../lib/timers'
 import type { LastWeightedSetDefaults } from '../lib/lastSession'
 import type { Exercise } from '../types'
 
@@ -12,105 +14,82 @@ type Props = {
   exercise: Exercise
   unit: 'lbs' | 'kg'
   setsLoggedToday: number
+  targetSets: number
+  elapsedSec: number
   initialWeighted: LastWeightedSetDefaults | null
-  planExerciseIds: string[]
-  resolveExercise: (id: string) => Exercise | null | undefined
-  onNavigate: (exercise: Exercise) => void
-  onExit: () => void
-  onSwitchToStandard: () => void
+  editPrefill: LastWeightedSetDefaults | null
+  editPrefillVersion: number
+  onExitGymMode: () => void
+  onEditValues: (current: LastWeightedSetDefaults) => void
   onLogSet: (payload: GymModeLogPayload) => void
 }
 
-function GymStepper({
-  label,
-  value,
-  onChange,
-  step,
-  min = 0,
-  format,
-}: {
-  label: string
-  value: number
-  onChange: (n: number) => void
-  step: number
-  min?: number
-  format?: (n: number) => string
-}) {
-  const display = format ? format(value) : String(value)
-  return (
-    <div className="apex-gym-stepper">
-      <span className="apex-gym-stepper__label">{label}</span>
-      <div className="apex-gym-stepper__row">
-        <button
-          type="button"
-          className="apex-gym-stepper__btn"
-          aria-label={`Decrease ${label}`}
-          onClick={() => onChange(Math.max(min, Math.round((value - step) * 100) / 100))}
-        >
-          −
-        </button>
-        <span className="apex-gym-stepper__value tabular-nums" aria-live="polite">
-          {display}
-        </span>
-        <button
-          type="button"
-          className="apex-gym-stepper__btn"
-          aria-label={`Increase ${label}`}
-          onClick={() => onChange(Math.round((value + step) * 100) / 100)}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  )
+function formatWeightDisplay(
+  bodyweight: boolean,
+  weight: number,
+  unit: 'lbs' | 'kg',
+): { main: string; unitLabel: string | null } {
+  if (bodyweight) return { main: 'BW', unitLabel: null }
+  const main = Number.isInteger(weight) ? String(weight) : weight.toFixed(1)
+  return { main, unitLabel: unit }
 }
 
 export function GymModeView({
   exercise,
   unit,
   setsLoggedToday,
+  targetSets,
+  elapsedSec,
   initialWeighted,
-  planExerciseIds,
-  resolveExercise,
-  onNavigate,
-  onExit,
-  onSwitchToStandard,
+  editPrefill,
+  editPrefillVersion,
+  onExitGymMode,
+  onEditValues,
   onLogSet,
 }: Props) {
   const [bodyweight, setBodyweight] = useState(false)
   const [weight, setWeight] = useState(0)
   const [reps, setReps] = useState(10)
 
-  useEffect(() => {
-    if (initialWeighted) {
-      setBodyweight(initialWeighted.bodyweight)
+  function applyPrefill(prefill: LastWeightedSetDefaults | null) {
+    if (prefill) {
+      setBodyweight(prefill.bodyweight)
       setWeight(
-        initialWeighted.bodyweight || initialWeighted.weight == null
-          ? 0
-          : initialWeighted.weight,
+        prefill.bodyweight || prefill.weight == null ? 0 : prefill.weight,
       )
-      setReps(initialWeighted.reps)
+      setReps(prefill.reps)
     } else {
       setBodyweight(false)
       setWeight(0)
       setReps(10)
     }
+  }
+
+  useEffect(() => {
+    applyPrefill(initialWeighted)
   }, [exercise.id, initialWeighted])
 
-  const planIndex = planExerciseIds.indexOf(exercise.id)
-  const prevId = planIndex > 0 ? planExerciseIds[planIndex - 1] : null
-  const nextId =
-    planIndex >= 0 && planIndex < planExerciseIds.length - 1
-      ? planExerciseIds[planIndex + 1]
-      : null
-  const prevEx = prevId ? resolveExercise(prevId) : undefined
-  const nextEx = nextId ? resolveExercise(nextId) : undefined
+  useEffect(() => {
+    if (editPrefill) applyPrefill(editPrefill)
+  }, [editPrefillVersion, editPrefill])
 
-  const weightStep = unit === 'kg' ? 2.5 : 5
-  const setLabel = useMemo(() => {
-    const next = setsLoggedToday + 1
-    return `Set ${next}`
-  }, [setsLoggedToday])
+  useEffect(() => {
+    let releaseWake = () => {}
+    void requestGymCardScreenWakeLock().then((release) => {
+      releaseWake = release
+    })
+    return () => {
+      releaseWake()
+    }
+  }, [])
+
+  const setNumber = Math.min(targetSets, setsLoggedToday + 1)
+  const setCaption = useMemo(
+    () => `SET ${setNumber} OF ${targetSets}`,
+    [setNumber, targetSets],
+  )
+
+  const weightDisplay = formatWeightDisplay(bodyweight, weight, unit)
 
   function submit() {
     onLogSet({
@@ -120,90 +99,66 @@ export function GymModeView({
     })
   }
 
+  function openEditor() {
+    onEditValues({
+      bodyweight,
+      weight: bodyweight ? null : weight,
+      reps,
+      sets: 1,
+    })
+  }
+
   return (
     <div
-      className="apex-gym-mode fixed inset-0 z-[97] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]"
+      className="apex-gym-mode fixed inset-0 z-[97] flex flex-col bg-[#090d14] text-white"
       role="dialog"
       aria-modal="true"
       aria-label="Gym mode"
     >
-      <header className="apex-gym-mode__header apex-safe-top shrink-0 flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+      <header className="apex-gym-mode__top apex-safe-top shrink-0 flex items-center justify-between px-4 pt-2 pb-3">
         <button
           type="button"
-          className="apex-gym-mode__exit min-h-14 min-w-14 rounded-[14px] border border-[var(--apex-border)] text-[15px] font-medium touch-manipulation"
-          onClick={onExit}
+          className="apex-gym-mode__top-btn"
+          onClick={onExitGymMode}
         >
-          Exit
+          ‹ Exit gym mode
         </button>
-        <p className="text-[15px] font-semibold uppercase tracking-[0.12em] text-[var(--apex-text-secondary)] tabular-nums">
-          {setLabel}
-        </p>
-        <button
-          type="button"
-          className="apex-gym-mode__exit min-h-14 px-3 rounded-[14px] border border-[var(--apex-border)] text-[13px] font-medium text-[var(--apex-text-secondary)] touch-manipulation"
-          onClick={onSwitchToStandard}
-        >
-          Standard
-        </button>
+        <p className="apex-gym-mode__top-btn tabular-nums">{formatDuration(elapsedSec)}</p>
       </header>
 
-      <div className="flex-1 flex flex-col justify-center px-5 pb-6 min-h-0">
-        <h1 className="text-center text-[clamp(1.75rem,6vw,2.25rem)] font-bold leading-tight tracking-tight text-[var(--apex-text-primary)] px-2">
-          {exercise.name}
-        </h1>
+      <div className="apex-gym-mode__center flex-1 flex flex-col items-center justify-center px-5 min-h-0">
+        <h1 className="apex-gym-mode__exercise-name">{exercise.name}</h1>
+        <p className="apex-gym-mode__set-label">{setCaption}</p>
 
-        <div className="mt-10 space-y-8 max-w-md mx-auto w-full">
-          <label className="flex items-center justify-center gap-4 min-h-14 touch-manipulation">
-            <input
-              type="checkbox"
-              checked={bodyweight}
-              onChange={(e) => setBodyweight(e.target.checked)}
-              className="apex-checkbox scale-125"
-            />
-            <span className="text-[17px] font-medium">Bodyweight</span>
-          </label>
-
-          {!bodyweight ? (
-            <GymStepper
-              label={`Weight (${unit})`}
-              value={weight}
-              onChange={setWeight}
-              step={weightStep}
-              min={0}
-              format={(n) => (Number.isInteger(n) ? String(n) : n.toFixed(1))}
-            />
-          ) : null}
-
-          <GymStepper label="Reps" value={reps} onChange={setReps} step={1} min={0} />
+        <div className="apex-gym-mode__numbers mt-8 flex items-baseline justify-center gap-3 flex-wrap">
+          <button
+            type="button"
+            className="apex-gym-mode__num-group"
+            onClick={openEditor}
+            aria-label="Edit weight"
+          >
+            <span className="apex-gym-mode__num-value tabular-nums">{weightDisplay.main}</span>
+            {weightDisplay.unitLabel ? (
+              <span className="apex-gym-mode__num-unit">{weightDisplay.unitLabel}</span>
+            ) : null}
+          </button>
+          <span className="apex-gym-mode__num-dot" aria-hidden>
+            ·
+          </span>
+          <button
+            type="button"
+            className="apex-gym-mode__num-group"
+            onClick={openEditor}
+            aria-label="Edit reps"
+          >
+            <span className="apex-gym-mode__num-value tabular-nums">{reps}</span>
+            <span className="apex-gym-mode__num-unit">reps</span>
+          </button>
         </div>
       </div>
 
-      <footer className="apex-safe-bottom shrink-0 px-5 pb-6 pt-2 space-y-4 max-w-md mx-auto w-full">
-        {(prevEx || nextEx) && planExerciseIds.length > 1 ? (
-          <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={!prevEx}
-              className="apex-gym-mode__nav flex-1 min-h-14 rounded-[14px] border border-[var(--apex-border)] text-[15px] font-medium disabled:opacity-30 touch-manipulation"
-              onClick={() => prevEx && onNavigate(prevEx)}
-            >
-              ← Prev
-            </button>
-            <button
-              type="button"
-              disabled={!nextEx}
-              className="apex-gym-mode__nav flex-1 min-h-14 rounded-[14px] border border-[var(--apex-border)] text-[15px] font-medium disabled:opacity-30 touch-manipulation"
-              onClick={() => nextEx && onNavigate(nextEx)}
-            >
-              Next →
-            </button>
-          </div>
-        ) : null}
-        <button
-          type="button"
-          className="apex-gym-mode__log apex-btn-primary w-full min-h-[4.25rem] rounded-[16px] text-[18px] font-bold touch-manipulation active:scale-[0.98]"
-          onClick={submit}
-        >
+      <footer className="apex-gym-mode__footer apex-safe-bottom shrink-0 px-4 pt-2">
+        <button type="button" className="apex-gym-mode__log-btn" onClick={submit}>
           Log set
         </button>
       </footer>

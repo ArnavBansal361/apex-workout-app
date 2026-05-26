@@ -62,3 +62,20 @@ export function computeIsPr(
   const maxRepsAtW = Math.max(...atMax.map((l) => l.reps))
   return entry.reps > maxRepsAtW
 }
+
+/** True when logged weight exceeds the previous best weight for this exercise (any prior session). */
+export function beatsStoredWeightPr(
+  logs: SetLog[],
+  entry: Omit<WeightedSetLog, 'isPr' | 'id' | 'at'>,
+): boolean {
+  if (entry.bodyweight) return false
+  const ew = entry.weight
+  if (ew == null || !Number.isFinite(ew)) return false
+  const prior = logs.filter((l) => l.exerciseId === entry.exerciseId)
+  const weights = prior
+    .filter((l): l is WeightedSetLog => l.kind === 'weighted' && !l.bodyweight && l.weight != null)
+    .map((l) => l.weight!)
+    .filter((w) => Number.isFinite(w))
+  if (weights.length === 0) return false
+  return ew > Math.max(...weights)
+}

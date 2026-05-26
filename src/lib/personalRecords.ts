@@ -10,6 +10,12 @@ export type PersonalRecordRow = {
   at: number
 }
 
+export type PersonalRecordDisplayRow = PersonalRecordRow & {
+  weightLabel: string | null
+  improvementLabel: string | null
+  dateLabel: string
+}
+
 function fmtWeight(w: number, unit: 'lbs' | 'kg'): string {
   const rounded = Math.round(w * 10) / 10
   return `${rounded} ${unit}`
@@ -106,6 +112,69 @@ export function computePersonalRecords(logs: SetLog[], unit: 'lbs' | 'kg'): Pers
     }
   }
 
-  rows.sort((a, b) => a.exerciseName.localeCompare(b.exerciseName))
+  rows.sort((a, b) => b.at - a.at)
   return rows
+}
+
+function formatPrDate(at: number): string {
+  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function improvementForWeighted(
+  logs: SetLog[],
+  exerciseId: string,
+  bestAt: number,
+  bestWeight: number,
+  unit: 'lbs' | 'kg',
+): string | null {
+  let prevBest: number | null = null
+  for (const l of logs) {
+    if (l.kind !== 'weighted' || l.exerciseId !== exerciseId) continue
+    const w = l as WeightedSetLog
+    if (w.bodyweight || w.weight == null || !Number.isFinite(w.weight)) continue
+    if (l.at >= bestAt) continue
+    const lbs = weightToLbs(w.weight, unit)
+    if (prevBest == null || lbs > prevBest) prevBest = lbs
+  }
+  if (prevBest == null) return null
+  const delta = weightToLbs(bestWeight, unit) - prevBest
+  if (Math.abs(delta) < 0.05) return null
+  const rounded =
+    unit === 'kg'
+      ? Math.round(delta * 4) / 4
+      : Math.round(delta * 2) / 2
+  const sign = rounded > 0 ? '+' : ''
+  return `${sign}${rounded} ${unit}`
+}
+
+/** PR rows for Me tab with weight, date, and improvement vs prior best. */
+export function computePersonalRecordDisplayRows(
+  logs: SetLog[],
+  unit: 'lbs' | 'kg',
+): PersonalRecordDisplayRow[] {
+  const base = computePersonalRecords(logs, unit)
+  return base.map((row) => {
+    const last = logs
+      .filter((l): l is WeightedSetLog => l.exerciseId === row.exerciseId && l.kind === 'weighted')
+      .sort((a, b) => b.at - a.at)[0]
+    let weightLabel: string | null = null
+    let improvementLabel: string | null = null
+    if (last && !last.bodyweight && last.weight != null) {
+      weightLabel = fmtWeight(last.weight, unit)
+      improvementLabel = improvementForWeighted(logs, row.exerciseId, row.at, last.weight, unit)
+    } else if (row.detail.startsWith('BW')) {
+      weightLabel = 'BW'
+    } else if (row.detail.endsWith('hold')) {
+      weightLabel = row.detail.replace(' hold', '')
+    } else {
+      const m = row.detail.match(/^(.+?) ×/)
+      weightLabel = m?.[1] ?? row.detail
+    }
+    return {
+      ...row,
+      weightLabel,
+      improvementLabel,
+      dateLabel: formatPrDate(row.at),
+    }
+  })
 }

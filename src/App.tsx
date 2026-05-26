@@ -19,7 +19,9 @@ import { BottomNav } from './components/BottomNav'
 import { ExercisesTab } from './components/ExercisesTab'
 import { FullHistory } from './components/FullHistory'
 import { Onboarding } from './components/Onboarding'
+import { AiTab } from './components/AiTab'
 import { ProfileTab } from './components/ProfileTab'
+import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
 import { GoogleCalendarOAuthHandler } from './components/GoogleCalendarOAuthHandler'
@@ -96,8 +98,9 @@ function PwaInstallBanner() {
 }
 
 function AppShell() {
-  const { notifications } = useWorkout()
+  const { notifications, state, prCelebration } = useWorkout()
   const [tab, setTab] = useState<TabId>('today')
+  const [gymModeOverlay, setGymModeOverlay] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [achievementsOpen, setAchievementsOpen] = useState(false)
   const [gymSettingsToken, setGymSettingsToken] = useState(0)
@@ -105,9 +108,34 @@ function AppShell() {
   const [todayPlanOpen, setTodayPlanOpen] = useTodaySectionOpen(APEX_TODAY_PLAN_OPEN_KEY)
 
   const openGymMembershipSetup = () => {
-    setTab('profile')
+    setTab('me')
     setGymSettingsToken((t) => t + 1)
   }
+
+  useEffect(() => {
+    const sync = () =>
+      setGymModeOverlay(document.body.classList.contains('apex-gym-mode-active'))
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const [postWorkoutCheckinOverlay, setPostWorkoutCheckinOverlay] = useState(false)
+
+  useEffect(() => {
+    const sync = () =>
+      setPostWorkoutCheckinOverlay(
+        document.body.classList.contains('apex-post-workout-checkin-active'),
+      )
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const hideBottomNav =
+    state.gymSession.active || gymModeOverlay || prCelebration != null || postWorkoutCheckinOverlay
 
   if (historyOpen) {
     return <FullHistory onClose={() => setHistoryOpen(false)} />
@@ -129,21 +157,24 @@ function AppShell() {
 
         <RestBanner />
         <PrCelebrationOverlay />
+        <GymSpotifyPrompt />
 
         <main className="px-4 pt-4 pb-4">
           {tab === 'today' ? (
             <TodayTab
               onOpenHistory={() => setHistoryOpen(true)}
               onOpenGymMembershipSetup={openGymMembershipSetup}
+              onGoToTodayTab={() => setTab('today')}
               moreOpen={todayMoreOpen}
               onMoreOpenChange={setTodayMoreOpen}
               planOpen={todayPlanOpen}
               onPlanOpenChange={setTodayPlanOpen}
             />
           ) : null}
-          {tab === 'exercises' ? <ExercisesTab /> : null}
-          {tab === 'schedule' ? <ScheduleTab /> : null}
-          {tab === 'profile' ? (
+          {tab === 'library' ? <ExercisesTab /> : null}
+          {tab === 'plan' ? <ScheduleTab /> : null}
+          {tab === 'ai' ? <AiTab /> : null}
+          {tab === 'me' ? (
             <ProfileTab
               onOpenAchievements={() => setAchievementsOpen(true)}
               openGymSettingsToken={gymSettingsToken}
@@ -152,7 +183,7 @@ function AppShell() {
         </main>
 
         <PwaInstallBanner />
-        <BottomNav tab={tab} onChange={setTab} />
+        {!hideBottomNav ? <BottomNav tab={tab} onChange={setTab} /> : null}
       </div>
     </div>
   )

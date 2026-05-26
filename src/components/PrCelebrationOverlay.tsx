@@ -1,7 +1,40 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { Haptics, ImpactStyle } from '@capacitor/haptics'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import type { PrCelebrationData } from '../types'
 
+const CONFETTI_COUNT = 30
+
+function mulberry32(seed: number) {
+  return function next() {
+    let a = (seed += 0x6d2b79f5)
+    a = Math.imul(a ^ (a >>> 15), a | 1)
+    a ^= a + Math.imul(a ^ (a >>> 7), a | 61)
+    return ((a ^ (a >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function buildConfettiPieces() {
+  const rand = mulberry32(0xae42)
+  return Array.from({ length: CONFETTI_COUNT }, (_, i) => {
+    const r = rand()
+    const size = 8 + Math.floor(rand() * 9)
+    return {
+      id: i,
+      left: `${r * 100}%`,
+      delay: `${r * 2.2}s`,
+      duration: `${2.5 + rand() * 2}s`,
+      rotation: `${Math.floor(rand() * 360)}deg`,
+      width: size,
+      height: i % 3 === 0 ? size : 8 + Math.floor(rand() * 9),
+      diamond: i % 3 === 0,
+      muted: i % 2 === 1,
+    }
+  })
+}
+
+/** Same mountain path as /public/apex-logo.svg */
 function drawMountain(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number) {
   const s = size / 24
   ctx.save()
@@ -110,17 +143,59 @@ async function sharePrCanvas(canvas: HTMLCanvasElement, data: PrCelebrationData)
   URL.revokeObjectURL(url)
 }
 
+function TrophyIcon() {
+  return (
+    <svg
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M8 4h8v2.5c0 2.2 1.4 4.1 3.3 4.8L19 13H5l2.7-1.7C9.6 10.6 11 8.7 11 6.5V4z"
+        stroke="#3d7ab5"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M9 17h6v3H9v-3z" fill="#3d7ab5" />
+      <path d="M7 20h10" stroke="#3d7ab5" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+async function firePrCelebrationHaptics(): Promise<void> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style: ImpactStyle.Heavy })
+      await new Promise((r) => setTimeout(r, 150))
+      await Haptics.impact({ style: ImpactStyle.Heavy })
+      return
+    }
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([100, 60, 100])
+      await new Promise((r) => setTimeout(r, 150))
+      navigator.vibrate([100, 60, 100])
+    }
+  } catch {
+    /* unavailable */
+  }
+}
+
 export function PrCelebrationOverlay() {
   const { prCelebration, dismissPrCelebration, notify } = useWorkout()
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const previewRef = useRef<HTMLCanvasElement>(null)
+  const confetti = useMemo(() => buildConfettiPieces(), [])
+
+  useEffect(() => {
+    if (!prCelebration) return
+    void firePrCelebrationHaptics()
+  }, [prCelebration])
 
   useEffect(() => {
     if (!prCelebration || !canvasRef.current) return
     drawPrShareCard(canvasRef.current, prCelebration)
-    if (previewRef.current) {
-      drawPrShareCard(previewRef.current, prCelebration)
-    }
   }, [prCelebration])
 
   const handleShare = useCallback(async () => {
@@ -135,44 +210,65 @@ export function PrCelebrationOverlay() {
 
   if (!prCelebration) return null
 
+  const { exerciseName, headlineValue, headlineUnit, pillLast, pillDelta } = prCelebration
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="apex-pr-title"
-      className="fixed inset-0 z-[99] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      onClick={dismissPrCelebration}
+      className="apex-pr-celebration fixed inset-0 z-[101] flex flex-col bg-[#090d14] text-white overflow-hidden"
     >
       <canvas ref={canvasRef} className="hidden" aria-hidden />
-      <div
-        className="w-full max-w-sm rounded-[20px] border border-white/[0.12] bg-[#141414] p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p id="apex-pr-title" className="apex-section-label text-center mb-4">
-          Personal record
-        </p>
-        <canvas
-          ref={previewRef}
-          className="w-full rounded-[14px] border border-white/[0.08]"
-          style={{ aspectRatio: '1080 / 1350' }}
-        />
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            className="apex-btn flex-1 min-h-11 text-[13px] font-semibold"
-            onClick={dismissPrCelebration}
-          >
-            Done
-          </button>
-          <button
-            type="button"
-            className="apex-btn-primary flex-1 min-h-11 text-[13px] font-semibold"
-            onClick={() => void handleShare()}
-          >
-            Share
-          </button>
-        </div>
+
+      <div className="apex-pr-celebration__confetti pointer-events-none" aria-hidden>
+        {confetti.map((p) => (
+          <span
+            key={p.id}
+            className={`apex-pr-celebration__confetti-piece${
+              p.diamond ? ' apex-pr-celebration__confetti-piece--diamond' : ''
+            }${p.muted ? ' apex-pr-celebration__confetti-piece--muted' : ''}`}
+            style={{
+              left: p.left,
+              width: p.width,
+              height: p.height,
+              marginLeft: -(p.width / 2),
+              animationDelay: p.delay,
+              animationDuration: p.duration,
+              ['--apex-pr-confetti-rot' as string]: p.rotation,
+            }}
+          />
+        ))}
       </div>
+
+      <div className="apex-pr-celebration__center flex-1 flex flex-col items-center justify-center px-6 min-h-0 relative z-[1]">
+        <div className="apex-pr-celebration__trophy" aria-hidden>
+          <TrophyIcon />
+        </div>
+        <h1 id="apex-pr-title" className="apex-pr-celebration__title">
+          New PR 🏆
+        </h1>
+        <p className="apex-pr-celebration__exercise">{exerciseName}</p>
+        <p className="apex-pr-celebration__weight tabular-nums">
+          {headlineValue}
+          <span className="apex-pr-celebration__weight-unit">{headlineUnit}</span>
+        </p>
+        {pillLast && pillDelta ? (
+          <p className="apex-pr-celebration__pill">
+            <span className="apex-pr-celebration__pill-last">{pillLast}</span>
+            <span className="apex-pr-celebration__pill-delta">{pillDelta}</span>
+          </p>
+        ) : null}
+      </div>
+
+      <footer className="apex-pr-celebration__footer apex-safe-bottom shrink-0 px-4 pb-4 relative z-[1]">
+        <button type="button" className="apex-pr-celebration__share-btn" onClick={() => void handleShare()}>
+          ↑ Share PR card
+        </button>
+        <button type="button" className="apex-pr-celebration__continue-btn" onClick={dismissPrCelebration}>
+          Keep going →
+        </button>
+      </footer>
     </div>
   )
 }

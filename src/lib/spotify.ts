@@ -303,3 +303,17 @@ export function disconnectSpotify(): void {
   sessionStorage.removeItem(OAUTH_STATE_KEY)
   sessionStorage.removeItem(CODE_VERIFIER_KEY)
 }
+
+const SPOTIFY_APP_URL = 'spotify:'
+const SPOTIFY_WEB_URL = 'https://open.spotify.com'
+
+/** Open the Spotify app on device; falls back to the web player if the app does not open. */
+export function openSpotifyOnDevice(): void {
+  const started = Date.now()
+  window.location.href = SPOTIFY_APP_URL
+  window.setTimeout(() => {
+    if (Date.now() - started < 1600) {
+      window.open(SPOTIFY_WEB_URL, '_blank', 'noopener,noreferrer')
+    }
+  }, 900)
+}

@@ -6,8 +6,7 @@ type Props = {
   onChange: (t: TabId) => void
 }
 
-const navStroke = (active: boolean) =>
-  active ? 'var(--apex-nav-icon-active)' : 'var(--apex-nav-icon-inactive)'
+const navStroke = (active: boolean) => (active ? '#ffffff' : '#7d7d88')
 
 const ITEMS: {
   id: TabId
@@ -30,8 +29,8 @@ const ITEMS: {
     ),
   },
   {
-    id: 'exercises',
-    label: 'Exercises',
+    id: 'library',
+    label: 'Library',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
@@ -45,8 +44,8 @@ const ITEMS: {
     ),
   },
   {
-    id: 'schedule',
-    label: 'Schedule',
+    id: 'plan',
+    label: 'Plan',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
         <rect x="4" y="5" width="16" height="15" rx="2" stroke={navStroke(active)} strokeWidth="1.75" />
@@ -55,8 +54,23 @@ const ITEMS: {
     ),
   },
   {
-    id: 'profile',
-    label: 'Profile',
+    id: 'ai',
+    label: 'AI',
+    Icon: ({ active }) => (
+      <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M12 3l1.2 3.6h3.8l-3.1 2.2 1.2 3.6L12 9.2 8.9 12.4l1.2-3.6-3.1-2.2h3.8L12 3z"
+          stroke={navStroke(active)}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        <circle cx="12" cy="17" r="2.5" stroke={navStroke(active)} strokeWidth="1.5" />
+      </svg>
+    ),
+  },
+  {
+    id: 'me',
+    label: 'Me',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
         <circle cx="12" cy="9" r="3.5" stroke={navStroke(active)} strokeWidth="1.75" />
@@ -74,8 +88,8 @@ const ITEMS: {
 export function BottomNav({ tab, onChange }: Props) {
   return (
     <nav className="apex-bottom-nav-shell fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto w-full max-w-[480px] px-4 pb-3 pt-2">
-        <div className="apex-bottom-nav grid grid-cols-4 touch-manipulation">
+      <div className="mx-auto w-full max-w-[480px] px-2 pb-3 pt-2">
+        <div className="apex-bottom-nav grid grid-cols-5 touch-manipulation">
           {ITEMS.map((it) => {
             const on = tab === it.id
             const Icon = it.Icon
@@ -83,7 +97,7 @@ export function BottomNav({ tab, onChange }: Props) {
               <button
                 key={it.id}
                 type="button"
-                className={`apex-bottom-nav-btn relative transition-opacity duration-200 ease-out active:opacity-90 ${
+                className={`apex-bottom-nav-btn transition-opacity duration-200 ease-out active:opacity-90 ${
                   on ? 'apex-bottom-nav-btn--active' : ''
                 }`}
                 onClick={() => onChange(it.id)}

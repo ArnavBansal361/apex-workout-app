@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Apex reads your steps, activity, heart rate, and sleep to fill in Today and personalize coaching.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Apex saves completed gym workouts and active calories to Apple Health when you end a session.</string>
 </dict>
 </plist>

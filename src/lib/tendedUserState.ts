@@ -58,23 +58,37 @@ function muscleGroupsTrainedOnDay(state: AppPersisted, dayKey: string): string[]
   return [...groups].sort()
 }
 
-function readinessForDay(
+function moodSignalsForDay(
   state: AppPersisted,
   dayKey: string,
 ): Pick<TendedUserStateSnapshot, 'readinessScore' | 'energyLevel' | 'stressLevel'> {
-  const logs = (state.readinessLogs ?? []).filter((r) => r.dateKey === dayKey)
+  const post = (state.postWorkoutCheckins ?? []).filter((c) => c.dateKey === dayKey)
+  if (post.length) {
+    const latest = [...post].sort((a, b) => b.at - a.at)[0]!
+    return {
+      readinessScore: latest.feelRating,
+      energyLevel: latest.energyRating,
+      stressLevel: null,
+    }
+  }
+  const logs = (state.workoutMoodLogs ?? []).filter((m) => m.dateKey === dayKey)
   if (!logs.length) {
     return { readinessScore: null, energyLevel: null, stressLevel: null }
   }
   const latest = [...logs].sort((a, b) => b.at - a.at)[0]!
   return {
-    readinessScore: latest.combinedScore,
-    energyLevel: latest.recovery,
-    stressLevel: latest.stress,
+    readinessScore: latest.moodLift,
+    energyLevel: latest.moodBefore,
+    stressLevel: 6 - latest.moodAfter,
   }
 }
 
 function moodScoreForDay(state: AppPersisted, dayKey: string): number | null {
+  const post = (state.postWorkoutCheckins ?? []).filter((c) => c.dateKey === dayKey)
+  if (post.length) {
+    const latest = [...post].sort((a, b) => b.at - a.at)[0]!
+    return latest.feelRating
+  }
   const logs = (state.workoutMoodLogs ?? []).filter((m) => m.dateKey === dayKey)
   if (!logs.length) return null
   const latest = [...logs].sort((a, b) => b.at - a.at)[0]!
@@ -87,7 +101,7 @@ export function buildTendedUserStateDaySnapshot(
   dayKey: string,
 ): TendedUserStateSnapshot {
   const activityDays = workoutDaysFromActivity(state)
-  const readiness = readinessForDay(state, dayKey)
+  const moodSignals = moodSignalsForDay(state, dayKey)
   const sleep = sleepLogForDateKey(state, dayKey)
 
   return {
@@ -98,9 +112,9 @@ export function buildTendedUserStateDaySnapshot(
     moodScore: moodScoreForDay(state, dayKey),
     sleepHours: sleep ? Math.round((sleep.durationMinutes / 60) * 100) / 100 : null,
     waterOz: waterOzForDateKey(state, dayKey),
-    readinessScore: readiness.readinessScore,
-    energyLevel: readiness.energyLevel,
-    stressLevel: readiness.stressLevel,
+    readinessScore: moodSignals.readinessScore,
+    energyLevel: moodSignals.energyLevel,
+    stressLevel: moodSignals.stressLevel,
   }
 }
 

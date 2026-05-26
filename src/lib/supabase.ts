@@ -275,6 +275,26 @@ export async function fetchLeaderboard(limit = 50): Promise<LeaderboardEntry[]> 
     .filter((row): row is LeaderboardEntry => row != null)
 }
 
+/** Global ranking by lifetime XP (opt-in public board). */
+export async function fetchGlobalLeaderboardByXp(limit = 50): Promise<LeaderboardEntry[]> {
+  const { data, error } = await supabase
+    .from(LEADERBOARD_TABLE)
+    .select(
+      'id, user_id, display_name, avatar_url, total_volume_lbs, weekly_volume_lbs, total_workouts, current_streak, xp, updated_at',
+    )
+    .order('xp', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[Apex] fetchLeaderboard', error.message)
+    return []
+  }
+  if (!Array.isArray(data)) return []
+  return data
+    .map((row) => normalizeLeaderboardRow(row as Record<string, unknown>))
+    .filter((row): row is LeaderboardEntry => row != null)
+}
+
 export function formatLeaderboardVolume(lbs: number): string {
   const n = Math.round(lbs)
   if (n >= 10_000) return `${Math.round(n / 1000)}k lbs`
@@ -695,6 +715,81 @@ export async function completeWorkoutSession(
   if (error) throw new Error(error.message)
 }
 
+/** Optional columns on workout_sessions: feel_rating, energy_rating (1–5). */
+export async function updateLatestWorkoutSessionRatings(
+  userId: string,
+  dayKey: string,
+  feelRating: number,
+  energyRating: number,
+): Promise<void> {
+  const { data, error: fetchError } = await supabase
+    .from(WORKOUT_SESSIONS_TABLE)
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date_key', dayKey)
+    .not('ended_at', 'is', null)
+    .order('ended_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (fetchError) throw new Error(fetchError.message)
+  if (!data?.id) return
+
+  const { error } = await supabase
+    .from(WORKOUT_SESSIONS_TABLE)
+    .update({
+      feel_rating: feelRating,
+      energy_rating: energyRating,
+    })
+    .eq('id', data.id)
+  if (error && import.meta.env.DEV) {
+    console.warn('[Apex] updateLatestWorkoutSessionRatings', error.message)
+  }
+}
+
+export const TENDED_PREFS_PROFILE_DATE_KEY = '__apex_prefs__'
+
+/** Profile row for cross-device prefs (optional post_workout_checkin column). */
+export async function upsertTendedPostWorkoutCheckin(
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  const now = new Date().toISOString()
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    date_key: TENDED_PREFS_PROFILE_DATE_KEY,
+    workout_done: false,
+    volume_lbs: 0,
+    muscle_groups_trained: [],
+    water_oz: 0,
+    source_app: 'apex',
+    updated_at: now,
+    post_workout_checkin: enabled,
+  }
+  const { error } = await supabase.from(TENDED_USER_STATE_TABLE).upsert(payload, {
+    onConflict: 'user_id,date_key',
+  })
+  if (error && import.meta.env.DEV) {
+    console.warn('[Apex] upsertTendedPostWorkoutCheckin', error.message)
+  }
+}
+
+export async function fetchTendedPostWorkoutCheckin(userId: string): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from(TENDED_USER_STATE_TABLE)
+    .select('post_workout_checkin')
+    .eq('user_id', userId)
+    .eq('date_key', TENDED_PREFS_PROFILE_DATE_KEY)
+    .maybeSingle()
+
+  if (error && import.meta.env.DEV) {
+    console.warn('[Apex] fetchTendedPostWorkoutCheckin', error.message)
+    return null
+  }
+  if (data?.post_workout_checkin == null) return null
+  return Boolean(data.post_workout_checkin)
+}
+
 /** Supabase table: workout_mood_checkins — run once in SQL editor:
  *
  * create table if not exists public.workout_mood_checkins (
@@ -1008,6 +1103,7 @@ export async function fetchBodyMeasurementLogs(userId: string): Promise<BodyMeas
  *   readiness_score smallint,
  *   energy_level smallint check (energy_level is null or energy_level between 1 and 5),
  *   stress_level smallint check (stress_level is null or stress_level between 1 and 5),
+ *   onboarding_complete boolean,
  *   source_app text not null default 'apex',
  *   created_at timestamptz not null default now(),
  *   updated_at timestamptz not null default now(),
@@ -1071,6 +1167,44 @@ export async function upsertTendedUserState(
   if (error) throw new Error(error.message)
 }
 
+/** Profile row date_key for cross-device onboarding flag (optional `onboarding_complete` column). */
+export const TENDED_ONBOARDING_PROFILE_DATE_KEY = '__apex_onboarding__'
+
+export async function upsertTendedOnboardingComplete(userId: string): Promise<void> {
+  const now = new Date().toISOString()
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    date_key: TENDED_ONBOARDING_PROFILE_DATE_KEY,
+    workout_done: false,
+    volume_lbs: 0,
+    muscle_groups_trained: [],
+    water_oz: 0,
+    source_app: 'apex',
+    updated_at: now,
+    onboarding_complete: true,
+  }
+  const { error } = await supabase.from(TENDED_USER_STATE_TABLE).upsert(payload, {
+    onConflict: 'user_id,date_key',
+  })
+  if (error && import.meta.env.DEV) {
+    console.warn('[Apex] upsertTendedOnboardingComplete', error.message)
+  }
+}
+
+export async function fetchTendedOnboardingComplete(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from(TENDED_USER_STATE_TABLE)
+    .select('onboarding_complete')
+    .eq('user_id', userId)
+    .eq('date_key', TENDED_ONBOARDING_PROFILE_DATE_KEY)
+    .maybeSingle()
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[Apex] fetchTendedOnboardingComplete', error.message)
+    return false
+  }
+  return Boolean(data?.onboarding_complete)
+}
+
 export async function fetchTendedUserState(
   userId: string,
   limit = 30,
@@ -1099,4 +1233,230 @@ export async function fetchTendedUserState(
     energyLevel: row.energy_level == null ? null : Number(row.energy_level),
     stressLevel: row.stress_level == null ? null : Number(row.stress_level),
   }))
+}
+
+/** Supabase table: friendships — run in SQL editor:
+ *
+ * create table if not exists public.friendships (
+ *   user_id uuid primary key references auth.users(id) on delete cascade,
+ *   friend_code text not null unique,
+ *   friends uuid[] not null default '{}',
+ *   updated_at timestamptz not null default now()
+ * );
+ *
+ * create index if not exists friendships_code_idx on public.friendships (friend_code);
+ * alter table public.friendships enable row level security;
+ *
+ * create policy "friendships select own or lookup" on public.friendships
+ *   for select to authenticated using (true);
+ *
+ * create policy "friendships insert own" on public.friendships
+ *   for insert to authenticated with check (auth.uid() = user_id);
+ *
+ * create policy "friendships update own" on public.friendships
+ *   for update to authenticated using (auth.uid() = user_id);
+ *
+ * create or replace function public.apex_add_friend_by_code(p_code text)
+ * returns void language plpgsql security definer set search_path = public as $$
+ * declare
+ *   me uuid := auth.uid();
+ *   them uuid;
+ *   my_friends uuid[];
+ *   their_friends uuid[];
+ * begin
+ *   if me is null then raise exception 'not authenticated'; end if;
+ *   select user_id into them from friendships where upper(friend_code) = upper(trim(p_code)) limit 1;
+ *   if them is null then raise exception 'code not found'; end if;
+ *   if them = me then raise exception 'cannot add self'; end if;
+ *   select friends into my_friends from friendships where user_id = me;
+ *   if my_friends is null then my_friends := '{}'; end if;
+ *   if them = any(my_friends) then return; end if;
+ *   update friendships set friends = array_append(my_friends, them), updated_at = now() where user_id = me;
+ *   select friends into their_friends from friendships where user_id = them;
+ *   if their_friends is null then their_friends := '{}'; end if;
+ *   if not (me = any(their_friends)) then
+ *     update friendships set friends = array_append(their_friends, me), updated_at = now() where user_id = them;
+ *   end if;
+ * end;
+ * $$;
+ *
+ * grant execute on function public.apex_add_friend_by_code(text) to authenticated;
+ */
+const FRIENDSHIPS_TABLE = 'friendships'
+const FRIEND_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+export type FriendProfileRow = {
+  user_id: string
+  friend_code: string
+  friends: string[]
+}
+
+export type FriendLeaderboardRow = {
+  id: string
+  name: string
+  xp: number
+  isMe: boolean
+  isBot: boolean
+  avatarShade: number
+}
+
+export const FRIEND_BOT_NAMES = ['Atlas', 'Rex', 'Luna', 'Kai', 'Seren'] as const
+
+function normalizeFriendProfile(raw: Record<string, unknown>): FriendProfileRow | null {
+  const user_id = typeof raw.user_id === 'string' ? raw.user_id : null
+  if (!user_id) return null
+  const friend_code =
+    typeof raw.friend_code === 'string' ? raw.friend_code.trim().toUpperCase() : ''
+  const friends = Array.isArray(raw.friends)
+    ? raw.friends.filter((id): id is string => typeof id === 'string')
+    : []
+  if (!friend_code) return null
+  return { user_id, friend_code, friends }
+}
+
+function randomFriendCode(): string {
+  let out = ''
+  for (let i = 0; i < 6; i++) {
+    out += FRIEND_CODE_ALPHABET[Math.floor(Math.random() * FRIEND_CODE_ALPHABET.length)]!
+  }
+  return out
+}
+
+function hashSeed(input: string): number {
+  let h = 0
+  for (let i = 0; i < input.length; i++) {
+    h = (h * 31 + input.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
+/** Stable bot XP per viewer (800–6000). */
+export function botXpForUser(viewerUserId: string, botIndex: number): number {
+  const h = hashSeed(`${viewerUserId}:bot:${botIndex}`)
+  return 800 + (h % 5201)
+}
+
+export function buildFriendsLeaderboardRows(
+  viewerUserId: string,
+  viewerName: string,
+  viewerXp: number,
+  friendRows: { user_id: string; display_name: string; xp: number }[],
+): FriendLeaderboardRow[] {
+  const real: FriendLeaderboardRow[] = [
+    {
+      id: viewerUserId,
+      name: viewerName,
+      xp: viewerXp,
+      isMe: true,
+      isBot: false,
+      avatarShade: 0,
+    },
+    ...friendRows.map((f, i) => ({
+      id: f.user_id,
+      name: f.display_name,
+      xp: f.xp,
+      isMe: false,
+      isBot: false,
+      avatarShade: (i % 4) + 1,
+    })),
+  ]
+  const rows = [...real]
+  for (let i = 0; i < FRIEND_BOT_NAMES.length && rows.length < 5; i++) {
+    const name = FRIEND_BOT_NAMES[i]!
+    rows.push({
+      id: `bot-${name.toLowerCase()}`,
+      name,
+      xp: botXpForUser(viewerUserId, i),
+      isMe: false,
+      isBot: true,
+      avatarShade: i + 2,
+    })
+  }
+  return rows.sort((a, b) => b.xp - a.xp)
+}
+
+export async function fetchFriendProfile(userId: string): Promise<FriendProfileRow | null> {
+  const { data, error } = await supabase
+    .from(FRIENDSHIPS_TABLE)
+    .select('user_id, friend_code, friends')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[Apex] fetchFriendProfile', error.message)
+    return null
+  }
+  if (!data) return null
+  return normalizeFriendProfile(data as Record<string, unknown>)
+}
+
+export async function ensureFriendProfile(userId: string): Promise<FriendProfileRow | null> {
+  const existing = await fetchFriendProfile(userId)
+  if (existing) return existing
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = randomFriendCode()
+    const { data, error } = await supabase
+      .from(FRIENDSHIPS_TABLE)
+      .insert({ user_id: userId, friend_code: code, friends: [] })
+      .select('user_id, friend_code, friends')
+      .single()
+    if (!error && data) {
+      return normalizeFriendProfile(data as Record<string, unknown>)
+    }
+    if (error?.code !== '23505' && import.meta.env.DEV) {
+      console.warn('[Apex] ensureFriendProfile', error.message)
+    }
+  }
+  return fetchFriendProfile(userId)
+}
+
+export async function fetchLeaderboardXpForUsers(userIds: string[]): Promise<
+  { user_id: string; display_name: string; xp: number }[]
+> {
+  if (!userIds.length) return []
+  const { data, error } = await supabase
+    .from(LEADERBOARD_TABLE)
+    .select('user_id, display_name, xp')
+    .in('user_id', userIds)
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[Apex] fetchLeaderboardXpForUsers', error.message)
+    return []
+  }
+  return (data ?? [])
+    .map((row) => ({
+      user_id: String(row.user_id),
+      display_name: typeof row.display_name === 'string' ? row.display_name : 'Athlete',
+      xp: Number(row.xp) || 0,
+    }))
+    .filter((r) => r.user_id)
+}
+
+export type AddFriendResult = 'ok' | 'not_found' | 'self' | 'already' | 'error'
+
+export async function addFriendByCode(userId: string, rawCode: string): Promise<AddFriendResult> {
+  const code = rawCode.trim().toUpperCase()
+  if (!code) return 'not_found'
+  await ensureFriendProfile(userId)
+  const { error: rpcError } = await supabase.rpc('apex_add_friend_by_code', { p_code: code })
+  if (!rpcError) return 'ok'
+
+  const profile = await fetchFriendProfile(userId)
+  const { data: target, error: lookupError } = await supabase
+    .from(FRIENDSHIPS_TABLE)
+    .select('user_id, friends')
+    .eq('friend_code', code)
+    .maybeSingle()
+  if (lookupError || !target) return 'not_found'
+  const friendId = String(target.user_id)
+  if (friendId === userId) return 'self'
+  const myFriends = profile?.friends ?? []
+  if (myFriends.includes(friendId)) return 'already'
+  const { error: updateError } = await supabase
+    .from(FRIENDSHIPS_TABLE)
+    .update({ friends: [...myFriends, friendId], updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+  if (updateError) {
+    if (import.meta.env.DEV) console.warn('[Apex] addFriendByCode', rpcError?.message, updateError.message)
+    return 'error'
+  }
+  return 'ok'
 }

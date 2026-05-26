@@ -50,6 +50,41 @@ export function showPostWorkoutProteinNotification(): boolean {
   }
 }
 
+export function showGymArrivalNotification(onTap?: () => void): boolean {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return false
+  try {
+    const n = new Notification('At the gym?', {
+      body: 'Are you at the gym? Tap to start your session.',
+      tag: 'apex-gym-arrival',
+    })
+    n.onclick = () => {
+      window.focus()
+      n.close()
+      onTap?.()
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function showGymLeaveNotification(): boolean {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return false
+  try {
+    const n = new Notification('Left the gym', {
+      body: 'You left your gym area. Open Apex to end your session when you are done.',
+      tag: 'apex-gym-leave',
+    })
+    n.onclick = () => {
+      window.focus()
+      n.close()
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function showWeeklySummaryNotification(summary: WeekSummary): void {
   if (!notificationsSupported() || Notification.permission !== 'granted') return
   const groups = summary.muscleGroups.length ? summary.muscleGroups.join(', ') : 'None'

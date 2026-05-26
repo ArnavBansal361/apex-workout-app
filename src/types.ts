@@ -10,7 +10,9 @@ export type MuscleGroup =
   | 'Cardio'
   | 'Stretches'
 
-export type TabId = 'today' | 'exercises' | 'schedule' | 'profile'
+export type EquipmentType = 'Barbell' | 'Dumbbell' | 'Cable' | 'Machine' | 'Bodyweight'
+
+export type TabId = 'today' | 'library' | 'plan' | 'ai' | 'me'
 
 /** Reorderable / toggleable blocks on the Today tab (see `todayLayout`). */
 export type TodaySectionId =
@@ -45,6 +47,7 @@ export interface Exercise {
   id: string
   name: string
   muscleGroup: MuscleGroup
+  equipment: EquipmentType
   /** Optional demo GIF (e.g. user-pasted URL for custom exercises). */
   gifUrl?: string
   /** User- or AI-authored help (custom exercises). */
@@ -93,6 +96,10 @@ export type PrCelebrationData = {
   exerciseName: string
   detail: string
   dateLabel: string
+  headlineValue: string
+  headlineUnit: string
+  pillLast: string | null
+  pillDelta: string | null
 }
 
 /** User-editable fields when updating an existing set (`id` / `at` unchanged). */
@@ -151,6 +158,8 @@ export interface ScheduleDay {
   googleCalendarEventId?: string
   /** Exercises planned for this day (picked in schedule editor) */
   plannedExerciseIds: string[]
+  /** Optional coach tone for this day (set in Plan tab). */
+  trainingMode?: TrainingMode | null
 }
 
 export interface WorkoutTemplate {
@@ -173,6 +182,8 @@ export interface Settings {
   unit: 'lbs' | 'kg'
   restTimerSeconds: number
   restTimerEnabled: boolean
+  /** PR overlay, rest-timer haptics, workout-complete haptics (set log haptic always on). */
+  celebrationsEnabled: boolean
   /** Desktop/in-app reminder 5 min after a completed workout (if no recent meal logged). */
   postWorkoutProteinNotificationEnabled: boolean
   trainerMode: boolean
@@ -187,6 +198,27 @@ export interface Settings {
   macroGoalFatG: number
   /** Local-only hormonal cycle tracking (never synced to Supabase). */
   cycleTrackingEnabled: boolean
+  /** Prompt to open Spotify when a gym session starts. */
+  gymSessionSpotifyPromptEnabled: boolean
+  /** Watch geolocation and prompt when near saved gym (browser Geolocation API). */
+  gymLocationDetectionEnabled: boolean
+  gymLocationLat: number | null
+  gymLocationLng: number | null
+  gymLocationLabel: string
+  /** Sync read/write with Apple Health on iOS (enabled after permission grant). */
+  appleHealthSyncEnabled: boolean
+}
+
+/** Cached Apple Health metrics for the current calendar day. */
+export type AppleHealthTodayMetrics = {
+  dateKey: string
+  steps: number | null
+  activeCalories: number | null
+  heartRateBpm: number | null
+  restingHeartRateBpm: number | null
+  hrvMs: number | null
+  sleepMinutes: number | null
+  syncedAt: number
 }
 
 export interface GymSessionPersist {
@@ -197,7 +229,7 @@ export interface GymSessionPersist {
   manualStartedAt: number | null
   pauseStartedAt: number | null
   accumulatedPauseMs: number
-  /** Selected at workout start (readiness → training mode flow). */
+  /** Copied from today's Plan assignment when a gym session starts. */
   trainingMode: TrainingMode | null
 }
 
@@ -209,6 +241,8 @@ export interface CardioTimerPersist {
 
 export interface RestTimerPersist {
   endAt: number | null
+  startedAt: number | null
+  durationSec: number
   dismissed: boolean
 }
 
@@ -238,6 +272,15 @@ export type WorkoutMoodLogEntry = {
   moodAfter: number
   moodLift: number
   at: number
+}
+
+/** Post-workout feel + energy ratings (synced in user_workout_data). */
+export type PostWorkoutCheckinLogEntry = {
+  dateKey: string
+  feelRating: number
+  energyRating: number
+  at: number
+  trainingMode?: TrainingMode | null
 }
 
 export interface ChatMessage {
@@ -273,6 +316,7 @@ export interface AppPersisted {
   sleepLogs: SleepLogEntry[]
   readinessLogs: ReadinessLogEntry[]
   workoutMoodLogs: WorkoutMoodLogEntry[]
+  postWorkoutCheckins: PostWorkoutCheckinLogEntry[]
   mealLogs: MealLogEntry[]
   cardioEntries: CardioEntry[]
   gymSession: GymSessionPersist
@@ -291,6 +335,10 @@ export interface AppPersisted {
   todayLayout: TodayLayoutPersist
   /** After user responds to the one-time notification permission prompt (either choice). */
   notificationPromptDone: boolean
+  /** After first Apple Health permission prompt post-onboarding. */
+  appleHealthPermissionPromptDone: boolean
+  /** Latest Apple Health sync for today (iOS). */
+  appleHealthToday: AppleHealthTodayMetrics | null
   /** Monday `dateKey` of the week we last showed the Sunday weekly summary notification for. */
   lastWeeklySummaryNotifWeekStart: string | null
   /** Week start (Mon YYYY-MM-DD) when user dismissed burnout warnings on Insights. */
@@ -325,6 +373,7 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'lbs',
   restTimerSeconds: 90,
   restTimerEnabled: true,
+  celebrationsEnabled: true,
   postWorkoutProteinNotificationEnabled: true,
   trainerMode: false,
   trainerNotes: '',
@@ -335,6 +384,12 @@ export const DEFAULT_SETTINGS: Settings = {
   macroGoalCarbsG: DEFAULT_MACRO_GOAL_CARBS_G,
   macroGoalFatG: DEFAULT_MACRO_GOAL_FAT_G,
   cycleTrackingEnabled: false,
+  gymSessionSpotifyPromptEnabled: true,
+  gymLocationDetectionEnabled: false,
+  gymLocationLat: null,
+  gymLocationLng: null,
+  gymLocationLabel: '',
+  appleHealthSyncEnabled: false,
 }
 
 export const ACHIEVEMENT_DEFS = [

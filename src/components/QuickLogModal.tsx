@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
 import type { Exercise } from '../types'
+import { getWeightedPrefillForExercise } from '../lib/deload'
+import { formatExerciseLastHistoryLine } from '../lib/lastSession'
 import { ApexStepper, applyVoiceTranscript, matchExerciseFromTranscript } from './LogSetModal'
 
 type Props = {
@@ -31,6 +33,29 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
       setSearch(initialExercise.name)
     }
   }, [initialExercise?.id])
+
+  useEffect(() => {
+    if (!selected) return
+    const prefill = getWeightedPrefillForExercise(
+      state.setLogs,
+      selected.id,
+      unit,
+      state.deloadActiveWeekStart,
+    )
+    if (prefill) {
+      setBodyweight(prefill.bodyweight)
+      setWeight(
+        prefill.bodyweight || prefill.weight == null ? '0' : String(prefill.weight),
+      )
+      setReps(prefill.reps)
+      setSets(prefill.sets)
+    } else {
+      setBodyweight(false)
+      setWeight('0')
+      setReps(10)
+      setSets(3)
+    }
+  }, [selected?.id, state.setLogs, unit, state.deloadActiveWeekStart])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -189,8 +214,14 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                       style={{ borderLeftColor: selected?.id === e.id ? 'var(--apex-accent)' : 'transparent' }}
                       onClick={() => setSelected(e)}
                     >
-                      <span>{e.name}</span>
-                      <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
+                      <span className="block">{e.name}</span>
+                      {formatExerciseLastHistoryLine(state.setLogs, e.id, unit) ? (
+                        <span className="block text-[11px] text-[#9898a0] mt-0.5">
+                          {formatExerciseLastHistoryLine(state.setLogs, e.id, unit)}
+                        </span>
+                      ) : (
+                        <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
+                      )}
                     </button>
                   </li>
                 ))
@@ -200,10 +231,17 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
 
           {selected ? (
             <div className="space-y-3 rounded-[12px] border border-[#1e1e1e] bg-[#161616] p-4">
-              <p className="text-[13px] font-normal text-[#e0e0e0]">
-                <span className="text-[#a0a0a8]">Selected · </span>
-                {selected.name}
-              </p>
+              <div>
+                <p className="text-[13px] font-normal text-[#e0e0e0]">
+                  <span className="text-[#a0a0a8]">Selected · </span>
+                  {selected.name}
+                </p>
+                {formatExerciseLastHistoryLine(state.setLogs, selected.id, unit) ? (
+                  <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8]">
+                    {formatExerciseLastHistoryLine(state.setLogs, selected.id, unit)}
+                  </p>
+                ) : null}
+              </div>
               <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
                 <input
                   type="checkbox"

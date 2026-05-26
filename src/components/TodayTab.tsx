@@ -17,26 +17,35 @@ import {
   isDeloadWeekActive,
   shouldSuggestDeloadWeek,
 } from '../lib/deload'
-import { formatLastSessionLine, getLastWorkoutSession } from '../lib/lastSession'
+import {
+  formatExerciseLastHistoryLine,
+  formatLastSessionLine,
+  getLastWorkoutSession,
+  type LastWeightedSetDefaults,
+} from '../lib/lastSession'
+import { AiWorkoutTemplatesSection } from './AiWorkoutTemplatesSection'
 import { PLAN_PRESETS } from '../data/planPresets'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
 import { GymModeView } from './GymModeView'
+import { WorkoutInProgressView } from './WorkoutInProgressView'
 import { LogSetModal } from './LogSetModal'
 import { QuickLogModal } from './QuickLogModal'
 import {
+  pickActiveExerciseId,
   readGymModeEnabled,
   setsLoggedTodayForExercise,
+  targetSetsForExercise,
   writeGymModeEnabled,
 } from '../lib/gymMode'
 import { getCycleStatus } from '../lib/cycleTracking'
-import { generateWarmupPlan, plannedExerciseIdsForSession } from '../lib/warmupGenerator'
-import { ReadinessCheckModal } from './ReadinessCheckModal'
-import { TrainingModeModal } from './TrainingModeModal'
-import { WarmupCardModal } from './WarmupCardModal'
-import { WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
-import { trainingModeDef, type TrainingMode } from '../lib/trainingMode'
+import { PostWorkoutCheckinScreen, WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
+import { readPostWorkoutCheckinEnabled } from '../lib/persist'
+import { AppleHealthBadge } from './AppleHealthBadge'
+import { sleepHoursFromHealthMinutes } from '../lib/appleHealth'
+import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
+import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
 import {
   TodayMuscleBalanceSection,
   TodayWeekChartsSection,
@@ -64,6 +73,12 @@ import {
   DEFAULT_WATER_GOAL_OZ,
   WATER_LOG_INCREMENT_OZ,
 } from '../types'
+import {
+  migrateDailyMotivationFromSession,
+  readDailyMotivationForDay,
+  readRecentDailyMotivationTexts,
+  writeDailyMotivationForDay,
+} from '../lib/dailyMotivation'
 import { buildDailyMotivationInput, claudeParseMeal, fetchDailyMotivation } from '../lib/anthropicCoach'
 import {
   readGymBarcode,
@@ -79,12 +94,20 @@ import type { Exercise, SetLog, TodaySectionId, TodaySupersetPair } from '../typ
 type Props = {
   onOpenHistory: () => void
   onOpenGymMembershipSetup?: () => void
+  onGoToTodayTab?: () => void
   screenLayout?: 'mobile' | 'desktop'
   moreOpen: boolean
   onMoreOpenChange: (open: boolean) => void
   planOpen: boolean
   onPlanOpenChange: (open: boolean) => void
 }
+
+const MORE_QUICK_SECTION_IDS: TodaySectionId[] = [
+  'weekly-volume',
+  'cardio-tracker',
+  'water-tracker',
+  'sleep-tracker',
+]
 
 function timeToMsSinceMidnight(time: string): number {
   const [h, m] = time.split(':').map((x) => Number(x))
@@ -160,6 +183,7 @@ function buildPlanRows(ids: string[], pairs: TodaySupersetPair[]): PlanRow[] {
 
 type PlanExerciseSwipeRowProps = {
   ex: Exercise
+  lastHistoryLine?: string | null
   logged: boolean
   flash: boolean
   linkPickActive: boolean
@@ -172,6 +196,7 @@ type PlanExerciseSwipeRowProps = {
 
 function PlanExerciseSwipeRow({
   ex,
+  lastHistoryLine,
   logged,
   flash,
   linkPickActive,
@@ -275,9 +300,13 @@ function PlanExerciseSwipeRow({
       >
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold text-[#f0f0f2] truncate tracking-tight">{ex.name}</p>
-          <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 uppercase tracking-wider">
-            {ex.muscleGroup}
-          </p>
+          {lastHistoryLine ? (
+            <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 truncate">{lastHistoryLine}</p>
+          ) : (
+            <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 uppercase tracking-wider">
+              {ex.muscleGroup}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -396,8 +425,9 @@ function SectionEditShell({
 export function TodayTab({
   onOpenHistory,
   onOpenGymMembershipSetup,
+  onGoToTodayTab,
   screenLayout = 'mobile',
-  moreOpen,
+  moreOpen: _moreOpen,
   onMoreOpenChange,
   planOpen,
   onPlanOpenChange,
@@ -463,34 +493,36 @@ export function TodayTab({
   const planName = sched?.workoutName?.trim() ?? ''
   const isCardioPlan = /\bcardio\b/i.test(planName)
   const isRestDay = !planName
-  const workoutTitle = planName || 'Rest day'
+  const dayStatusLabel = isRestDay ? 'Rest day' : 'Workout day'
+  const headerDateLabel = useMemo(
+    () =>
+      new Date(clock).toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [clock],
+  )
 
   useEffect(() => {
     let cancelled = false
-    const cacheKey = `apex-daily-motivation-${todayKey}`
-    try {
-      const cached = sessionStorage.getItem(cacheKey)
-      if (cached?.trim()) {
-        setMotivationText(cached.trim())
-        setMotivationReady(true)
-        return
-      }
-    } catch {
-      /* ignore */
+    const cached =
+      readDailyMotivationForDay(todayKey) ?? migrateDailyMotivationFromSession(todayKey)
+    if (cached) {
+      setMotivationText(cached)
+      setMotivationReady(true)
+      return
     }
     setMotivationText(null)
     setMotivationReady(false)
-    const input = buildDailyMotivationInput(state, streakDays, clock)
+    const recent = readRecentDailyMotivationTexts(todayKey)
+    const input = buildDailyMotivationInput(state, streakDays, clock, recent, isRestDay)
     void fetchDailyMotivation(input)
       .then((text) => {
         if (cancelled) return
         setMotivationText(text)
         setMotivationReady(true)
-        try {
-          sessionStorage.setItem(cacheKey, text)
-        } catch {
-          /* ignore */
-        }
+        writeDailyMotivationForDay(todayKey, text)
       })
       .catch(() => {
         if (cancelled) return
@@ -500,7 +532,7 @@ export function TodayTab({
     return () => {
       cancelled = true
     }
-  }, [todayKey, streakDays, state.setLogs, state.settings.unit, fallbackQuote])
+  }, [todayKey, fallbackQuote])
 
   useEffect(() => {
     void refreshCoachNote()
@@ -512,6 +544,12 @@ export function TodayTab({
   const [logTarget, setLogTarget] = useState<Exercise | null>(null)
   const [gymModeEnabled, setGymModeEnabled] = useState(() => readGymModeEnabled())
   const [gymModeStandardOnce, setGymModeStandardOnce] = useState(false)
+  const [gymModeEnteredAt, setGymModeEnteredAt] = useState<number | null>(null)
+  const [gymModeEditOpen, setGymModeEditOpen] = useState(false)
+  const [gymModeEditPrefill, setGymModeEditPrefill] = useState<LastWeightedSetDefaults | null>(
+    null,
+  )
+  const [gymModeEditPrefillVersion, setGymModeEditPrefillVersion] = useState(0)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [sessionSummary, setSessionSummary] = useState<SessionSummaryData | null>(null)
   const [gymTime, setGymTime] = useState('09:00')
@@ -536,15 +574,32 @@ export function TodayTab({
   )
   const sleepWeekly = useMemo(() => sleepWeeklyAverages(state, clock), [state.sleepLogs, clock])
 
+  const appleHealthToday = useMemo(() => {
+    const h = state.appleHealthToday
+    if (!h || h.dateKey !== todayKey || !state.settings.appleHealthSyncEnabled) return null
+    return h
+  }, [state.appleHealthToday, state.settings.appleHealthSyncEnabled, todayKey])
+
   useEffect(() => {
     if (sleepTodayLog) {
       setSleepHoursDraft(String(Math.round((sleepTodayLog.durationMinutes / 60) * 100) / 100))
       setSleepQualityDraft(sleepTodayLog.quality)
       return
     }
+    if (appleHealthToday?.sleepMinutes) {
+      setSleepHoursDraft(sleepHoursFromHealthMinutes(appleHealthToday.sleepMinutes))
+      setSleepQualityDraft(3)
+      return
+    }
     setSleepHoursDraft('')
     setSleepQualityDraft(3)
-  }, [sleepTodayLog?.id, sleepTodayLog?.durationMinutes, sleepTodayLog?.quality, todayKey])
+  }, [
+    sleepTodayLog?.id,
+    sleepTodayLog?.durationMinutes,
+    sleepTodayLog?.quality,
+    todayKey,
+    appleHealthToday?.sleepMinutes,
+  ])
 
   const [mealNameDraft, setMealNameDraft] = useState('')
   const [mealCalDraft, setMealCalDraft] = useState('')
@@ -613,11 +668,11 @@ export function TodayTab({
   const [confirmDeleteSetId, setConfirmDeleteSetId] = useState<string | null>(null)
   const [confirmClearAllPlan, setConfirmClearAllPlan] = useState(false)
   const [quickLogOpen, setQuickLogOpen] = useState(false)
-  const [readinessOpen, setReadinessOpen] = useState(false)
-  const [trainingModeOpen, setTrainingModeOpen] = useState(false)
-  const [warmupOpen, setWarmupOpen] = useState(false)
-  const [pendingTrainingMode, setPendingTrainingMode] = useState<TrainingMode | null>(null)
   const [moodCheckinOpen, setMoodCheckinOpen] = useState(false)
+  const [postWorkoutCheckinOpen, setPostWorkoutCheckinOpen] = useState(false)
+  const [endedSessionTrainingMode, setEndedSessionTrainingMode] = useState<
+    import('../lib/trainingMode').TrainingMode | null
+  >(null)
   const [gymCardOpen, setGymCardOpen] = useState(false)
   const [gymBarcodeRenderError, setGymBarcodeRenderError] = useState<string | null>(null)
   const gymBarcodeCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -662,39 +717,32 @@ export function TodayTab({
     [orderedSectionIds],
   )
 
-  function proceedWorkoutStart(trainingMode?: TrainingMode | null) {
-    onMoreOpenChange(true)
-    if (!state.gymSession.active) startGymSession('stopwatch', undefined, trainingMode ?? null)
-  }
-
-  function handleReadinessComplete() {
-    setReadinessOpen(false)
-    setTrainingModeOpen(true)
-  }
-
-  const sessionPlanIds = useMemo(() => {
-    const sched = state.schedule.find((d) => d.dateKey === todayKey)
-    return plannedExerciseIdsForSession(
-      state.todayPlanExerciseIds,
-      sched?.plannedExerciseIds,
-    )
-  }, [state.schedule, state.todayPlanExerciseIds, todayKey])
-
-  const warmupPlan = useMemo(
-    () => generateWarmupPlan(sessionPlanIds, resolveExerciseById),
-    [sessionPlanIds, resolveExerciseById],
+  const moreListSectionIds = useMemo(
+    () =>
+      moreSectionIds.filter((id) => layoutEditing || !MORE_QUICK_SECTION_IDS.includes(id)),
+    [moreSectionIds, layoutEditing],
   )
 
-  function finishWarmupAndStart() {
-    setWarmupOpen(false)
-    proceedWorkoutStart(pendingTrainingMode)
-    setPendingTrainingMode(null)
-  }
+  const [moreQuickPanel, setMoreQuickPanel] = useState<TodaySectionId | null>(null)
 
-  function handleTrainingModeComplete(mode: TrainingMode) {
-    setTrainingModeOpen(false)
-    setPendingTrainingMode(mode)
-    setWarmupOpen(true)
+  const todayScheduledMode = useMemo(
+    () => scheduledTrainingModeForDay(state.schedule, todayKey),
+    [state.schedule, todayKey],
+  )
+
+  function beginWorkoutFlow() {
+    onMoreOpenChange(true)
+    if (!state.gymSession.active) {
+      startGymSession('stopwatch')
+      const firstId = pickActiveExerciseId(
+        state.todayPlanExerciseIds,
+        state.setLogs,
+        todayKey,
+        null,
+      )
+      const firstEx = firstId ? resolveExerciseById(firstId) : null
+      if (firstEx) setLogTarget(firstEx)
+    }
   }
 
   function handlePrimaryAction() {
@@ -702,7 +750,7 @@ export function TodayTab({
       onMoreOpenChange(true)
       if (!state.cardioTimer.running) startCardioTimer()
     } else {
-      setReadinessOpen(true)
+      beginWorkoutFlow()
     }
   }
 
@@ -789,6 +837,11 @@ export function TodayTab({
 
   const gymSec = Math.floor(gymElapsedMs / 1000)
   const cardioSec = Math.floor(cardioElapsedMs / 1000)
+  const isAfterFivePm = useMemo(() => new Date(clock).getHours() >= 17, [clock])
+
+  function startGymSessionQuick() {
+    if (!state.gymSession.active) startGymSession('stopwatch')
+  }
 
   const overloadBanner = useMemo(
     () =>
@@ -848,7 +901,7 @@ export function TodayTab({
   function commitWeightedLog(
     ex: Exercise,
     vals: { bodyweight: boolean; weight: number | null; reps: number; sets: number; note: string },
-    options?: { deferRestTimer?: boolean },
+    options?: { deferRestTimer?: boolean; skipRestTimer?: boolean },
   ) {
     addSetLog(
       {
@@ -876,11 +929,67 @@ export function TodayTab({
   function toggleGymMode(enabled: boolean) {
     setGymModeEnabled(enabled)
     writeGymModeEnabled(enabled)
-    if (enabled) setGymModeStandardOnce(false)
+    if (enabled) {
+      setGymModeStandardOnce(false)
+    } else {
+      setGymModeEnteredAt(null)
+      setGymModeEditOpen(false)
+    }
   }
 
   const useGymModeView =
     Boolean(logTarget) && gymModeEnabled && !gymModeStandardOnce
+
+  useEffect(() => {
+    document.body.classList.toggle('apex-gym-mode-active', useGymModeView)
+    return () => {
+      document.body.classList.remove('apex-gym-mode-active')
+    }
+  }, [useGymModeView])
+
+  const gymModeElapsedSec = useMemo(() => {
+    if (gymModeEnteredAt != null) {
+      return Math.max(0, Math.floor((clock - gymModeEnteredAt) / 1000))
+    }
+    return gymSec
+  }, [gymModeEnteredAt, clock, gymSec])
+
+  const gymModeTargetSets = useMemo(() => {
+    if (!logTarget) return 3
+    return targetSetsForExercise(state.setLogs, logTarget.id)
+  }, [logTarget, state.setLogs])
+
+  const workoutActiveExerciseId = useMemo(
+    () => pickActiveExerciseId(state.todayPlanExerciseIds, state.setLogs, todayKey, logTarget?.id ?? null),
+    [state.todayPlanExerciseIds, state.setLogs, todayKey, logTarget?.id],
+  )
+
+  function enterGymMode(ex?: Exercise) {
+    setGymModeEnteredAt(Date.now())
+    setGymModeStandardOnce(false)
+    setGymModeEnabled(true)
+    writeGymModeEnabled(true)
+    const target =
+      ex ??
+      (workoutActiveExerciseId
+        ? resolveExerciseById(workoutActiveExerciseId)
+        : null)
+    if (target) {
+      setSupersetLogFromId(null)
+      setEditLog(null)
+      setLogTarget(target)
+    }
+  }
+
+  function exitGymModeOverlay() {
+    setGymModeStandardOnce(true)
+    setGymModeEditOpen(false)
+  }
+
+  function openGymModeValueEditor(current: LastWeightedSetDefaults) {
+    setGymModeEditPrefill(current)
+    setGymModeEditOpen(true)
+  }
 
   const gymModeSetsToday = useMemo(() => {
     if (!logTarget) return 0
@@ -902,7 +1011,7 @@ export function TodayTab({
         sets: 1,
         note: '',
       },
-      { deferRestTimer: deferRest },
+      { deferRestTimer: deferRest, skipRestTimer: true },
     )
     flashPlanCard(ex.id)
     notify(`Set logged — ${ex.name}`, 1600)
@@ -1007,6 +1116,7 @@ export function TodayTab({
     const names = [...new Set(logsToday.map((l) => l.exerciseName))]
     const prCount = logsToday.filter((l) => l.isPr).length
     const extras = buildSessionSummaryExtras(state, todayKey, names.length, durationSec)
+    const trainingMode = state.gymSession.trainingMode
     await stopGymSession()
     setSessionSummary({
       dateLabel: formatLong(getNow()),
@@ -1020,12 +1130,23 @@ export function TodayTab({
     if (extras.comebackMessage) {
       notify(extras.comebackMessage, 4500)
     }
-    setMoodCheckinOpen(true)
+    if (readPostWorkoutCheckinEnabled()) {
+      setEndedSessionTrainingMode(trainingMode)
+      setPostWorkoutCheckinOpen(true)
+    } else {
+      setMoodCheckinOpen(true)
+    }
+  }
+
+  function finishPostWorkoutCheckin() {
+    setPostWorkoutCheckinOpen(false)
+    onGoToTodayTab?.()
   }
 
   function finishMoodCheckin() {
     setMoodCheckinOpen(false)
     setSummaryOpen(true)
+    onGoToTodayTab?.()
   }
 
   function reorderSectionDrag(fromId: TodaySectionId, toId: TodaySectionId) {
@@ -1059,8 +1180,8 @@ export function TodayTab({
     switch (id) {
       case 'daily-motivation':
         return (
-          <div className="apex-card">
-            <p className="apex-section-label mb-2">Daily motivation</p>
+          <div className="apex-daily-motivation-card">
+            <p className="apex-daily-motivation-card__label">Daily motivation</p>
             {!motivationReady ? (
               <div
                 className="rounded-[4px] bg-white/20"
@@ -1069,7 +1190,7 @@ export function TodayTab({
               />
             ) : (
               <p
-                className="text-[15px] sm:text-[16px] font-normal text-[#ececee] leading-relaxed transition-opacity duration-500"
+                className="apex-daily-motivation-card__body transition-opacity duration-500"
                 style={{ opacity: motivationReady ? 1 : 0 }}
               >
                 {motivationText ?? fallbackQuote}
@@ -1147,7 +1268,17 @@ export function TodayTab({
         return (
           <div className="space-y-4">
             <div className="apex-card p-4 flex flex-col gap-3 min-h-[158px]">
-              <p className="apex-section-label">Cardio</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="apex-section-label">Cardio</p>
+                {appleHealthToday?.restingHeartRateBpm != null ? <AppleHealthBadge /> : null}
+              </div>
+              {appleHealthToday?.restingHeartRateBpm != null ? (
+                <p className="text-[28px] font-medium tabular-nums text-[#f4f4f5] leading-none">
+                  {appleHealthToday.restingHeartRateBpm}
+                  <span className="text-[14px] font-medium text-[#a0a0a8] ml-1">bpm resting</span>
+                </p>
+              ) : null}
+              <p className="text-[12px] font-medium text-[#a0a0a8]">Session timer</p>
               <p className="apex-stat-num tabular-nums">{formatDuration(cardioSec)}</p>
               <div className="flex gap-1 flex-wrap mt-auto">
                 <button
@@ -1259,12 +1390,22 @@ export function TodayTab({
         return (
           <div className="apex-card p-5 space-y-4">
             <div>
-              <p className="apex-section-label">Sleep</p>
-              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Log last night&apos;s rest</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="apex-section-label">Sleep</p>
+                {appleHealthToday?.sleepMinutes ? <AppleHealthBadge /> : null}
+              </div>
+              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
+                {appleHealthToday?.sleepMinutes && !sleepTodayLog
+                  ? 'Imported from Apple Health — adjust quality and save'
+                  : "Log last night's rest"}
+              </p>
             </div>
             {sleepTodayLog ? (
               <p className="text-[14px] font-medium text-[#ececee]">
                 Logged · {formatSleepDuration(sleepTodayLog.durationMinutes)} · {sleepTodayLog.quality}/5 quality
+                {appleHealthToday?.sleepMinutes ? (
+                  <span className="text-[#a0a0a8]"> · synced from Health</span>
+                ) : null}
               </p>
             ) : null}
             <div className="flex gap-2">
@@ -1494,12 +1635,13 @@ export function TodayTab({
                         state.todayPlanExerciseIds
                           .map((id) => resolveExerciseById(id))
                           .find((ex): ex is Exercise => Boolean(ex)) ?? null
-                      if (first) openExerciseLog(first)
+                      if (first) enterGymMode(first)
                     }}
                   >
                     Open gym mode
                   </button>
                 ) : null}
+                <AiWorkoutTemplatesSection enabled={planOpen} />
                 <p className="apex-section-label">Quick presets</p>
                 <div className="grid grid-cols-2 gap-3">
                   {PLAN_PRESETS.map((p) => (
@@ -1547,8 +1689,22 @@ export function TodayTab({
                                 setPlanSearch('')
                               }}
                             >
-                              {e.name}{' '}
-                              <span className="text-[#a8a8b0]">· {e.muscleGroup}</span>
+                              <span className="block">{e.name}</span>
+                              {formatExerciseLastHistoryLine(
+                                state.setLogs,
+                                e.id,
+                                state.settings.unit,
+                              ) ? (
+                                <span className="block text-[11px] font-medium text-[#a8a8b0] mt-0.5">
+                                  {formatExerciseLastHistoryLine(
+                                    state.setLogs,
+                                    e.id,
+                                    state.settings.unit,
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-[#a8a8b0]"> · {e.muscleGroup}</span>
+                              )}
                             </button>
                           </li>
                         ))
@@ -1577,6 +1733,11 @@ export function TodayTab({
                           <ul className="divide-y divide-white/[0.06]">
                             <PlanExerciseSwipeRow
                               ex={ex}
+                              lastHistoryLine={formatExerciseLastHistoryLine(
+                                state.setLogs,
+                                ex.id,
+                                state.settings.unit,
+                              )}
                               logged={logged}
                               flash={flashPlanId === row.id}
                               linkPickActive={!!supersetLinkFrom}
@@ -1633,6 +1794,11 @@ export function TodayTab({
                               <PlanExerciseSwipeRow
                                 key={ex.id}
                                 ex={ex}
+                                lastHistoryLine={formatExerciseLastHistoryLine(
+                                  state.setLogs,
+                                  ex.id,
+                                  state.settings.unit,
+                                )}
                                 logged={logged}
                                 flash={flashPlanId === ex.id}
                                 linkPickActive={!!supersetLinkFrom}
@@ -1770,7 +1936,42 @@ export function TodayTab({
   }
 
   return (
-    <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}`}>
+    <>
+      {state.gymSession.active ? (
+        <WorkoutInProgressView
+          workoutName={planName || 'Workout'}
+          elapsedSec={gymSec}
+          planExerciseIds={state.todayPlanExerciseIds}
+          setLogs={state.setLogs}
+          todayKey={todayKey}
+          unit={state.settings.unit}
+          activeExerciseId={workoutActiveExerciseId}
+          resolveExercise={(id) => resolveExerciseById(id)}
+          onActiveExerciseChange={(id) => {
+            const ex = resolveExerciseById(id)
+            if (!ex) return
+            setSupersetLogFromId(null)
+            setEditLog(null)
+            setGymModeStandardOnce(false)
+            setLogTarget(ex)
+          }}
+          onExitWorkout={() => void endGym()}
+          onLogSet={() => {
+            const id = workoutActiveExerciseId
+            const ex = id ? resolveExerciseById(id) : null
+            if (ex) openExerciseLog(ex)
+          }}
+          onSwipeLog={(ex) => swipeQuickLog(ex)}
+          onOpenExerciseDetail={(ex) => openExerciseLog(ex)}
+          onOpenGymMode={() => {
+            const id = workoutActiveExerciseId
+            const ex = id ? resolveExerciseById(id) : null
+            if (ex) enterGymMode(ex)
+          }}
+        />
+      ) : null}
+
+    <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}${state.gymSession.active ? ' hidden' : ''}`}>
       <header className="apex-card px-6 py-6 relative">
         <button
           type="button"
@@ -1790,110 +1991,205 @@ export function TodayTab({
         >
           <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
         </button>
-        <p className="apex-page-sub pr-14">{formatLong(new Date(clock))}</p>
+        <div className="apex-today-header-meta pr-14" aria-label="Today">
+          <span>{headerDateLabel}</span>
+          <span className="apex-today-header-meta__sep" aria-hidden>
+            ·
+          </span>
+          <span className="tabular-nums">
+            {streakDays} day{streakDays === 1 ? '' : 's'} streak
+          </span>
+        </div>
         {cycleStatus ? (
           <p className="mt-1.5 text-[11px] font-medium text-[#9898a0] tracking-wide">
             {cycleStatus.shortLabel} phase · day {cycleStatus.dayInCycle}
           </p>
         ) : null}
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[0.8125rem] font-medium text-[#7d7d88]">Streak</span>
-          <span className="text-[18px] font-black tabular-nums text-[#f4f4f5]">{streakDays}d</span>
-          <span
-            className={`apex-streak-shield inline-flex items-center gap-1 rounded-[8px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-              streakMeta.shieldAvailable
-                ? 'border-white/20 bg-white/[0.06] text-[#ececee]'
-                : 'border-white/[0.08] bg-white/[0.02] text-[#7d7d88]'
-            }`}
-            title={
-              streakMeta.shieldAvailable
-                ? 'Streak shield: one missed day per week won’t break your streak'
-                : 'Streak shield used this week'
-            }
-          >
-            <i className={`ti ti-shield text-[12px] ${streakMeta.shieldAvailable ? '' : 'opacity-50'}`} aria-hidden />
-            {streakMeta.shieldAvailable ? 'Shield ready' : 'Shield used'}
-          </span>
-        </div>
-        <h1 className="apex-page-title mt-2 pr-2">{workoutTitle}</h1>
-        {isRestDay && !isCardioPlan ? (
-          <>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                className="flex-1 min-h-[44px] rounded-[8px] text-[14px] font-normal touch-manipulation"
-                style={{
-                  background: 'transparent',
-                  border: '0.5px solid rgba(255,255,255,0.15)',
-                  color: 'rgba(255,255,255,0.5)',
-                }}
-                onClick={() => {
-                  addCardioEntry('Recovery', null)
-                  onMoreOpenChange(true)
-                }}
-              >
-                Log recovery
-              </button>
-              <button
-                type="button"
-                className="flex-1 min-h-[44px] rounded-[8px] apex-btn-primary text-[14px] font-medium touch-manipulation active:scale-[0.98]"
-                onClick={() => {
+        <h1 className="apex-today-header-title pr-2">{dayStatusLabel}</h1>
+        <span
+          className={`apex-streak-shield mt-2 inline-flex items-center gap-1 rounded-[8px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            streakMeta.shieldAvailable
+              ? 'border-white/20 bg-white/[0.06] text-[#ececee]'
+              : 'border-white/[0.08] bg-white/[0.02] text-[#7d7d88]'
+          }`}
+          title={
+            streakMeta.shieldAvailable
+              ? 'Streak shield: one missed day per week won’t break your streak'
+              : 'Streak shield used this week'
+          }
+        >
+          <i className={`ti ti-shield text-[12px] ${streakMeta.shieldAvailable ? '' : 'opacity-50'}`} aria-hidden />
+          {streakMeta.shieldAvailable ? 'Shield ready' : 'Shield used'}
+        </span>
+
+        {!isCardioPlan ? (
+          <div className="apex-today-header-actions">
+            <button
+              type="button"
+              className="apex-today-btn-ghost"
+              onClick={() => {
+                addCardioEntry('Recovery', null)
+                onMoreOpenChange(true)
+              }}
+            >
+              Log recovery
+            </button>
+            <button
+              type="button"
+              className="apex-today-btn-workout"
+              onClick={() => {
+                if (isRestDay) {
                   updateScheduleDay(todayKey, { workoutName: 'Workout' })
                   onMoreOpenChange(true)
                   onPlanOpenChange(true)
-                  if (!state.gymSession.active) startGymSession('stopwatch')
-                }}
-              >
-                Workout day
-              </button>
+                }
+                beginWorkoutFlow()
+              }}
+            >
+              <span>Workout day</span>
+              <span className="apex-today-btn-workout__arrow" aria-hidden>
+                →
+              </span>
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-4">
+          {state.gymSession.active ? (
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">
+                Gym session
+              </p>
+              <div className="flex items-stretch gap-2">
+                <div
+                  className="flex-1 min-h-[4.5rem] rounded-[16px] border border-white/[0.14] bg-white/[0.06] flex items-center justify-center px-3"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <span className="text-[2rem] sm:text-[2.25rem] font-black tabular-nums text-[#f4f4f5] leading-none tracking-tight">
+                    {formatDuration(gymSec)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="apex-btn-primary flex-1 min-h-[4.5rem] rounded-[16px] text-[15px] font-bold touch-manipulation active:scale-[0.98]"
+                  onClick={() => void endGym()}
+                >
+                  End session
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {state.gymSession.pauseStartedAt ? (
+                  <button
+                    type="button"
+                    className={`${btnNeutral} flex-1 min-h-10`}
+                    onClick={resumeGymSession}
+                  >
+                    Resume timer
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${btnNeutral} flex-1 min-h-10`}
+                    onClick={pauseGymSession}
+                  >
+                    Pause timer
+                  </button>
+                )}
+              </div>
             </div>
-            {lastWorkoutSession ? (
-              <button
-                type="button"
-                className={`${btnNeutral} w-full mt-2`}
-                onClick={handleRepeatLastWorkout}
-              >
-                Repeat last workout
-              </button>
-            ) : null}
-          </>
-        ) : !isCardioPlan ? (
-          <>
+          ) : (
             <button
               type="button"
-              className="apex-btn-primary w-full min-h-12 mt-5 text-[14px] font-semibold rounded-[14px]"
-              onClick={handlePrimaryAction}
+              className="w-full min-h-14 rounded-[16px] apex-btn-primary text-[16px] font-bold touch-manipulation active:scale-[0.98]"
+              onClick={startGymSessionQuick}
             >
-              Start workout
+              Start gym session
             </button>
-            {lastWorkoutSession ? (
-              <button
-                type="button"
-                className={`${btnNeutral} w-full mt-2`}
-                onClick={handleRepeatLastWorkout}
-              >
-                Repeat last workout
-              </button>
-            ) : null}
-          </>
-        ) : (
+          )}
+        </div>
+
+        {!isCardioPlan && lastWorkoutSession ? (
           <button
             type="button"
-            className="apex-btn-primary w-full min-h-12 mt-5 text-[14px] font-semibold rounded-[14px]"
+            className={`${btnNeutral} w-full mt-2`}
+            onClick={handleRepeatLastWorkout}
+          >
+            Repeat last workout
+          </button>
+        ) : null}
+        {isCardioPlan ? (
+          <button
+            type="button"
+            className="apex-btn-primary w-full min-h-12 mt-2 text-[14px] font-semibold rounded-[14px]"
             onClick={handlePrimaryAction}
           >
             Log cardio
           </button>
-        )}
+        ) : null}
       </header>
 
-      {state.gymSession.active && state.gymSession.trainingMode ? (
+      {state.gymSession.active ? (
+        <div
+          className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-white/[0.1] bg-[var(--apex-surface-page)]/95 backdrop-blur-md px-4 py-3 -mt-px"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">
+              Gym session
+            </p>
+            <p className="text-[1.75rem] font-black tabular-nums text-[#f4f4f5] leading-none tracking-tight">
+              {formatDuration(gymSec)}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {state.gymSession.pauseStartedAt ? (
+              <button
+                type="button"
+                className={`${btnNeutral} min-h-10 px-3 text-[12px]`}
+                onClick={resumeGymSession}
+              >
+                Resume
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`${btnNeutral} min-h-10 px-3 text-[12px]`}
+                onClick={pauseGymSession}
+              >
+                Pause
+              </button>
+            )}
+            <button
+              type="button"
+              className="apex-btn-primary min-h-11 px-4 text-[13px] font-semibold touch-manipulation"
+              onClick={() => void endGym()}
+            >
+              End session
+            </button>
+          </div>
+        </div>
+      ) : isAfterFivePm ? (
+        <button
+          type="button"
+          className="w-full text-left rounded-[14px] border border-white/[0.07] bg-white/[0.02] px-4 py-3 touch-manipulation hover:bg-white/[0.04] active:bg-white/[0.05] transition-colors"
+          onClick={startGymSessionQuick}
+        >
+          <p className="text-[13px] font-medium text-[#a0a0a8]">At the gym?</p>
+          <p className="text-[12px] font-medium text-[#7d7d88] mt-0.5">
+            Tap to start your session timer
+          </p>
+        </button>
+      ) : null}
+
+      {state.gymSession.active && todayScheduledMode ? (
         <div className="apex-card px-5 py-4">
           <p className="apex-section-label">
-            {trainingModeDef(state.gymSession.trainingMode).label} mode
+            {trainingModeDef(todayScheduledMode).label} mode
           </p>
           <p className="mt-2 text-[14px] font-medium text-[#ececee] leading-relaxed">
-            {trainingModeDef(state.gymSession.trainingMode).framing}
+            {trainingModeDef(todayScheduledMode).framing}
           </p>
         </div>
       ) : null}
@@ -1912,19 +2208,21 @@ export function TodayTab({
 
       {sectionBody('daily-motivation')}
 
-      {!isDesktop ? (
-        <button
-          type="button"
-          className="apex-card w-full min-h-12 px-5 flex items-center justify-between text-left touch-manipulation"
-          onClick={() => onMoreOpenChange(!moreOpen)}
-          aria-expanded={moreOpen}
-        >
-          <span className="text-[15px] font-semibold text-[#ececee]">More</span>
-          <span className="text-[20px] font-light leading-none text-[#a0a0a8]">{moreOpen ? '−' : '+'}</span>
-        </button>
-      ) : null}
+      <div className="apex-today-more">
+        <div className="apex-today-more__head">
+          <p className="apex-today-more__label">More</p>
+          <span className="apex-today-more__week">This week</span>
+        </div>
 
-      {isDesktop || moreOpen ? (
+        <TodayMoreQuickGrid
+          activeId={moreQuickPanel}
+          onSelect={(id) => setMoreQuickPanel((p) => (p === id ? null : id))}
+        />
+
+        {moreQuickPanel && !layoutEditing ? (
+          <div className="apex-today-more__panel">{sectionBody(moreQuickPanel)}</div>
+        ) : null}
+
         <div className="apex-tab-stack">
       {showSundayRecap ? (
         <div className="apex-card px-5 py-5 ">
@@ -2068,7 +2366,7 @@ export function TodayTab({
       ) : null}
 
       <div className="apex-tab-stack">
-        {moreSectionIds.map((sid) => {
+        {moreListSectionIds.map((sid) => {
           const label = TODAY_SECTION_LABELS[sid]
           const hidden = hiddenSet.has(sid)
           const idx = layout.order.indexOf(sid)
@@ -2107,46 +2405,56 @@ export function TodayTab({
         })}
       </div>
         </div>
-      ) : null}
+      </div>
 
       {useGymModeView && logTarget ? (
         <GymModeView
           exercise={logTarget}
           unit={state.settings.unit}
           setsLoggedToday={gymModeSetsToday}
+          targetSets={gymModeTargetSets}
+          elapsedSec={gymModeElapsedSec}
           initialWeighted={logInitialWeighted}
-          planExerciseIds={state.todayPlanExerciseIds}
-          resolveExercise={(id) => resolveExerciseById(id)}
-          onNavigate={(ex) => {
-            setGymModeStandardOnce(false)
-            setLogTarget(ex)
-          }}
-          onExit={() => {
-            setLogTarget(null)
-            setSupersetLogFromId(null)
-          }}
-          onSwitchToStandard={() => setGymModeStandardOnce(true)}
+          editPrefill={gymModeEditPrefill}
+          editPrefillVersion={gymModeEditPrefillVersion}
+          onExitGymMode={exitGymModeOverlay}
+          onEditValues={openGymModeValueEditor}
           onLogSet={(vals) => logSetFromGymMode(logTarget, vals)}
         />
       ) : null}
 
       <LogSetModal
-        open={!!logTarget && !useGymModeView}
+        open={gymModeEditOpen || (!!logTarget && !useGymModeView)}
         exercise={logTarget}
         unit={state.settings.unit}
         lastSessionLine={lastSessionLine}
-        initialWeighted={logInitialWeighted}
+        initialWeighted={gymModeEditOpen ? gymModeEditPrefill : logInitialWeighted}
+        setLogs={state.setLogs}
+        overlayClassName={gymModeEditOpen || useGymModeView ? 'z-[98]' : undefined}
         onClose={() => {
+          if (gymModeEditOpen) {
+            setGymModeEditOpen(false)
+            return
+          }
           setLogTarget(null)
           setSupersetLogFromId(null)
           setGymModeStandardOnce(false)
         }}
         onOpenGymMode={() => {
-          setGymModeEnabled(true)
-          writeGymModeEnabled(true)
-          setGymModeStandardOnce(false)
+          if (logTarget) enterGymMode(logTarget)
         }}
         onSave={(p) => {
+          if (gymModeEditOpen && p.mode === 'weighted') {
+            setGymModeEditPrefill({
+              bodyweight: p.bodyweight,
+              weight: p.bodyweight ? null : p.weight,
+              reps: p.reps,
+              sets: 1,
+            })
+            setGymModeEditPrefillVersion((v) => v + 1)
+            setGymModeEditOpen(false)
+            return false
+          }
           try {
             const ex = p.exercise
             const partner = getSupersetPartner(ex.id)
@@ -2400,35 +2708,15 @@ export function TodayTab({
         </div>
       ) : null}
 
-      {readinessOpen ? (
-        <ReadinessCheckModal
-          open={readinessOpen}
-          userId={userId}
+      {postWorkoutCheckinOpen ? (
+        <PostWorkoutCheckinScreen
+          open={postWorkoutCheckinOpen}
           todayKey={todayKey}
-          onClose={() => setReadinessOpen(false)}
-          onComplete={handleReadinessComplete}
+          trainingMode={endedSessionTrainingMode}
+          onDone={finishPostWorkoutCheckin}
+          onSkip={finishPostWorkoutCheckin}
         />
       ) : null}
-
-      {trainingModeOpen ? (
-        <TrainingModeModal
-          open={trainingModeOpen}
-          userId={userId}
-          todayKey={todayKey}
-          onClose={() => {
-            setTrainingModeOpen(false)
-            setPendingTrainingMode(null)
-          }}
-          onComplete={handleTrainingModeComplete}
-        />
-      ) : null}
-
-      <WarmupCardModal
-        open={warmupOpen}
-        plan={warmupPlan}
-        onSkip={finishWarmupAndStart}
-        onStart={finishWarmupAndStart}
-      />
 
       {moodCheckinOpen ? (
         <WorkoutMoodCheckinModal
@@ -2442,7 +2730,7 @@ export function TodayTab({
 
       {quickLogOpen ? <QuickLogModal onClose={() => setQuickLogOpen(false)} /> : null}
 
-      {!useGymModeView ? (
+      {!state.gymSession.active && !useGymModeView && !postWorkoutCheckinOpen ? (
       <button
         type="button"
         aria-label="Quick log a set"
@@ -2459,5 +2747,6 @@ export function TodayTab({
       </button>
       ) : null}
     </div>
+    </>
   )
 }

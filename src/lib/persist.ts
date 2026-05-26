@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { equipmentForExercise, isEquipmentType } from './equipment'
 import type {
   AppPersisted,
   CardioEntry,
@@ -13,6 +14,7 @@ import { DEFAULT_SETTINGS, DEFAULT_WATER_GOAL_OZ, DEFAULT_MACRO_GOAL_CALORIES, D
 import { stripCoachPlanMachineLine } from './coachWorkoutPlan'
 import { dateKey, weekStartMonday } from './dates'
 import { normalizeTodayLayout } from './todayLayout'
+import { isTrainingMode } from './trainingMode'
 
 const STORAGE_KEY = 'workout-app-v1'
 
@@ -273,7 +275,17 @@ export function migrateCustomExercises(raw: unknown): Exercise[] {
       const g = o.gifUrl.trim().slice(0, 2048)
       if (/^https?:\/\//i.test(g)) gifUrl = g
     }
-    out.push({ id, name, muscleGroup: mg as MuscleGroup, ...(gifUrl ? { gifUrl } : {}) })
+    const muscleGroup = mg as MuscleGroup
+    const equipment = isEquipmentType(o.equipment)
+      ? o.equipment
+      : equipmentForExercise(name, muscleGroup)
+    out.push({
+      id,
+      name,
+      muscleGroup,
+      equipment,
+      ...(gifUrl ? { gifUrl } : {}),
+    })
   }
   return out
 }
@@ -481,6 +493,28 @@ function migrateAppState(s: AppPersisted): AppPersisted {
       typeof s.settings.postWorkoutProteinNotificationEnabled === 'boolean'
         ? s.settings.postWorkoutProteinNotificationEnabled
         : true,
+    gymSessionSpotifyPromptEnabled:
+      typeof s.settings.gymSessionSpotifyPromptEnabled === 'boolean'
+        ? s.settings.gymSessionSpotifyPromptEnabled
+        : true,
+    gymLocationDetectionEnabled:
+      typeof s.settings.gymLocationDetectionEnabled === 'boolean'
+        ? s.settings.gymLocationDetectionEnabled
+        : false,
+    gymLocationLat:
+      typeof s.settings.gymLocationLat === 'number' && Number.isFinite(s.settings.gymLocationLat)
+        ? s.settings.gymLocationLat
+        : null,
+    gymLocationLng:
+      typeof s.settings.gymLocationLng === 'number' && Number.isFinite(s.settings.gymLocationLng)
+        ? s.settings.gymLocationLng
+        : null,
+    gymLocationLabel:
+      typeof s.settings.gymLocationLabel === 'string' ? s.settings.gymLocationLabel : '',
+    appleHealthSyncEnabled:
+      typeof s.settings.appleHealthSyncEnabled === 'boolean'
+        ? s.settings.appleHealthSyncEnabled
+        : false,
   }
   return {
     ...s,
@@ -489,6 +523,7 @@ function migrateAppState(s: AppPersisted): AppPersisted {
     sleepLogs: migrateSleepLogs(s.sleepLogs),
     readinessLogs: Array.isArray(s.readinessLogs) ? s.readinessLogs : [],
     workoutMoodLogs: Array.isArray(s.workoutMoodLogs) ? s.workoutMoodLogs : [],
+    postWorkoutCheckins: Array.isArray(s.postWorkoutCheckins) ? s.postWorkoutCheckins : [],
     mealLogs: migrateMealLogs(s.mealLogs),
     setLogs: migrateSetLogs(s.setLogs),
     friends: s.friends ?? [],
@@ -499,6 +534,16 @@ function migrateAppState(s: AppPersisted): AppPersisted {
     todayLayout: normalizeTodayLayout(s.todayLayout),
     notificationPromptDone:
       typeof s.notificationPromptDone === 'boolean' ? s.notificationPromptDone : false,
+    appleHealthPermissionPromptDone:
+      typeof s.appleHealthPermissionPromptDone === 'boolean'
+        ? s.appleHealthPermissionPromptDone
+        : false,
+    appleHealthToday:
+      s.appleHealthToday &&
+      typeof s.appleHealthToday === 'object' &&
+      typeof s.appleHealthToday.dateKey === 'string'
+        ? s.appleHealthToday
+        : null,
     lastWeeklySummaryNotifWeekStart:
       typeof s.lastWeeklySummaryNotifWeekStart === 'string' || s.lastWeeklySummaryNotifWeekStart === null
         ? s.lastWeeklySummaryNotifWeekStart
@@ -506,6 +551,7 @@ function migrateAppState(s: AppPersisted): AppPersisted {
     schedule: s.schedule.map((d) => ({
       ...d,
       plannedExerciseIds: Array.isArray(d.plannedExerciseIds) ? d.plannedExerciseIds : [],
+      trainingMode: isTrainingMode(d.trainingMode) ? d.trainingMode : undefined,
     })),
     burnoutDismissedWeekStart:
       typeof s.burnoutDismissedWeekStart === 'string' || s.burnoutDismissedWeekStart === null
@@ -570,6 +616,7 @@ export function defaultState(): AppPersisted {
     sleepLogs: [],
     readinessLogs: [],
     workoutMoodLogs: [],
+    postWorkoutCheckins: [],
     mealLogs: [],
     cardioEntries: [],
     gymSession: {
@@ -587,7 +634,7 @@ export function defaultState(): AppPersisted {
       segmentStartAt: null,
     },
     achievements: [],
-    restTimer: { endAt: null, dismissed: true },
+    restTimer: { endAt: null, startedAt: null, durationSec: 90, dismissed: true },
     chatMessages: [],
     scheduleWeekStart: ws,
     friends: [],
@@ -595,6 +642,8 @@ export function defaultState(): AppPersisted {
     lifetimeXp: 0,
     todayLayout: normalizeTodayLayout(undefined),
     notificationPromptDone: false,
+    appleHealthPermissionPromptDone: false,
+    appleHealthToday: null,
     lastWeeklySummaryNotifWeekStart: null,
     burnoutDismissedWeekStart: null,
     streakShieldUsedWeekStart: null,
@@ -660,6 +709,9 @@ export function loadState(): AppPersisted {
       sleepLogs: migrateSleepLogs(parsed.sleepLogs ?? []),
       readinessLogs: Array.isArray(parsed.readinessLogs) ? parsed.readinessLogs : [],
       workoutMoodLogs: Array.isArray(parsed.workoutMoodLogs) ? parsed.workoutMoodLogs : [],
+      postWorkoutCheckins: Array.isArray(parsed.postWorkoutCheckins)
+        ? parsed.postWorkoutCheckins
+        : [],
       mealLogs: migrateMealLogs(parsed.mealLogs ?? []),
       lifetimeXp:
         typeof parsed.lifetimeXp === 'number' && Number.isFinite(parsed.lifetimeXp)
@@ -702,6 +754,80 @@ export function saveState(state: AppPersisted): void {
 
 export const APEX_THEME_STORAGE_KEY = 'apex_theme'
 export const APEX_FONT_SIZE_STORAGE_KEY = 'apex_font_size'
+export const APEX_DISTANCE_UNIT_KEY = 'apex_distance_unit'
+export const APEX_WORKOUT_REMINDERS_KEY = 'apex_workout_reminders'
+export const APEX_WEEKLY_SUMMARY_KEY = 'apex_weekly_summary'
+export const APEX_POST_WORKOUT_CHECKIN_KEY = 'apex_post_workout_checkin'
+
+export function readPostWorkoutCheckinEnabled(): boolean {
+  try {
+    const v = localStorage.getItem(APEX_POST_WORKOUT_CHECKIN_KEY)
+    if (v === '0') return false
+  } catch {
+    /* ignore */
+  }
+  return true
+}
+
+export function writePostWorkoutCheckinEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(APEX_POST_WORKOUT_CHECKIN_KEY, enabled ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+export type ApexDistanceUnit = 'km' | 'mi'
+
+export function readDistanceUnit(): ApexDistanceUnit {
+  try {
+    return localStorage.getItem(APEX_DISTANCE_UNIT_KEY) === 'mi' ? 'mi' : 'km'
+  } catch {
+    return 'km'
+  }
+}
+
+export function writeDistanceUnit(unit: ApexDistanceUnit): void {
+  try {
+    localStorage.setItem(APEX_DISTANCE_UNIT_KEY, unit)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readWorkoutRemindersEnabled(): boolean {
+  try {
+    const v = localStorage.getItem(APEX_WORKOUT_REMINDERS_KEY)
+    if (v === '0') return false
+  } catch {
+    /* ignore */
+  }
+  return true
+}
+
+export function writeWorkoutRemindersEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(APEX_WORKOUT_REMINDERS_KEY, enabled ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readWeeklySummaryEnabled(): boolean {
+  try {
+    return localStorage.getItem(APEX_WEEKLY_SUMMARY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function writeWeeklySummaryEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(APEX_WEEKLY_SUMMARY_KEY, enabled ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Today tab collapsible sections (persist across tab switches). */
 export const APEX_TODAY_MORE_OPEN_KEY = 'apex-today-more-open'
