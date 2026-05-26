@@ -1057,26 +1057,15 @@ function MeTabProfileView({
             aria-label={appearanceTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             onClick={onToggleTheme}
           >
-            {appearanceTheme === 'dark' ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
-                <path
-                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            )}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
           </div>
         </div>
@@ -1222,7 +1211,7 @@ function MeTabProfileView({
         </div>
         <div className="apex-me-friend-code-row">
           <span className="apex-me-friend-code-label">
-            Your code: <strong className="tabular-nums">{friendCode ?? '······'}</strong>
+            Your code: <strong className="tabular-nums">{friendCode ?? '------'}</strong>
           </span>
           <button
             type="button"
@@ -1413,14 +1402,13 @@ export function ProfileTab({
     addBodyweight,
     resetAppData,
   } = useWorkout()
-  const [sub, setSub] = useState<Sub>('stats')
+  const sub: Sub = 'stats'
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [distanceUnit, setDistanceUnit] = useState<ApexDistanceUnit>(readDistanceUnit)
   const [workoutReminders, setWorkoutReminders] = useState(readWorkoutRemindersEnabled)
   const [weeklySummary, setWeeklySummary] = useState(readWeeklySummaryEnabled)
   const [postWorkoutCheckin, setPostWorkoutCheckin] = useState(readPostWorkoutCheckinEnabled)
   const [spotifyConnected, setSpotifyConnected] = useState(isSpotifyConnected)
-  const [aiSub, setAiSub] = useState<AiSub>('coach')
   const [busy, setBusy] = useState(false)
   const [appearanceTheme, setAppearanceTheme] = useState<ApexThemeMode>(readThemeMode)
   const [appearanceFontSize, setAppearanceFontSize] = useState<ApexFontSizeMode>(readFontSizeMode)
@@ -1791,31 +1779,6 @@ export function ProfileTab({
           onViewAllLeaderboard={() => setGlobalLbOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
-      ) : null}
-
-      {!isDesktop && !settingsOpen ? (
-      <div className="apex-profile-subtabs flex border-b border-white/10">
-        {(
-          [
-            ['stats', 'Stats'],
-            ['ai', 'AI'],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            className={`relative min-h-11 flex-1 text-[13px] font-medium transition-colors active:opacity-90 ${
-              sub === k ? 'apex-profile-subtab-active' : 'apex-profile-subtab-inactive'
-            }`}
-            onClick={() => setSub(k)}
-          >
-            {label}
-            {sub === k ? (
-              <span className="apex-profile-subtab-indicator absolute bottom-0 left-[18%] right-[18%] h-px" aria-hidden />
-            ) : null}
-          </button>
-        ))}
-      </div>
       ) : null}
 
       {isDesktop && desktopSection === 'profile' ? (
@@ -2217,7 +2180,7 @@ export function ProfileTab({
                     }}
                   />
                   {connectCodeError ? (
-                    <p className="text-[12px] text-[#ff7a85] mt-2" role="alert">
+                    <p className="text-[12px] text-[#3d7ab5] mt-2" role="alert">
                       {connectCodeError}
                     </p>
                   ) : null}
@@ -2441,23 +2404,16 @@ export function ProfileTab({
               </div>
             </div>
 
+            <button
+              type="button"
+              className="apex-sign-out-btn w-full min-h-12 text-[13px] mt-6"
+              onClick={() => void supabase.auth.signOut()}
+            >
+              Sign out
+            </button>
             <p className="apex-settings-footer-version">Apex v3.2.0 · Build 11842</p>
           </div>
         </div>
-      ) : null}
-
-      {!isDesktop && sub === 'ai' ? (
-        <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="tab" />
-      ) : null}
-
-      {!showSettingsScreen && (!isDesktop || desktopSection === 'profile') ? (
-        <button
-          type="button"
-          className="apex-sign-out-btn w-full min-h-12 text-[13px] mt-2"
-          onClick={() => void supabase.auth.signOut()}
-        >
-          Sign out
-        </button>
       ) : null}
 
       {selectedClient ? (

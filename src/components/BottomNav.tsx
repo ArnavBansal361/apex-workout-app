@@ -34,12 +34,12 @@ const ITEMS: {
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="M8 10h8M8 14h5"
+          d="M7 6h4v12H7zM13 6h4v12h-4zM11 6h2v12h-2z"
           stroke={navStroke(active)}
           strokeWidth="1.75"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
-        <rect x="5" y="6" width="14" height="12" rx="2" stroke={navStroke(active)} strokeWidth="1.75" />
       </svg>
     ),
   },

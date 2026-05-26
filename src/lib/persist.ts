@@ -781,9 +781,9 @@ export type ApexDistanceUnit = 'km' | 'mi'
 
 export function readDistanceUnit(): ApexDistanceUnit {
   try {
-    return localStorage.getItem(APEX_DISTANCE_UNIT_KEY) === 'mi' ? 'mi' : 'km'
+    return localStorage.getItem(APEX_DISTANCE_UNIT_KEY) === 'km' ? 'km' : 'mi'
   } catch {
-    return 'km'
+    return 'mi'
   }
 }
 
