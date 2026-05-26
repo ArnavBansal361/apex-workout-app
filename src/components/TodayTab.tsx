@@ -20,7 +20,6 @@ import {
 import {
   formatExerciseLastHistoryLine,
   formatLastSessionLine,
-  getLastWorkoutSession,
   type LastWeightedSetDefaults,
 } from '../lib/lastSession'
 import { AiWorkoutTemplatesSection } from './AiWorkoutTemplatesSection'
@@ -39,22 +38,16 @@ import {
   targetSetsForExercise,
   writeGymModeEnabled,
 } from '../lib/gymMode'
-import { getCycleStatus } from '../lib/cycleTracking'
 import { PostWorkoutCheckinScreen, WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
 import { readPostWorkoutCheckinEnabled } from '../lib/persist'
 import { AppleHealthBadge } from './AppleHealthBadge'
 import { sleepHoursFromHealthMinutes } from '../lib/appleHealth'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
-import {
-  TodayMuscleBalanceSection,
-  TodayWeekChartsSection,
-  TodayWeekChartsSideBySide,
-} from './TodayVolumeCharts'
+import { TodayMuscleBalanceSection, TodayWeeklyVolumeSection } from './TodayVolumeCharts'
 import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
-import { streakInfo } from '../lib/streakShield'
 import { buildSessionSummaryExtras } from '../lib/sessionSummary'
 import {
   formatSleepDuration,
@@ -479,7 +472,6 @@ export function TodayTab({
 
   const fallbackQuote = useMemo(() => dailyQuoteForDateKey(todayKey), [todayKey])
   const streakDays = useMemo(() => streakCurrent(state, clock), [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock])
-  const streakMeta = useMemo(() => streakInfo(state, clock), [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock])
   const [motivationText, setMotivationText] = useState<string | null>(null)
   const [motivationReady, setMotivationReady] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
@@ -491,9 +483,7 @@ export function TodayTab({
 
   const sched = state.schedule.find((d) => d.dateKey === todayKey)
   const planName = sched?.workoutName?.trim() ?? ''
-  const isCardioPlan = /\bcardio\b/i.test(planName)
   const isRestDay = !planName
-  const dayStatusLabel = isRestDay ? 'Rest day' : 'Workout day'
   const headerDateLabel = useMemo(
     () =>
       new Date(clock).toLocaleDateString(undefined, {
@@ -745,70 +735,6 @@ export function TodayTab({
     }
   }
 
-  function handlePrimaryAction() {
-    if (isCardioPlan) {
-      onMoreOpenChange(true)
-      if (!state.cardioTimer.running) startCardioTimer()
-    } else {
-      beginWorkoutFlow()
-    }
-  }
-
-  function handleRepeatLastWorkout() {
-    if (!lastWorkoutSession || isCardioPlan) return
-    const hidden = new Set(state.hiddenExerciseIds)
-    const repeatable = lastWorkoutSession.logs.filter(
-      (l) => !hidden.has(l.exerciseId) && resolveExerciseById(l.exerciseId),
-    )
-    if (!repeatable.length) {
-      notify('No exercises from your last session are available')
-      return
-    }
-
-    applyPresetPlan(lastWorkoutSession.exerciseIds)
-
-    repeatable.forEach((l, i) => {
-      const ex = resolveExerciseById(l.exerciseId)!
-      const deferRestTimer = i < repeatable.length - 1
-      if (l.kind === 'weighted') {
-        addSetLog(
-          {
-            kind: 'weighted',
-            exerciseId: ex.id,
-            exerciseName: ex.name,
-            muscleGroup: ex.muscleGroup,
-            weight: l.bodyweight ? null : l.weight,
-            bodyweight: l.bodyweight,
-            reps: l.reps,
-            sets: l.sets,
-            note: l.note,
-          },
-          { deferRestTimer },
-        )
-      } else {
-        addSetLog(
-          {
-            kind: 'timed',
-            exerciseId: ex.id,
-            exerciseName: ex.name,
-            muscleGroup: ex.muscleGroup,
-            durationSec: l.durationSec,
-            note: l.note,
-          },
-          { deferRestTimer },
-        )
-      }
-    })
-
-    if (isRestDay) {
-      updateScheduleDay(todayKey, { workoutName: 'Workout' })
-    }
-    onMoreOpenChange(true)
-    onPlanOpenChange(true)
-    if (!state.gymSession.active) startGymSession('stopwatch')
-    notify('Last workout loaded into today')
-  }
-
   const filteredAdd = useMemo(() => {
     const q = planSearch.trim().toLowerCase()
     return visibleExercises
@@ -830,18 +756,8 @@ export function TodayTab({
     [state.setLogs, todayKey],
   )
 
-  const lastWorkoutSession = useMemo(
-    () => getLastWorkoutSession(state.setLogs, todayKey),
-    [state.setLogs, todayKey],
-  )
-
   const gymSec = Math.floor(gymElapsedMs / 1000)
   const cardioSec = Math.floor(cardioElapsedMs / 1000)
-  const isAfterFivePm = useMemo(() => new Date(clock).getHours() >= 17, [clock])
-
-  function startGymSessionQuick() {
-    if (!state.gymSession.active) startGymSession('stopwatch')
-  }
 
   const overloadBanner = useMemo(
     () =>
@@ -862,16 +778,6 @@ export function TodayTab({
     !isDeloadWeekActive(state.deloadActiveWeekStart)
 
   const deloadWeekActive = isDeloadWeekActive(state.deloadActiveWeekStart)
-
-  const cycleStatus = useMemo(
-    () =>
-      getCycleStatus(
-        Boolean(state.settings.cycleTrackingEnabled),
-        state.cycleStartDateKey,
-        todayKey,
-      ),
-    [state.settings.cycleTrackingEnabled, state.cycleStartDateKey, todayKey],
-  )
 
   const lastSessionLine = useMemo(() => {
     if (!logTarget) return null
@@ -1201,7 +1107,7 @@ export function TodayTab({
       case 'spotify-player':
         return <SpotifyPlayerCard />
       case 'weekly-volume':
-        return isDesktop ? <TodayWeekChartsSideBySide /> : <TodayWeekChartsSection />
+        return <TodayWeeklyVolumeSection />
       case 'muscle-balance':
         return <TodayMuscleBalanceSection />
       case 'gym-tracker':
@@ -2000,133 +1906,35 @@ export function TodayTab({
             {streakDays} day{streakDays === 1 ? '' : 's'} streak
           </span>
         </div>
-        {cycleStatus ? (
-          <p className="mt-1.5 text-[11px] font-medium text-[#9898a0] tracking-wide">
-            {cycleStatus.shortLabel} phase · day {cycleStatus.dayInCycle}
-          </p>
-        ) : null}
-        <h1 className="apex-today-header-title pr-2">{dayStatusLabel}</h1>
-        <span
-          className={`apex-streak-shield mt-2 inline-flex items-center gap-1 rounded-[8px] border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-            streakMeta.shieldAvailable
-              ? 'border-white/20 bg-white/[0.06] text-[#ececee]'
-              : 'border-white/[0.08] bg-white/[0.02] text-[#7d7d88]'
-          }`}
-          title={
-            streakMeta.shieldAvailable
-              ? 'Streak shield: one missed day per week won’t break your streak'
-              : 'Streak shield used this week'
-          }
-        >
-          <i className={`ti ti-shield text-[12px] ${streakMeta.shieldAvailable ? '' : 'opacity-50'}`} aria-hidden />
-          {streakMeta.shieldAvailable ? 'Shield ready' : 'Shield used'}
-        </span>
-
-        {!isCardioPlan ? (
-          <div className="apex-today-header-actions">
-            <button
-              type="button"
-              className="apex-today-btn-ghost"
-              onClick={() => {
-                addCardioEntry('Recovery', null)
+        <div className="apex-today-header-actions">
+          <button
+            type="button"
+            className="apex-today-btn-ghost"
+            onClick={() => {
+              addCardioEntry('Recovery', null)
+              onMoreOpenChange(true)
+            }}
+          >
+            Log recovery
+          </button>
+          <button
+            type="button"
+            className="apex-today-btn-workout"
+            onClick={() => {
+              if (isRestDay) {
+                updateScheduleDay(todayKey, { workoutName: 'Workout' })
                 onMoreOpenChange(true)
-              }}
-            >
-              Log recovery
-            </button>
-            <button
-              type="button"
-              className="apex-today-btn-workout"
-              onClick={() => {
-                if (isRestDay) {
-                  updateScheduleDay(todayKey, { workoutName: 'Workout' })
-                  onMoreOpenChange(true)
-                  onPlanOpenChange(true)
-                }
-                beginWorkoutFlow()
-              }}
-            >
-              <span>Workout day</span>
-              <span className="apex-today-btn-workout__arrow" aria-hidden>
-                →
-              </span>
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mt-4">
-          {state.gymSession.active ? (
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">
-                Gym session
-              </p>
-              <div className="flex items-stretch gap-2">
-                <div
-                  className="flex-1 min-h-[4.5rem] rounded-[16px] border border-white/[0.14] bg-white/[0.06] flex items-center justify-center px-3"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  <span className="text-[2rem] sm:text-[2.25rem] font-black tabular-nums text-[#f4f4f5] leading-none tracking-tight">
-                    {formatDuration(gymSec)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="apex-btn-primary flex-1 min-h-[4.5rem] rounded-[16px] text-[15px] font-bold touch-manipulation active:scale-[0.98]"
-                  onClick={() => void endGym()}
-                >
-                  End session
-                </button>
-              </div>
-              <div className="flex gap-2">
-                {state.gymSession.pauseStartedAt ? (
-                  <button
-                    type="button"
-                    className={`${btnNeutral} flex-1 min-h-10`}
-                    onClick={resumeGymSession}
-                  >
-                    Resume timer
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className={`${btnNeutral} flex-1 min-h-10`}
-                    onClick={pauseGymSession}
-                  >
-                    Pause timer
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="w-full min-h-14 rounded-[16px] apex-btn-primary text-[16px] font-bold touch-manipulation active:scale-[0.98]"
-              onClick={startGymSessionQuick}
-            >
-              Start gym session
-            </button>
-          )}
+                onPlanOpenChange(true)
+              }
+              beginWorkoutFlow()
+            }}
+          >
+            <span>Workout day</span>
+            <span className="apex-today-btn-workout__arrow" aria-hidden>
+              →
+            </span>
+          </button>
         </div>
-
-        {!isCardioPlan && lastWorkoutSession ? (
-          <button
-            type="button"
-            className={`${btnNeutral} w-full mt-2`}
-            onClick={handleRepeatLastWorkout}
-          >
-            Repeat last workout
-          </button>
-        ) : null}
-        {isCardioPlan ? (
-          <button
-            type="button"
-            className="apex-btn-primary w-full min-h-12 mt-2 text-[14px] font-semibold rounded-[14px]"
-            onClick={handlePrimaryAction}
-          >
-            Log cardio
-          </button>
-        ) : null}
       </header>
 
       {state.gymSession.active ? (
@@ -2170,17 +1978,6 @@ export function TodayTab({
             </button>
           </div>
         </div>
-      ) : isAfterFivePm ? (
-        <button
-          type="button"
-          className="w-full text-left rounded-[14px] border border-white/[0.07] bg-white/[0.02] px-4 py-3 touch-manipulation hover:bg-white/[0.04] active:bg-white/[0.05] transition-colors"
-          onClick={startGymSessionQuick}
-        >
-          <p className="text-[13px] font-medium text-[#a0a0a8]">At the gym?</p>
-          <p className="text-[12px] font-medium text-[#7d7d88] mt-0.5">
-            Tap to start your session timer
-          </p>
-        </button>
       ) : null}
 
       {state.gymSession.active && todayScheduledMode ? (

@@ -226,13 +226,12 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
     setCreateTipsReady(false)
   }
   const [quickLogExercise, setQuickLogExercise] = useState<Exercise | null>(null)
+  const customExerciseIds = useMemo(
+    () => new Set(state.customExercises.map((ex) => ex.id)),
+    [state.customExercises],
+  )
 
   const favoriteSet = useMemo(() => new Set(state.favoriteExerciseIds), [state.favoriteExerciseIds])
-
-  const exerciseCountLabel = useMemo(() => {
-    const n = visibleExercises.length
-    return n >= 300 ? '300+' : String(n)
-  }, [visibleExercises.length])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -364,7 +363,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
         <input
           ref={searchRef}
           className="apex-library-search__input"
-          placeholder={`Search ${exerciseCountLabel} exercises`}
+          placeholder="Search 300+ exercises"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -542,13 +541,15 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
                 </>
               )}
             </div>
-            <button
-              type="button"
-              className="apex-btn-muted mt-6 w-full min-h-12 text-[13px]"
-              onClick={() => setConfirmId(active.id)}
-            >
-              Delete from library
-            </button>
+            {customExerciseIds.has(active.id) ? (
+              <button
+                type="button"
+                className="apex-btn-muted mt-6 w-full min-h-12 text-[13px]"
+                onClick={() => setConfirmId(active.id)}
+              >
+                Delete from library
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

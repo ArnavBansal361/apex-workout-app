@@ -178,7 +178,7 @@ export function TodayMoreQuickGrid({ activeId, onSelect }: Props) {
     },
     'cardio-tracker': {
       stat: cardioTodayMin > 0 ? `${Math.round(cardioTodayMin)} min` : '—',
-      visual: <MiniSparkline values={cardioSpark} stroke="#e85d7a" />,
+      visual: <MiniSparkline values={cardioSpark} stroke="#3d7ab5" />,
     },
     'water-tracker': {
       stat: ozToLiters(waterTodayOz),

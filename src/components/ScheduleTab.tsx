@@ -10,7 +10,6 @@ import {
   hasGoogleCalendarStorageToken,
   isGoogleCalendarConfigured,
   isGoogleCalendarConnected,
-  startGoogleCalendarOAuth,
   syncSingleScheduleDay,
 } from '../lib/googleCalendar'
 import {
@@ -478,14 +477,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     })()
   }
 
-  async function handleConnect() {
-    try {
-      startGoogleCalendarOAuth()
-    } catch (e) {
-      notify(e instanceof Error ? e.message : 'Could not start Google sign-in')
-    }
-  }
-
   const bulkPickList = useMemo(() => {
     if (bulkExercisesOpenIdx == null) return []
     const row = weekBulkDraft[bulkExercisesOpenIdx]
@@ -522,15 +513,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     )
   }
 
-  function renderRestTags() {
-    return (
-      <div className="flex flex-wrap gap-1.5">
-        <span className="apex-schedule-muscle-pill apex-schedule-muscle-pill--muted">Mobility</span>
-        <span className="apex-schedule-muscle-pill apex-schedule-muscle-pill--muted">Stretch</span>
-      </div>
-    )
-  }
-
   function renderMuscleDots(muscles: MuscleGroup[], size: 'sm' | 'md' = 'sm') {
     const dot =
       size === 'sm' ? 'h-1.5 w-1.5 rounded-full shrink-0' : 'h-2 w-2 rounded-full shrink-0'
@@ -541,7 +523,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             key={mg}
             title={mg}
             className={dot}
-            style={{ backgroundColor: MUSCLE_SCHEDULE_COLOR[mg], boxShadow: `0 0 0 1px rgba(255,255,255,0.12)` }}
+            style={{ backgroundColor: MUSCLE_SCHEDULE_COLOR[mg] }}
           />
         ))}
       </div>
@@ -567,27 +549,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           </>
         )}
       </header>
-
-      {!hasGcalToken ? (
-        <div className="apex-card p-5 w-full">
-          <p className="apex-section-label">Google Calendar</p>
-          <p className="mt-2 text-[13px] font-medium leading-relaxed text-[#a0a0a8]">
-            {configured
-              ? 'Connect to create and update events when you save the schedule.'
-              : 'Set VITE_GOOGLE_CALENDAR_CLIENT_ID in your environment to enable OAuth and sync.'}
-          </p>
-          {configured ? (
-            <button
-              type="button"
-              className="apex-btn-primary mt-4 min-h-10 w-full px-4 text-[12px] font-semibold disabled:opacity-50"
-              onClick={() => void handleConnect()}
-              disabled={calendarBusy}
-            >
-              Connect
-            </button>
-          ) : null}
-        </div>
-      ) : null}
 
       {viewMode === 'week' ? (
         <section className="apex-schedule-volume">
@@ -741,14 +702,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               >
                 Month
               </button>
-              <button
-                type="button"
-                className="apex-schedule-week-actions__plan"
-                disabled={planWeekAiBusy}
-                onClick={() => void handlePlanThisWeek()}
-              >
-                {planWeekAiBusy ? 'Planning…' : 'Plan this week'}
-              </button>
             </div>
 
             <section className="apex-schedule-this-week">
@@ -763,10 +716,11 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     day: 'numeric',
                   })
                   const workoutName = d.workoutName.trim()
-                  const isRest = !hasPlannedWork(d) || !workoutName || /^rest$/i.test(workoutName)
-                  const title = isRest ? 'Rest' : workoutName
+                  const hasAssignedWorkout = hasPlannedWork(d) && !!workoutName && !/^rest$/i.test(workoutName)
                   const muscleTags = plannedMuscleGroups(d, state.customExercises)
-                  const durationMin = estimateDayDurationMinutes(d, state.customExercises)
+                  const durationMin = hasAssignedWorkout
+                    ? estimateDayDurationMinutes(d, state.customExercises)
+                    : 0
 
                   return (
                     <div
@@ -790,17 +744,21 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                               </span>
                             ) : null}
                           </p>
-                          {durationMin > 0 ? (
+                          {hasAssignedWorkout && durationMin > 0 ? (
                             <span className="apex-schedule-day-card__duration">
                               <i className="ti ti-clock" aria-hidden />
                               {durationMin} min
                             </span>
                           ) : null}
                         </div>
-                        <h3 className="apex-schedule-day-card__workout">{title}</h3>
-                        <div className="apex-schedule-day-card__tags">
-                          {isRest ? renderRestTags() : renderMuscleTagPills(muscleTags)}
-                        </div>
+                        {hasAssignedWorkout ? (
+                          <>
+                            <h3 className="apex-schedule-day-card__workout">{workoutName}</h3>
+                            <div className="apex-schedule-day-card__tags">
+                              {renderMuscleTagPills(muscleTags)}
+                            </div>
+                          </>
+                        ) : null}
                       </button>
                     </div>
                   )
@@ -885,7 +843,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                             background: '#1a1a1a',
                           }
                         : {}),
-                      ...(isDrop ? { boxShadow: '0 0 0 2px rgba(255,255,255,0.45)' } : {}),
+                      ...(isDrop ? { outline: '2px solid rgba(255,255,255,0.45)' } : {}),
                     }}
                   >
                     <div className="flex items-start justify-between gap-0.5">

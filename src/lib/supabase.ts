@@ -1300,7 +1300,13 @@ export type FriendLeaderboardRow = {
   avatarShade: number
 }
 
-export const FRIEND_BOT_NAMES = ['Atlas', 'Rex', 'Luna', 'Kai', 'Seren'] as const
+export const FRIEND_BOT_NAMES = ['Atlas', 'Rex', 'Luna'] as const
+
+const FIXED_FRIEND_BOT_XP: Record<(typeof FRIEND_BOT_NAMES)[number], number> = {
+  Atlas: 3200,
+  Rex: 2800,
+  Luna: 2450,
+}
 
 function normalizeFriendProfile(raw: Record<string, unknown>): FriendProfileRow | null {
   const user_id = typeof raw.user_id === 'string' ? raw.user_id : null
@@ -1322,18 +1328,11 @@ function randomFriendCode(): string {
   return out
 }
 
-function hashSeed(input: string): number {
-  let h = 0
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 31 + input.charCodeAt(i)) >>> 0
-  }
-  return h
-}
-
-/** Stable bot XP per viewer (800–6000). */
-export function botXpForUser(viewerUserId: string, botIndex: number): number {
-  const h = hashSeed(`${viewerUserId}:bot:${botIndex}`)
-  return 800 + (h % 5201)
+/** Stable fixed bot XP values for seeded leaderboard rows. */
+export function botXpForUser(_viewerUserId: string, botIndex: number): number {
+  const name = FRIEND_BOT_NAMES[botIndex]
+  if (!name) return 0
+  return FIXED_FRIEND_BOT_XP[name]
 }
 
 export function buildFriendsLeaderboardRows(
@@ -1361,7 +1360,7 @@ export function buildFriendsLeaderboardRows(
     })),
   ]
   const rows = [...real]
-  for (let i = 0; i < FRIEND_BOT_NAMES.length && rows.length < 5; i++) {
+  for (let i = 0; i < FRIEND_BOT_NAMES.length; i++) {
     const name = FRIEND_BOT_NAMES[i]!
     rows.push({
       id: `bot-${name.toLowerCase()}`,

@@ -34,7 +34,7 @@ const AI_CARDS: AiCard[] = [
     id: 'form',
     title: 'Form Tips',
     description: 'Technique cues and common mistakes for any exercise in your library.',
-    icon: 'ti-barbell',
+    icon: 'ti-user',
   },
   {
     id: 'insights',
@@ -79,7 +79,7 @@ export function AiTab() {
   }
 
   return (
-    <div className="apex-ai-tab pb-28">
+    <div className="apex-ai-tab apex-safe-top pb-28">
       <header className="apex-ai-tab__header">
         <p className="apex-ai-tab__eyebrow">Apex Intelligence</p>
         <h1 className="apex-ai-tab__title">AI Coach</h1>

@@ -379,8 +379,23 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
   )
 })
 
-/** @deprecated Use TodayWeekChartsSection — volume only slice */
-export const TodayWeeklyVolumeSection = TodayWeekChartsSection
+export const TodayWeeklyVolumeSection = memo(function TodayWeeklyVolumeSection() {
+  const { state } = useWorkout()
+  const weekKey = weekAnchorKey()
+  const sessionDays = workoutDaysFromLogs(state.setLogs).size
+
+  if (sessionDays < MIN_SESSIONS_FOR_VOLUME_CHART) {
+    return null
+  }
+
+  return (
+    <div className="apex-card min-w-0 overflow-visible">
+      <p className="apex-section-label mb-2">This week</p>
+      <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">Weekly volume by muscle group.</p>
+      <WeeklyVolumePanel state={state} weekKey={weekKey} />
+    </div>
+  )
+})
 
 /** Standalone muscle balance card (Today layout section). Includes injury risk warnings. */
 export const TodayMuscleBalanceSection = memo(function TodayMuscleBalanceSection() {
@@ -402,5 +417,5 @@ export const TodayMuscleBalanceSection = memo(function TodayMuscleBalanceSection
 
 /** Combined week charts (single card). */
 export function TodayVolumeCharts() {
-  return <TodayWeekChartsSection />
+  return <TodayWeeklyVolumeSection />
 }
