@@ -642,7 +642,15 @@ export async function claudeOneSentenceWorkoutSummary(
   return sanitizeCoachBubbleText(extractAssistantText(data))
 }
 
-export async function claudeParseImport(state: AppPersisted, rawText: string): Promise<unknown> {
+export async function claudeParseImport(
+  state: AppPersisted,
+  rawText: string,
+  options?: { signal?: AbortSignal },
+): Promise<unknown> {
+  const hasApiKey = Boolean(
+    import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim(),
+  )
+  console.log('[Apex Parser] preparing Anthropic parse request', { hasApiKey })
   const apiKey = getAnthropicApiKey()
   const atMs = Date.now()
   const unit = state.settings.unit
@@ -657,6 +665,14 @@ Cardio entries: {"name":string,"durationMinutes":number|null,"at":${atMs}}
 Use durationMinutes for cardio (not seconds). Use empty arrays if missing. MuscleGroup one of Chest,Back,Legs,Shoulders,Arms,Core,Cardio,Stretches.
 Raw notes:
 ${rawText.slice(0, 12000)}`
+  const coachContext = await resolveCoachContextBlock(state, { nowMs: Date.now() })
+  const requestBody = {
+    model: CLAUDE_MODEL,
+    max_tokens: 8192,
+    system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${coachContext}`,
+    messages: [{ role: 'user', content: user }],
+  }
+  console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_MODEL })
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -665,13 +681,10 @@ ${rawText.slice(0, 12000)}`
       'anthropic-version': ANTHROPIC_VERSION,
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 8192,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
-      messages: [{ role: 'user', content: user }],
-    }),
+    body: JSON.stringify(requestBody),
+    signal: options?.signal,
   })
+  console.log('[Apex Parser] Anthropic fetch finished', { status: res.status, ok: res.ok })
   const importRaw = await res.text()
   let data: unknown = {}
   try {

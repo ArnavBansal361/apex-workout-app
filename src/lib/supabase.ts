@@ -1170,6 +1170,9 @@ export async function upsertTendedUserState(
 /** Profile row date_key for cross-device onboarding flag (optional `onboarding_complete` column). */
 export const TENDED_ONBOARDING_PROFILE_DATE_KEY = '__apex_onboarding__'
 
+/** Profile row in tended_user_state for the user's shareable friend code (`friend_code` column). */
+export const TENDED_FRIEND_CODE_PROFILE_DATE_KEY = '__apex_friend_code__'
+
 export async function upsertTendedOnboardingComplete(userId: string): Promise<void> {
   const now = new Date().toISOString()
   const payload: Record<string, unknown> = {
@@ -1298,6 +1301,7 @@ export type FriendLeaderboardRow = {
   isMe: boolean
   isBot: boolean
   avatarShade: number
+  avatarInitial?: string
 }
 
 export const FRIEND_BOT_NAMES = ['Atlas', 'Rex', 'Luna'] as const
@@ -1408,6 +1412,70 @@ export async function ensureFriendProfile(userId: string): Promise<FriendProfile
   return fetchFriendProfile(userId)
 }
 
+export async function fetchTendedUserFriendCode(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from(TENDED_USER_STATE_TABLE)
+    .select('friend_code')
+    .eq('user_id', userId)
+    .eq('date_key', TENDED_FRIEND_CODE_PROFILE_DATE_KEY)
+    .maybeSingle()
+  if (error) {
+    if (import.meta.env.DEV) console.warn('[Apex] fetchTendedUserFriendCode', error.message)
+    return null
+  }
+  const code =
+    typeof data?.friend_code === 'string' ? data.friend_code.trim().toUpperCase() : ''
+  return code || null
+}
+
+async function upsertFriendshipsFriendCode(userId: string, code: string): Promise<void> {
+  const existing = await fetchFriendProfile(userId)
+  if (existing?.friend_code === code) return
+  if (existing) {
+    await supabase
+      .from(FRIENDSHIPS_TABLE)
+      .update({ friend_code: code, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+    return
+  }
+  await supabase.from(FRIENDSHIPS_TABLE).insert({ user_id: userId, friend_code: code, friends: [] })
+}
+
+/** Read friend code from tended_user_state; create, persist, and return one if missing. */
+export async function ensureTendedUserFriendCode(userId: string): Promise<string | null> {
+  const existing = await fetchTendedUserFriendCode(userId)
+  if (existing) {
+    void upsertFriendshipsFriendCode(userId, existing).catch(() => {})
+    return existing
+  }
+  const now = new Date().toISOString()
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+    const { error } = await supabase.from(TENDED_USER_STATE_TABLE).upsert(
+      {
+        user_id: userId,
+        date_key: TENDED_FRIEND_CODE_PROFILE_DATE_KEY,
+        friend_code: code,
+        workout_done: false,
+        volume_lbs: 0,
+        muscle_groups_trained: [],
+        water_oz: 0,
+        source_app: 'apex',
+        updated_at: now,
+      },
+      { onConflict: 'user_id,date_key' },
+    )
+    if (!error) {
+      void upsertFriendshipsFriendCode(userId, code).catch(() => {})
+      return code
+    }
+    if (import.meta.env.DEV && error.code !== '23505') {
+      console.warn('[Apex] ensureTendedUserFriendCode', error.message)
+    }
+  }
+  return fetchTendedUserFriendCode(userId)
+}
+
 export async function fetchLeaderboardXpForUsers(userIds: string[]): Promise<
   { user_id: string; display_name: string; xp: number }[]
 > {
@@ -1458,4 +1526,25 @@ export async function addFriendByCode(userId: string, rawCode: string): Promise<
     return 'error'
   }
   return 'ok'
+}
+
+/** Delete this user's synced Apex rows from Supabase tables used by the app. */
+export async function clearUserSupabaseData(userId: string): Promise<void> {
+  const ops = [
+    Promise.resolve(supabase.from(WORKOUT_DATA_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(LEADERBOARD_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(READINESS_CHECKS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(WORKOUT_SESSIONS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(WORKOUT_MOOD_CHECKINS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(DELOAD_WEEKS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(BODY_MEASUREMENTS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(TENDED_USER_STATE_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(FRIENDSHIPS_TABLE).delete().eq('user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_CODES_TABLE).delete().eq('trainer_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_CONNECTIONS_TABLE).delete().eq('client_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_CONNECTIONS_TABLE).delete().eq('trainer_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_NOTES_TABLE).delete().eq('client_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_NOTES_TABLE).delete().eq('trainer_user_id', userId)),
+  ]
+  await Promise.allSettled(ops)
 }

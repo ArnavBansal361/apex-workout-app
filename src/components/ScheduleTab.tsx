@@ -3,15 +3,6 @@ import { useWorkout } from '../context/WorkoutContext'
 import { EXERCISE_BY_ID, EXERCISES } from '../data/exercises'
 import { PLAN_PRESETS } from '../data/planPresets'
 import { dateKey, formatShortWeekday, mondayFirstColumnIndex, parseDateKey, todayDateKey } from '../lib/dates'
-import { claudePlanWeekFromCalendar, type CalendarWeekPlanJson } from '../lib/anthropicCoach'
-import { readFitnessGoalFromCoachProfile } from '../lib/persist'
-import {
-  fetchPrimaryCalendarEventsNext7Days,
-  hasGoogleCalendarStorageToken,
-  isGoogleCalendarConfigured,
-  isGoogleCalendarConnected,
-  syncSingleScheduleDay,
-} from '../lib/googleCalendar'
 import {
   dayHasLoggedWork,
   estimateDayDurationMinutes,
@@ -180,60 +171,6 @@ function bulkRowPlanSelectValue(
   return BULK_PLAN_CUSTOM
 }
 
-function weekdayKeyFromDateKey(dateKey: string): string {
-  return parseDateKey(dateKey).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-}
-
-function normalizeWeekdayKey(day: string): string {
-  const t = day.trim().toLowerCase()
-  const map: Record<string, string> = {
-    mon: 'monday',
-    tue: 'tuesday',
-    wed: 'wednesday',
-    thu: 'thursday',
-    fri: 'friday',
-    sat: 'saturday',
-    sun: 'sunday',
-  }
-  return map[t] ?? t
-}
-
-function suggestionsByWeekday(plan: CalendarWeekPlanJson): Map<string, CalendarWeekPlanJson['suggestedDays'][number]> {
-  const m = new Map<string, CalendarWeekPlanJson['suggestedDays'][number]>()
-  for (const row of plan.suggestedDays) {
-    const key = normalizeWeekdayKey(row.day)
-    if (key) m.set(key, row)
-  }
-  return m
-}
-
-function weekBulkDraftFromAiPlan(
-  schedule: ScheduleDay[],
-  plan: CalendarWeekPlanJson,
-): WeekBulkRow[] {
-  const byDay = suggestionsByWeekday(plan)
-  return schedule.map((d) => {
-    const hit = byDay.get(weekdayKeyFromDateKey(d.dateKey))
-    if (!hit) {
-      return {
-        workoutName: d.workoutName,
-        notes: d.notes,
-        plannedExerciseIds: [...d.plannedExerciseIds],
-        trainingMode: d.trainingMode ?? null,
-      }
-    }
-    const wt = hit.workoutType.trim()
-    const isRest = !wt || /^rest$/i.test(wt)
-    const timeNote = hit.time.trim() && !/^rest/i.test(hit.time) ? `Suggested time: ${hit.time.trim()}` : ''
-    return {
-      workoutName: isRest ? '' : wt,
-      notes: timeNote || d.notes,
-      plannedExerciseIds: isRest ? [] : [...d.plannedExerciseIds],
-      trainingMode: d.trainingMode ?? null,
-    }
-  })
-}
-
 type ScheduleTabProps = {
   defaultViewMode?: ViewMode
 }
@@ -257,10 +194,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   const [draftPlannedIds, setDraftPlannedIds] = useState<string[]>([])
   const [draftTrainingMode, setDraftTrainingMode] = useState<TrainingMode | null>(null)
   const [draftExSearch, setDraftExSearch] = useState('')
-  const [calendarBusy, setCalendarBusy] = useState(false)
-  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
   const [planWeekOpen, setPlanWeekOpen] = useState(false)
-  const [planWeekAiBusy, setPlanWeekAiBusy] = useState(false)
   const [weekBulkDraft, setWeekBulkDraft] = useState<WeekBulkRow[]>([])
   const [bulkDayOpenIdx, setBulkDayOpenIdx] = useState<number | null>(null)
   const [bulkExercisesOpenIdx, setBulkExercisesOpenIdx] = useState<number | null>(null)
@@ -274,10 +208,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     const k = state.schedule[0]?.dateKey
     if (k) setCalendarMonth(parseDateKey(k))
   }, [state.schedule])
-
-  const configured = isGoogleCalendarConfigured()
-  const connected = isGoogleCalendarConnected()
-  const hasGcalToken = hasGoogleCalendarStorageToken()
 
   const muscleBalance = useMemo(
     () => weeklyMuscleDayCounts(state.schedule, state.customExercises),
@@ -336,26 +266,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
   }
 
   async function handlePlanThisWeek() {
-    if (!hasGcalToken || !configured) {
-      openPlanWeek()
-      return
-    }
-    if (!connected) {
-      notify('Google Calendar session expired — reconnect in Settings.')
-      return
-    }
-    setPlanWeekAiBusy(true)
-    try {
-      const events = await fetchPrimaryCalendarEventsNext7Days()
-      const fitnessGoal = readFitnessGoalFromCoachProfile(state.settings.fitnessGoals.trim())
-      const plan = await claudePlanWeekFromCalendar(state, events, fitnessGoal, todayDateKey())
-      openPlanWeek(weekBulkDraftFromAiPlan(state.schedule, plan))
-      notify('AI week plan ready — review and save')
-    } catch (e) {
-      notify(e instanceof Error ? e.message : 'Could not plan this week')
-    } finally {
-      setPlanWeekAiBusy(false)
-    }
+    openPlanWeek()
   }
 
   function savePlanWeek() {
@@ -416,12 +327,10 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     if (!scheduleKeys.has(dateKeyVal)) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    setDragOverKey(dateKeyVal)
   }
 
   function onDropDay(e: DragEvent, targetKey: string) {
     e.preventDefault()
-    setDragOverKey(null)
     if (!scheduleKeys.has(targetKey)) return
     const sourceKey = e.dataTransfer.getData(DND_TYPE)
     if (!sourceKey) return
@@ -461,20 +370,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
     })
     setEditing(null)
 
-    if (!configured || !connected) return
-    void (async () => {
-      setCalendarBusy(true)
-      try {
-        const { patch } = await syncSingleScheduleDay(state, merged, todayDateKey())
-        if (Object.keys(patch).length) {
-          batchPatchSchedule([{ dateKey: dateKeyVal, patch }])
-        }
-      } catch (e) {
-        notify(e instanceof Error ? e.message : 'Could not update Google Calendar')
-      } finally {
-        setCalendarBusy(false)
-      }
-    })()
   }
 
   const bulkPickList = useMemo(() => {
@@ -544,7 +439,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <p className="apex-page-sub">Calendar</p>
             <h1 className="apex-page-title mt-1">Schedule</h1>
             <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
-              Plan the week, spot muscle balance, drag days to reshuffle. Sync optional to Google Calendar.
+              Plan the week, spot muscle balance, and drag days to reshuffle.
             </p>
           </>
         )}
@@ -648,16 +543,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               Month
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="apex-btn-primary min-h-11 px-4 text-[13px] font-bold rounded-[14px] disabled:opacity-50"
-              disabled={planWeekAiBusy}
-              onClick={() => void handlePlanThisWeek()}
-            >
-              {planWeekAiBusy ? 'Planning…' : 'Plan this week'}
-            </button>
-          </div>
         </div>
 
         {viewMode === 'week' ? (
@@ -701,6 +586,13 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 }}
               >
                 Month
+              </button>
+              <button
+                type="button"
+                className="apex-schedule-week-actions__plan"
+                onClick={() => void handlePlanThisWeek()}
+              >
+                Plan this week
               </button>
             </div>
 
@@ -819,31 +711,25 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 const inWeek = Boolean(sched)
                 const muscleTags = sched ? plannedMuscleGroups(sched, state.customExercises) : []
                 const title = sched?.workoutName.trim() || ''
-                const showRest = inWeek && !title
                 const primaryMuscle = muscleTags[0]
                 const isToday = dk === liveTodayKey
                 const isTodayCol = cellIdx % 7 === todayColIdx
-                const isDrop = dragOverKey === dk && inWeek
                 const dt = parseDateKey(dk)
 
                 return (
                   <div
                     key={dk}
                     onDragOver={(e) => inWeek && onDragOverDay(e, dk)}
-                    onDragLeave={() => setDragOverKey((k) => (k === dk ? null : k))}
                     onDrop={(e) => inWeek && onDropDay(e, dk)}
-                    className={`min-h-[5.5rem] sm:min-h-[6.5rem] rounded-[14px] border p-1.5 sm:p-2 flex flex-col transition-all ${
-                      !inMonth ? 'border-white/[0.04] opacity-40' : 'border-white/[0.08]'
-                    } ${isTodayCol && inMonth ? 'bg-white/[0.04]' : ''} ${inWeek ? 'ring-1 ring-white/[0.14]' : ''} ${
-                      isToday ? 'ring-1 ring-white/25' : ''
-                    } ${isDrop ? 'ring-2' : ''}`}
+                    className={`min-h-[5.5rem] sm:min-h-[6.5rem] rounded-[14px] p-1.5 sm:p-2 flex flex-col transition-all ${
+                      !inMonth ? 'opacity-40' : ''
+                    } ${isTodayCol && inMonth ? 'bg-white/[0.04]' : ''}`}
                     style={{
                       ...(primaryMuscle && inWeek
                         ? {
                             background: '#1a1a1a',
                           }
                         : {}),
-                      ...(isDrop ? { outline: '2px solid rgba(255,255,255,0.45)' } : {}),
                     }}
                   >
                     <div className="flex items-start justify-between gap-0.5">
@@ -874,12 +760,12 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         {hasPlannedWork(sched!) ? (
                           <>
                             <div className="mb-1">{renderMuscleDots(muscleTags)}</div>
-                            <p className="text-[10px] sm:text-[11px] font-bold text-[#f0f0f2] leading-tight line-clamp-3">
-                              {title || 'Rest'}
-                            </p>
+                            {title ? (
+                              <p className="text-[10px] sm:text-[11px] font-bold text-[#f0f0f2] leading-tight line-clamp-3">
+                                {title}
+                              </p>
+                            ) : null}
                           </>
-                        ) : showRest ? (
-                          <p className="text-[10px] font-medium text-[#9898a0]">Rest</p>
                         ) : null}
                       </button>
                     ) : (
@@ -1112,9 +998,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               <p className="apex-page-sub">Bulk edit</p>
               <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
               <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
-                {hasGcalToken && connected
-                  ? 'AI used your Google Calendar and fitness goal to suggest workouts. Edit anything, then save.'
-                  : 'Set workout names and exercises for every day at once. Save applies all changes together.'}
+                Set workout names and exercises for every day at once. Save applies all changes together.
               </p>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4 apex-tab-stack">
@@ -1364,7 +1248,6 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               <button
                 type="button"
                 className="apex-btn-primary min-h-12 flex-1 text-[14px] font-semibold rounded-[14px]"
-                disabled={calendarBusy || planWeekAiBusy}
                 onClick={savePlanWeek}
               >
                 Save week

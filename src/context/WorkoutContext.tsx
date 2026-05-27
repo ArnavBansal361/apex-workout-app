@@ -600,7 +600,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     setPrCelebration(null)
   }, [])
 
-  const addSetLog: Ctx['addSetLog'] = useCallback((partial, options) => {
+  const addSetLog: Ctx['addSetLog'] = useCallback((partial, _options) => {
     const at = Date.now()
     const id = crypto.randomUUID()
     let normalized = partial
@@ -634,17 +634,14 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       const log = { ...base, isPr } as SetLog
       const setLogs = [...s.setLogs, log]
       const sec = Math.max(1, Math.floor(s.settings.restTimerSeconds) || 90)
-      const deferRest = options?.deferRestTimer === true
-      const skipRest = options?.skipRestTimer === true
-      const rest =
-        skipRest || deferRest || !s.settings.restTimerEnabled
-          ? { endAt: null, startedAt: null, durationSec: sec, dismissed: true }
-          : {
-              endAt: at + sec * 1000,
-              startedAt: at,
-              durationSec: sec,
-              dismissed: false,
-            }
+      const rest = !s.settings.restTimerEnabled
+        ? { endAt: null, startedAt: null, durationSec: sec, dismissed: true }
+        : {
+            endAt: at + sec * 1000,
+            startedAt: at,
+            durationSec: sec,
+            dismissed: false,
+          }
       const xpGain = XP_PER_SET + (isPr ? XP_PER_PR : 0)
       try {
         saved = true

@@ -23,10 +23,10 @@ export type MoreQuickTile = {
 }
 
 export const MORE_QUICK_TILES: MoreQuickTile[] = [
-  { id: 'weekly-volume', label: 'Charts', icon: 'ti-chart-bar' },
-  { id: 'cardio-tracker', label: 'Cardio', icon: 'ti-heartbeat' },
-  { id: 'water-tracker', label: 'Water', icon: 'ti-droplet' },
-  { id: 'sleep-tracker', label: 'Sleep', icon: 'ti-moon' },
+  { id: 'weekly-volume', label: 'Charts', icon: 'ti ti-chart-bar' },
+  { id: 'cardio-tracker', label: 'Cardio', icon: 'ti ti-heartbeat' },
+  { id: 'water-tracker', label: 'Water', icon: 'ti ti-droplet' },
+  { id: 'sleep-tracker', label: 'Sleep', icon: 'ti ti-chart-histogram' },
 ]
 
 function last7DayKeys(nowMs: number): string[] {
@@ -64,6 +64,7 @@ function MiniSparkline({ values, stroke = '#3d7ab5' }: { values: number[]; strok
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
+        style={{ stroke, fill: 'none' }}
       />
     </svg>
   )

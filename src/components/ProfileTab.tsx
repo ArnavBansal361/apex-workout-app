@@ -34,26 +34,26 @@ import {
 import { computeStrengthAge } from '../lib/strengthAge'
 import { LongevityScoreCard } from './LongevityScoreCard'
 import { PerformanceInsightsCard } from './PerformanceInsightsCard'
-import { dateKey } from '../lib/dates'
+import { dateKey, weekStartMonday } from '../lib/dates'
 import {
   connectClientToTrainer,
   fetchMyTrainerConnection,
   fetchTrainerClientSummaries,
   fetchUserWorkoutStateForTrainer,
   addFriendByCode,
-  buildFriendsLeaderboardRows,
+  clearUserSupabaseData,
   ensureFriendProfile,
   fetchGlobalLeaderboardByXp,
   fetchLeaderboardXpForUsers,
   formatLeaderboardVolume,
   insertTrainerNote,
   supabase,
+  TENDED_FRIEND_CODE_PROFILE_DATE_KEY,
   upsertTrainerCode,
   upsertUserWorkoutState,
   upsertTendedPostWorkoutCheckin,
   type AddFriendResult,
   type FriendLeaderboardRow,
-  type FriendProfileRow,
   type LeaderboardEntry,
   type TrainerClientSummary,
   type TrainerConnectionRow,
@@ -101,8 +101,6 @@ import {
   startSpotifyOAuth,
 } from '../lib/spotify'
 import { bodyweightSeries, useApexChartColors, weeklyVolumeSeries } from '../lib/stats'
-import { currentWeekStartKey, detectBurnoutWarnings } from '../lib/volumeStats'
-import type { BurnoutWarning } from '../lib/volumeStats'
 import {
   isGoogleCalendarConfigured,
   isGoogleCalendarConnected,
@@ -117,7 +115,6 @@ import {
 } from '../lib/gymBarcode'
 import { coachImageDataUrl, prepareCoachChatImage } from '../lib/coachChatImage'
 import type { AppPersisted, ChatMessage, CoachChatImage } from '../types'
-import { ConfirmDialog } from './ConfirmDialog'
 type Sub = 'stats' | 'ai'
 export type AiSub = 'coach' | 'parser' | 'form' | 'insights'
 
@@ -450,15 +447,20 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
 
 const inp = 'apex-input w-full min-h-12 px-3 py-2.5'
 
+const PARSER_TIMEOUT_MS = 15_000
+const PARSER_TIMEOUT_MESSAGE = "Couldn't parse that. Try again."
+
 function AiParserPanel({
   importText,
   setImportText,
   busy,
+  parseError,
   onParse,
 }: {
   importText: string
   setImportText: (v: string) => void
   busy: boolean
+  parseError: string | null
   onParse: () => void
 }) {
   return (
@@ -473,14 +475,20 @@ function AiParserPanel({
         placeholder="Paste workout notes…"
         value={importText}
         onChange={(e) => setImportText(e.target.value)}
+        disabled={busy}
       />
+      {parseError ? (
+        <p className="m-0 text-[13px] font-medium text-red-300/90 leading-relaxed" role="alert">
+          {parseError}
+        </p>
+      ) : null}
       <button
         type="button"
         disabled={busy}
         className="apex-btn-primary w-full min-h-12 text-[13px] font-medium disabled:opacity-50"
         onClick={onParse}
       >
-        Parse
+        {busy ? 'Parsing…' : 'Parse'}
       </button>
     </div>
   )
@@ -565,69 +573,214 @@ function AiFormTipsPanel() {
 }
 
 function AiInsightsPanel() {
-  const { state, dismissBurnoutWarnings } = useWorkout()
-  const weekKey = currentWeekStartKey()
-  const warnings = useMemo(
-    () => detectBurnoutWarnings(state, Date.now()),
-    [state.setLogs, state.settings.unit],
-  )
-  const dismissed = state.burnoutDismissedWeekStart === weekKey
-  const visible = !dismissed ? warnings : []
+  const { state } = useWorkout()
+  const chart = useApexChartColors()
 
-  if (visible.length === 0) {
+  const now = Date.now()
+  const today = new Date(now)
+  const thisMonday = weekStartMonday(today)
+  const lastMonday = new Date(thisMonday)
+  lastMonday.setDate(thisMonday.getDate() - 7)
+  const thisWeekStartKey = dateKey(thisMonday)
+  const lastWeekStartKey = dateKey(lastMonday)
+
+  const hasAnySessionData = state.setLogs.length > 0 || state.cardioEntries.length > 0
+
+  const weeklyVolume = useMemo(() => weeklyVolumeSeries(state, now).slice(-6), [state, now])
+  const latestWeekVolume = weeklyVolume[weeklyVolume.length - 1]?.volume ?? 0
+  const prevWeekVolume = weeklyVolume[weeklyVolume.length - 2]?.volume ?? 0
+  const volumeDeltaPct = prevWeekVolume > 0 ? Math.round(((latestWeekVolume - prevWeekVolume) / prevWeekVolume) * 100) : 0
+  const volumeUnit = state.settings.unit === 'kg' ? 'kg' : 'lbs'
+  const volumeTrendText =
+    prevWeekVolume <= 0
+      ? 'Log more sessions to establish a weekly trend baseline.'
+      : volumeDeltaPct >= 0
+        ? `+${volumeDeltaPct}% from last week`
+        : `Down ${Math.abs(volumeDeltaPct)}% — consider pushing volume this week`
+
+  const muscleFocusRows = useMemo(() => {
+    const thisWeekCounts: Record<string, number> = {}
+    const lastWeekCounts: Record<string, number> = {}
+    for (const log of state.setLogs) {
+      const d = new Date(log.at)
+      const wk = dateKey(weekStartMonday(d))
+      if (wk === thisWeekStartKey) {
+        thisWeekCounts[log.muscleGroup] = (thisWeekCounts[log.muscleGroup] ?? 0) + Math.max(1, log.kind === 'weighted' ? log.sets : 1)
+      } else if (wk === lastWeekStartKey) {
+        lastWeekCounts[log.muscleGroup] = (lastWeekCounts[log.muscleGroup] ?? 0) + Math.max(1, log.kind === 'weighted' ? log.sets : 1)
+      }
+    }
+    const rows = Object.entries(thisWeekCounts)
+      .map(([muscle, thisWeek]) => ({
+        muscle,
+        thisWeek,
+        lastWeek: lastWeekCounts[muscle] ?? 0,
+      }))
+      .sort((a, b) => b.thisWeek - a.thisWeek)
+      .slice(0, 5)
+    const maxSets = Math.max(1, ...rows.map((r) => Math.max(r.thisWeek, r.lastWeek)))
+    return rows.map((r) => ({ ...r, pct: Math.round((r.thisWeek / maxSets) * 100) }))
+  }, [state.setLogs, thisWeekStartKey, lastWeekStartKey])
+
+  const consistency = useMemo(() => {
+    const month = today.getMonth()
+    const year = today.getFullYear()
+    const plannedDaysThisMonth = state.schedule.filter((d) => {
+      const dt = new Date(`${d.dateKey}T12:00:00`)
+      const hasPlan = Boolean(d.workoutName.trim()) || (d.plannedExerciseIds?.length ?? 0) > 0
+      return dt.getFullYear() === year && dt.getMonth() === month && hasPlan
+    })
+    const loggedDaySet = new Set(
+      state.setLogs
+        .map((l) => dateKey(new Date(l.at)))
+        .filter((dk) => {
+          const dt = new Date(`${dk}T12:00:00`)
+          return dt.getFullYear() === year && dt.getMonth() === month
+        }),
+    )
+    const completedPlanned = plannedDaysThisMonth.filter((d) => loggedDaySet.has(d.dateKey)).length
+    const completionRatio = plannedDaysThisMonth.length > 0 ? completedPlanned / plannedDaysThisMonth.length : 0
+    const streak = streakCurrent(state, now)
+    const last28Start = new Date(now)
+    last28Start.setDate(last28Start.getDate() - 27)
+    const last28Sessions = new Set(
+      state.setLogs
+        .filter((l) => l.at >= last28Start.getTime())
+        .map((l) => dateKey(new Date(l.at))),
+    ).size
+    const avgSessionsPerWeek = last28Sessions / 4
+    const score = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          completionRatio * 60 +
+            Math.min(14, streak) / 14 * 20 +
+            Math.min(4, avgSessionsPerWeek) / 4 * 20,
+        ),
+      ),
+    )
+    const explanation =
+      plannedDaysThisMonth.length > 0
+        ? `${completedPlanned} of ${plannedDaysThisMonth.length} planned sessions completed this month.`
+        : 'Add planned sessions to unlock a more accurate consistency score.'
+    return { score, explanation }
+  }, [state, now, today])
+
+  const recovery = useMemo(() => {
+    const thisWeekCheckins = state.postWorkoutCheckins.filter(
+      (c) => dateKey(weekStartMonday(new Date(c.at))) === thisWeekStartKey,
+    )
+    if (!thisWeekCheckins.length) return null
+    const avgFeel = thisWeekCheckins.reduce((s, c) => s + c.feelRating, 0) / thisWeekCheckins.length
+    const avgEnergy = thisWeekCheckins.reduce((s, c) => s + c.energyRating, 0) / thisWeekCheckins.length
+    const note =
+      avgEnergy < 3
+        ? 'Energy trending low mid-week — consider an earlier bedtime or deload.'
+        : avgFeel >= 4 && avgEnergy >= 4
+          ? 'Recovery signals look strong — keep your sleep and hydration consistent.'
+          : 'Recovery is steady — watch sleep quality on heavier training days.'
+    return { avgFeel, avgEnergy, note }
+  }, [state.postWorkoutCheckins, thisWeekStartKey])
+
+  if (!hasAnySessionData) {
     return (
-      <div className="py-10 text-center">
-        <i
-          className="ti ti-check text-[22px] leading-none mx-auto block mb-3"
-          style={{ color: 'rgba(255,255,255,0.3)' }}
-          aria-hidden
-        />
-        <p className="text-[13px] font-normal" style={{ color: 'rgba(255,255,255,0.3)' }}>
-          Training load looks balanced this week.
+      <div className="py-14 text-center">
+        <i className="ti ti-chart-bar text-[26px] leading-none mx-auto block mb-4 text-[#3d7ab5]" aria-hidden />
+        <p className="text-[20px] font-medium text-[#f0f0f2]">No data yet</p>
+        <p className="mt-2 text-[14px] font-medium text-[#a0a0a8]">
+          Log your first workout to start seeing patterns here.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="min-w-0 max-w-full space-y-3">
-      {visible.map((w: BurnoutWarning) => (
-        <div
-          key={w.muscle}
-          className="min-w-0 max-w-full rounded-[12px]"
-          style={{
-            background: 'var(--apex-surface-nested)',
-            border: '0.5px solid var(--apex-border)',
-            padding: '14px 16px',
-          }}
-        >
-          <div className="flex items-start gap-2">
-            <i
-              className="ti ti-alert-triangle shrink-0 mt-0.5 text-[16px] leading-none"
-              style={{ color: 'var(--apex-text-secondary)' }}
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium text-white">High {w.muscle.toLowerCase()} volume</p>
-              <p
-                className="mt-2 m-0 text-[13px] font-normal leading-relaxed break-words"
-                style={{ color: 'rgba(255,255,255,0.5)' }}
-              >
-                Your {w.muscle.toLowerCase()} volume this week is {w.pctAbove}% above your 4-week average.
-                Consider a deload or lighter accessory work.
-              </p>
-              <button
-                type="button"
-                className="mt-3 text-[11px] font-normal touch-manipulation"
-                style={{ color: 'rgba(255,255,255,0.3)' }}
-                onClick={() => dismissBurnoutWarnings()}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
+    <div className="space-y-4">
+      <header>
+        <p className="apex-section-label text-[#3d7ab5]">INSIGHTS</p>
+        <h2 className="mt-1 text-[28px] font-medium text-[#f4f4f5] leading-tight">Training Patterns</h2>
+        <p className="mt-2 text-[14px] font-medium text-[#a0a0a8]">Updated weekly based on your sessions.</p>
+      </header>
+
+      <section className="rounded-[12px] p-4 bg-[#13181f]">
+        <p className="apex-section-label">WEEKLY VOLUME</p>
+        <div className="mt-3 h-24">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={weeklyVolume} margin={{ left: 6, right: 6, top: 4, bottom: 4 }}>
+              <Line
+                type="monotone"
+                dataKey="volume"
+                stroke="#3d7ab5"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 3, fill: '#3d7ab5' }}
+              />
+              <Tooltip
+                cursor={{ stroke: chart.grid }}
+                contentStyle={{
+                  background: chart.tooltipBg,
+                  border: `1px solid ${chart.tooltipBorder}`,
+                  borderRadius: 10,
+                  color: chart.tooltipText,
+                }}
+                labelStyle={{ color: chart.tick }}
+                formatter={(v) => [`${Math.round(Number(v)).toLocaleString()} ${volumeUnit}`, 'Volume']}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      ))}
+        <p className={`mt-2 text-[13px] font-medium ${volumeDeltaPct >= 0 ? 'text-[#3d7ab5]' : 'text-[#c8c8ce]'}`}>
+          {volumeTrendText}
+        </p>
+      </section>
+
+      <section className="rounded-[12px] p-4 bg-[#13181f]">
+        <p className="apex-section-label">MUSCLE FOCUS</p>
+        <div className="mt-3 space-y-3">
+          {muscleFocusRows.length ? (
+            muscleFocusRows.map((row) => (
+              <div key={row.muscle}>
+                <div className="flex items-center justify-between text-[12px] font-medium text-[#c8c8ce]">
+                  <span>{row.muscle}</span>
+                  <span className="tabular-nums">{row.thisWeek} sets</span>
+                </div>
+                <div className="mt-1 h-2 rounded-full bg-white/[0.08] overflow-hidden">
+                  <div className="h-full bg-[#3d7ab5]" style={{ width: `${row.pct}%` }} />
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-[13px] font-medium text-[#a0a0a8]">Log sets this week to see your top muscle groups.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-[12px] p-4 bg-[#13181f]">
+        <p className="apex-section-label">CONSISTENCY</p>
+        <p className="mt-2 text-[38px] leading-none font-semibold text-[#f4f4f5] tabular-nums">
+          {consistency.score}
+          <span className="text-[18px] text-[#a0a0a8] font-medium">/100</span>
+        </p>
+        <p className="mt-2 text-[13px] font-medium text-[#c8c8ce]">{consistency.explanation}</p>
+      </section>
+
+      <section className="rounded-[12px] p-4 bg-[#13181f]">
+        <p className="apex-section-label">RECOVERY</p>
+        {recovery ? (
+          <>
+            <div className="mt-2 flex items-center gap-4 text-[13px] font-medium text-[#c8c8ce]">
+              <span>Feel: <span className="tabular-nums text-[#f4f4f5]">{recovery.avgFeel.toFixed(1)}/5</span></span>
+              <span>Energy: <span className="tabular-nums text-[#f4f4f5]">{recovery.avgEnergy.toFixed(1)}/5</span></span>
+            </div>
+            <p className="mt-2 text-[13px] font-medium text-[#a0a0a8]">{recovery.note}</p>
+          </>
+        ) : (
+          <p className="mt-2 text-[13px] font-medium text-[#a0a0a8]">
+            Complete post-workout check-ins to unlock recovery insights.
+          </p>
+        )}
+      </section>
     </div>
   )
 }
@@ -648,6 +801,7 @@ export function AiHub({
   const [importText, setImportText] = useState('')
   const [importPreview, setImportPreview] = useState<Partial<AppPersisted> | null>(null)
   const [busy, setBusy] = useState(false)
+  const [parseError, setParseError] = useState<string | null>(null)
 
   async function runParseImport() {
     if (!importText.trim()) {
@@ -655,14 +809,21 @@ export function AiHub({
       return
     }
     setBusy(true)
+    setParseError(null)
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), PARSER_TIMEOUT_MS)
     const normOpts = { customExercises: state.customExercises, atMs: Date.now() }
     let apiError: string | null = null
     try {
       let partial: Partial<AppPersisted> = {}
       try {
-        const raw = await claudeParseImport(state, importText)
+        const raw = await claudeParseImport(state, importText, { signal: controller.signal })
         partial = sanitizeWorkoutImport(raw, state)
       } catch (e) {
+        if (controller.signal.aborted) {
+          setParseError(PARSER_TIMEOUT_MESSAGE)
+          return
+        }
         apiError = e instanceof Error ? e.message : 'Parse failed'
         partial = parseWorkoutTextLocally(importText, normOpts)
       }
@@ -683,8 +844,13 @@ export function AiHub({
       }
       setImportPreview(partial)
     } catch (e) {
-      notify(e instanceof Error ? e.message : 'Parse failed')
+      if (controller.signal.aborted) {
+        setParseError(PARSER_TIMEOUT_MESSAGE)
+      } else {
+        notify(e instanceof Error ? e.message : 'Parse failed')
+      }
     } finally {
+      window.clearTimeout(timeoutId)
       setBusy(false)
     }
   }
@@ -717,8 +883,12 @@ export function AiHub({
     ) : aiSub === 'parser' ? (
       <AiParserPanel
         importText={importText}
-        setImportText={setImportText}
+        setImportText={(v) => {
+          setImportText(v)
+          setParseError(null)
+        }}
         busy={busy}
+        parseError={parseError}
         onParse={() => void runParseImport()}
       />
     ) : aiSub === 'form' ? (
@@ -917,6 +1087,90 @@ function SettingsSegment({
 
 const ME_ACTUAL_AGE_YEARS = 30
 
+/** Hardcoded leaderboard bots — always shown on the Me tab card. */
+const ME_LEADERBOARD_BOTS: FriendLeaderboardRow[] = [
+  {
+    id: 'bot-atlas',
+    name: 'Atlas',
+    xp: 3200,
+    isMe: false,
+    isBot: true,
+    avatarShade: 1,
+    avatarInitial: 'A',
+  },
+  {
+    id: 'bot-rex',
+    name: 'Rex',
+    xp: 2800,
+    isMe: false,
+    isBot: true,
+    avatarShade: 2,
+    avatarInitial: 'R',
+  },
+  {
+    id: 'bot-luna',
+    name: 'Luna',
+    xp: 2450,
+    isMe: false,
+    isBot: true,
+    avatarShade: 3,
+    avatarInitial: 'L',
+  },
+]
+
+function sortedMeLeaderboardBots(): FriendLeaderboardRow[] {
+  return [...ME_LEADERBOARD_BOTS].sort((a, b) => b.xp - a.xp)
+}
+
+function buildMeLeaderboardTop(
+  friends: { user_id: string; display_name: string; xp: number }[],
+): FriendLeaderboardRow[] {
+  const real: FriendLeaderboardRow[] = friends.map((f, i) => ({
+    id: f.user_id,
+    name: f.display_name,
+    xp: f.xp,
+    isMe: false,
+    isBot: false,
+    avatarShade: (i % 4) + 1,
+  }))
+  const merged = [...ME_LEADERBOARD_BOTS, ...real].sort((a, b) => b.xp - a.xp)
+  return merged.length > 0 ? merged : sortedMeLeaderboardBots()
+}
+
+function generateMeFriendCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
+}
+
+function sanitizeMeFriendCode(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const code = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  return code.length >= 4 ? code : null
+}
+
+function buildMeLeaderboardMe(
+  viewerUserId: string,
+  viewerName: string,
+  viewerXp: number,
+): FriendLeaderboardRow {
+  return {
+    id: viewerUserId,
+    name: viewerName,
+    xp: viewerXp,
+    isMe: true,
+    isBot: false,
+    avatarShade: 0,
+  }
+}
+
+function meLeaderboardRank(top: FriendLeaderboardRow[], me: FriendLeaderboardRow): number {
+  return [...top, me].sort((a, b) => b.xp - a.xp).findIndex((r) => r.isMe) + 1
+}
+
+function leaderboardAvatarInitial(row: FriendLeaderboardRow): string {
+  if (row.avatarInitial) return row.avatarInitial
+  return initialsForName(row.name)
+}
+
 function initialsForName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length >= 2) {
@@ -972,7 +1226,9 @@ type MeTabProfileProps = {
   appearanceTheme: ApexThemeMode
   onToggleTheme: () => void
   friendCode: string | null
-  friendRows: FriendLeaderboardRow[]
+  friendCodeLoading: boolean
+  friendTopRows: FriendLeaderboardRow[]
+  meLeaderboardRow: FriendLeaderboardRow
   friendLoading: boolean
   onCopyFriendCode: () => void
   onAddFriend: () => void
@@ -998,7 +1254,9 @@ function MeTabProfileView({
   appearanceTheme,
   onToggleTheme,
   friendCode,
-  friendRows,
+  friendCodeLoading,
+  friendTopRows,
+  meLeaderboardRow,
   friendLoading,
   onCopyFriendCode,
   onAddFriend,
@@ -1006,12 +1264,10 @@ function MeTabProfileView({
   onViewAllLeaderboard,
   onOpenSettings,
 }: MeTabProfileProps) {
-  const sortedFriends = friendRows
-  const topFive = sortedFriends.slice(0, 5)
-  const meInTop = topFive.some((r) => r.isMe)
-  const listTop = meInTop ? topFive : sortedFriends.filter((r) => !r.isMe).slice(0, 4)
-  const meRow = sortedFriends.find((r) => r.isMe)
-  const showMePinned = Boolean(meRow && !meInTop)
+  const rankedTop =
+    friendTopRows.length > 0 ? friendTopRows : sortedMeLeaderboardBots()
+  const listTop = rankedTop.slice(0, 4)
+  const meRank = meLeaderboardRank(rankedTop, meLeaderboardRow)
 
   const ageDelta =
     strengthAge.strengthAge != null ? ME_ACTUAL_AGE_YEARS - strengthAge.strengthAge : null
@@ -1173,57 +1429,50 @@ function MeTabProfileView({
           </button>
         </div>
         <div className="apex-me-card">
+          <ul className="apex-me-lb-list">
+            {listTop.map((row, index) => (
+              <li key={row.id} className="apex-me-lb-row">
+                <span className="apex-me-lb-rank tabular-nums">{index + 1}</span>
+                <span
+                  className={`apex-me-lb-avatar apex-me-lb-avatar--shade-${row.avatarShade || 1}`}
+                >
+                  {leaderboardAvatarInitial(row)}
+                </span>
+                <span className="apex-me-lb-name truncate">{row.name}</span>
+                <span className="apex-me-lb-xp tabular-nums">{row.xp} XP</span>
+              </li>
+            ))}
+            <li className="apex-me-lb-ellipsis" aria-hidden>
+              ···
+            </li>
+            <li className="apex-me-lb-row apex-me-lb-row--me">
+              <span className="apex-me-lb-rank tabular-nums">{meRank}</span>
+              <span className="apex-me-lb-avatar apex-me-lb-avatar--shade-0">
+                {leaderboardAvatarInitial(meLeaderboardRow)}
+              </span>
+              <span className="apex-me-lb-name truncate">{meLeaderboardRow.name}</span>
+              <span className="apex-me-lb-xp tabular-nums">{meLeaderboardRow.xp} XP</span>
+            </li>
+          </ul>
           {friendLoading ? (
-            <p className="apex-me-empty">Loading friends…</p>
-          ) : (
-            <ul className="apex-me-lb-list">
-              {listTop.map((row, index) => (
-                <li key={row.id} className="apex-me-lb-row">
-                  <span className="apex-me-lb-rank tabular-nums">{index + 1}</span>
-                  <span
-                    className={`apex-me-lb-avatar apex-me-lb-avatar--shade-${row.avatarShade}${row.isBot ? ' apex-me-lb-avatar--bot' : ''}`}
-                  >
-                    {initialsForName(row.name)}
-                  </span>
-                  <span className="apex-me-lb-name truncate">{row.name}</span>
-                  <span className="apex-me-lb-xp tabular-nums">{row.xp} XP</span>
-                </li>
-              ))}
-              {showMePinned && meRow ? (
-                <>
-                  <li className="apex-me-lb-ellipsis" aria-hidden>
-                    ···
-                  </li>
-                  <li className="apex-me-lb-row apex-me-lb-row--me">
-                    <span className="apex-me-lb-rank tabular-nums">
-                      {sortedFriends.findIndex((r) => r.id === meRow.id) + 1}
-                    </span>
-                    <span className="apex-me-lb-avatar apex-me-lb-avatar--shade-0">
-                      {initialsForName(meRow.name)}
-                    </span>
-                    <span className="apex-me-lb-name truncate">{meRow.name}</span>
-                    <span className="apex-me-lb-xp tabular-nums">{meRow.xp} XP</span>
-                  </li>
-                </>
-              ) : null}
-            </ul>
-          )}
+            <p className="apex-me-empty mt-2 mb-0 text-[12px]">Updating friends…</p>
+          ) : null}
         </div>
         <div className="apex-me-friend-code-row">
           <span className="apex-me-friend-code-label">
-            Your code: <strong className="tabular-nums">{friendCode ?? '------'}</strong>
+            Your code:{' '}
+            <strong className="tabular-nums tracking-wide">
+              {friendCodeLoading ? '…' : friendCode}
+            </strong>
           </span>
           <button
             type="button"
             className="apex-me-copy-btn"
             aria-label="Copy friend code"
-            disabled={!friendCode}
+            disabled={friendCodeLoading || !friendCode}
             onClick={onCopyFriendCode}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
+            <i className="ti ti-copy text-[18px]" aria-hidden />
           </button>
         </div>
         <button type="button" className="apex-me-add-friend-btn" onClick={onAddFriend}>
@@ -1400,7 +1649,6 @@ export function ProfileTab({
     updateSettings,
     notify,
     addBodyweight,
-    resetAppData,
   } = useWorkout()
   const sub: Sub = 'stats'
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -1413,14 +1661,18 @@ export function ProfileTab({
   const [appearanceTheme, setAppearanceTheme] = useState<ApexThemeMode>(readThemeMode)
   const [appearanceFontSize, setAppearanceFontSize] = useState<ApexFontSizeMode>(readFontSizeMode)
   const [bwInput, setBwInput] = useState('')
-  const [confirmResetOpen, setConfirmResetOpen] = useState(false)
+  const [clearDataBusy, setClearDataBusy] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
   const [gymSettingsOpen, setGymSettingsOpen] = useState(false)
   const [gymDraftNumber, setGymDraftNumber] = useState('')
   const [gymDraftFormat, setGymDraftFormat] = useState<GymBarcodeFormat>('code128')
   const [gymDraftGymName, setGymDraftGymName] = useState('')
-  const [friendProfile, setFriendProfile] = useState<FriendProfileRow | null>(null)
-  const [friendLbRows, setFriendLbRows] = useState<FriendLeaderboardRow[]>([])
+  const [friendCode, setFriendCode] = useState<string | null>(null)
+  const [friendCodeLoading, setFriendCodeLoading] = useState(true)
+  const [friendLbTop, setFriendLbTop] = useState<FriendLeaderboardRow[]>(sortedMeLeaderboardBots)
+  const [friendLbMe, setFriendLbMe] = useState<FriendLeaderboardRow>(() =>
+    buildMeLeaderboardMe(userId, 'Apex Athlete', 0),
+  )
   const [friendLbLoading, setFriendLbLoading] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [addFriendCode, setAddFriendCode] = useState('')
@@ -1602,32 +1854,88 @@ export function ProfileTab({
   useEffect(() => {
     if (!showMeTab) return
     let cancelled = false
+    setFriendCodeLoading(true)
+    void (async () => {
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser()
+        const authUserId = authUser?.id ?? userId
+
+        const { data: rows, error } = await supabase
+          .from('tended_user_state')
+          .select('date_key, friend_code')
+          .eq('user_id', authUserId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+
+        if (error) throw error
+
+        const existingRow = rows?.[0]
+        let code: string | null = sanitizeMeFriendCode(existingRow?.friend_code ?? null)
+
+        if (!code && existingRow) {
+          code = generateMeFriendCode()
+          await supabase
+            .from('tended_user_state')
+            .update({
+              friend_code: code,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', authUserId)
+            .eq('date_key', String(existingRow.date_key))
+        }
+
+        if (!code) {
+          code = generateMeFriendCode()
+          await supabase.from('tended_user_state').insert({
+            user_id: authUserId,
+            date_key: TENDED_FRIEND_CODE_PROFILE_DATE_KEY,
+            friend_code: code,
+            workout_done: false,
+            volume_lbs: 0,
+            muscle_groups_trained: [],
+            water_oz: 0,
+            source_app: 'apex',
+            updated_at: new Date().toISOString(),
+          })
+        }
+
+        if (!cancelled) setFriendCode(code)
+      } catch {
+        if (!cancelled) setFriendCode(generateMeFriendCode())
+      } finally {
+        if (!cancelled) setFriendCodeLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [showMeTab, userId])
+
+  useEffect(() => {
+    setFriendLbMe(buildMeLeaderboardMe(userId, displayName, state.lifetimeXp ?? 0))
+  }, [userId, displayName, state.lifetimeXp])
+
+  useEffect(() => {
+    if (!showMeTab) return
+    let cancelled = false
     setFriendLbLoading(true)
+    setFriendLbTop(sortedMeLeaderboardBots())
     void (async () => {
       const profile = await ensureFriendProfile(userId)
       if (cancelled) return
-      setFriendProfile(profile)
-      if (!profile) {
-        setFriendLbRows([])
-        setFriendLbLoading(false)
-        return
-      }
-      const friendXp = await fetchLeaderboardXpForUsers(profile.friends)
+      const friendXp = profile?.friends.length
+        ? await fetchLeaderboardXpForUsers(profile.friends)
+        : []
       if (cancelled) return
-      setFriendLbRows(
-        buildFriendsLeaderboardRows(
-          userId,
-          displayName,
-          state.lifetimeXp ?? 0,
-          friendXp,
-        ),
-      )
+      setFriendLbTop(buildMeLeaderboardTop(friendXp))
       setFriendLbLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [showMeTab, userId, displayName, state.lifetimeXp, friendsRefresh])
+  }, [showMeTab, userId, friendsRefresh])
 
   useEffect(() => {
     if (!globalLbOpen) return
@@ -1656,12 +1964,9 @@ export function ProfileTab({
       setAddFriendCode('')
       notify('Friend added')
       const profile = await ensureFriendProfile(userId)
-      setFriendProfile(profile)
       if (profile) {
         const friendXp = await fetchLeaderboardXpForUsers(profile.friends)
-        setFriendLbRows(
-          buildFriendsLeaderboardRows(userId, displayName, state.lifetimeXp ?? 0, friendXp),
-        )
+        setFriendLbTop(buildMeLeaderboardTop(friendXp))
         setFriendsRefresh((n) => n + 1)
       }
       return
@@ -1763,13 +2068,14 @@ export function ProfileTab({
           strengthAge={strengthAge}
           appearanceTheme={appearanceTheme}
           onToggleTheme={toggleAppearanceTheme}
-          friendCode={friendProfile?.friend_code ?? null}
-          friendRows={friendLbRows}
+          friendCode={friendCode}
+          friendCodeLoading={friendCodeLoading}
+          friendTopRows={friendLbTop}
+          meLeaderboardRow={friendLbMe}
           friendLoading={friendLbLoading}
           onCopyFriendCode={() => {
-            const code = friendProfile?.friend_code
-            if (!code) return
-            void navigator.clipboard.writeText(code).then(
+            if (!friendCode) return
+            void navigator.clipboard.writeText(friendCode).then(
               () => notify('Friend code copied'),
               () => notify('Could not copy code'),
             )
@@ -2282,7 +2588,7 @@ export function ProfileTab({
             <p className="apex-settings-v2-label">Notifications</p>
             <div className="apex-settings-v2-card">
               <div className="apex-settings-v2-row">
-                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                <span className="apex-settings-icon apex-settings-icon--muted apex-settings-icon--notification" aria-hidden>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2h16l-2-2zM10 20a2 2 0 004 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
@@ -2301,7 +2607,7 @@ export function ProfileTab({
                 />
               </div>
               <div className="apex-settings-v2-row">
-                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                <span className="apex-settings-icon apex-settings-icon--muted apex-settings-icon--notification" aria-hidden>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M8 6h8v3a4 4 0 01-4 4 4 4 0 01-4-4V6zM6 20h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
@@ -2314,7 +2620,7 @@ export function ProfileTab({
                 />
               </div>
               <div className="apex-settings-v2-row">
-                <span className="apex-settings-icon apex-settings-icon--muted" aria-hidden>
+                <span className="apex-settings-icon apex-settings-icon--muted apex-settings-icon--notification" aria-hidden>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2h16l-2-2zM10 20a2 2 0 004 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
@@ -2403,6 +2709,39 @@ export function ProfileTab({
                 />
               </div>
             </div>
+
+            <button
+              type="button"
+              className="w-full min-h-11 mt-6 text-[13px] font-medium text-[#a0a0a8] bg-transparent"
+              disabled={clearDataBusy}
+              onClick={() => {
+                const confirmed = window.confirm(
+                  'This will permanently delete all your workout history, PRs, and settings. This cannot be undone.',
+                )
+                if (!confirmed) return
+                setClearDataBusy(true)
+                void (async () => {
+                  try {
+                    await clearUserSupabaseData(userId)
+                  } catch {
+                    /* ignore cloud deletion errors */
+                  }
+                  try {
+                    await supabase.auth.signOut()
+                  } catch {
+                    /* ignore sign-out errors */
+                  }
+                  try {
+                    localStorage.clear()
+                  } catch {
+                    /* ignore */
+                  }
+                  window.location.assign('/')
+                })()
+              }}
+            >
+              {clearDataBusy ? 'Clearing…' : 'Clear all data'}
+            </button>
 
             <button
               type="button"
@@ -2601,20 +2940,6 @@ export function ProfileTab({
           </div>
         </div>
       ) : null}
-
-      <ConfirmDialog
-        open={confirmResetOpen}
-        title="Reset app data?"
-        message="This permanently deletes all logged workouts, your schedule, personal records, and other local data on this device. You will return to setup."
-        confirmLabel="Reset everything"
-        cancelLabel="Cancel"
-        destructive
-        onCancel={() => setConfirmResetOpen(false)}
-        onConfirm={() => {
-          setConfirmResetOpen(false)
-          void resetAppData().then(() => notify('App data reset'))
-        }}
-      />
 
       {gymSettingsOpen ? (
         <div

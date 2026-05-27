@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { signInWithGoogle, supabase } from '../lib/supabase'
-import { ApexLogo } from './ApexLogo'
+
+/** Apex mountain mark for sign-in only — accent blue, no background. */
+function ApexSignInMark() {
+  return (
+    <svg width={48} height={48} viewBox="0 0 48 48" fill="none" aria-hidden>
+      <path d="M8 38 L17 20 L22 38 Z" fill="#3d7ab5" />
+      <path d="M22 38 L33 12 L40 38 Z" fill="#3d7ab5" />
+    </svg>
+  )
+}
 
 type Mode = 'sign-in' | 'sign-up'
 
@@ -67,7 +76,7 @@ export function Auth() {
     >
       <div className="w-full max-w-[480px] mx-auto flex-1 flex flex-col justify-center">
         <div className="mb-8 flex justify-center">
-          <ApexLogo />
+          <ApexSignInMark />
         </div>
 
         <div className="rounded-[12px] border-[0.5px] border-white/[0.08] bg-[#141414] p-5 space-y-5">

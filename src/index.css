@@ -522,9 +522,35 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   user-select: none;
 }
 
+.apex-today-header-card {
+  position: relative;
+  overflow: visible;
+}
+
+.apex-today-header-barcode {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 2;
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  color: #ececee;
+  touch-action: manipulation;
+}
+
+.apex-today-header-barcode:active {
+  transform: scale(0.98);
+}
+
 .apex-today-header-title {
   margin-top: 0.5rem;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -3612,7 +3638,8 @@ html[data-apex-theme='light'] html {
   background: rgba(255, 255, 255, 0.08);
 }
 .apex-me-lb-avatar--bot {
-  opacity: 0.75;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .apex-me-lb-name {
@@ -4327,6 +4354,26 @@ html[data-apex-theme='light'] html {
   color: rgba(255, 255, 255, 0.65);
 }
 
+.apex-workout-add-exercise-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 0.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  touch-action: manipulation;
+}
+
+.apex-workout-add-exercise-secondary:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 /* PR celebration full-screen overlay */
 @keyframes apex-pr-confetti-fall {
   0% {
@@ -4614,6 +4661,10 @@ html[data-apex-theme='light'] html {
   color: rgba(255, 255, 255, 0.7);
 }
 
+.apex-settings-icon--notification {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .apex-settings-segment {
   display: flex;
   flex-shrink: 0;
@@ -4650,7 +4701,7 @@ html[data-apex-theme='light'] html {
   padding: 0;
   border: none;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #4a5568;
   transition: background 0.2s ease;
   touch-action: manipulation;
 }
