@@ -7,8 +7,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        DispatchQueue.main.async { [weak self] in
+            self?.enableSwipeBackGestures()
+        }
         return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        enableSwipeBackGestures()
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -23,10 +29,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-    }
-
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -46,4 +48,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    private func enableSwipeBackGestures() {
+        guard let root = window?.rootViewController else { return }
+        configureSwipeBack(for: root)
+    }
+
+    private func configureSwipeBack(for viewController: UIViewController) {
+        if let navigationController = viewController as? UINavigationController {
+            navigationController.interactivePopGestureRecognizer?.isEnabled = true
+            navigationController.interactivePopGestureRecognizer?.delegate = nil
+            if let top = navigationController.topViewController {
+                configureSwipeBack(for: top)
+            }
+        }
+
+        if let bridge = viewController as? CAPBridgeViewController {
+            bridge.webView?.allowsBackForwardNavigationGestures = true
+        }
+
+        for child in viewController.children {
+            configureSwipeBack(for: child)
+        }
+
+        if let presented = viewController.presentedViewController {
+            configureSwipeBack(for: presented)
+        }
+    }
 }

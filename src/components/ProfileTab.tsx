@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSwipeBackLayer } from '../lib/swipeBackNavigation'
 import {
   Bar,
   BarChart,
@@ -1687,6 +1688,10 @@ export function ProfileTab({
   const showSettingsScreen =
     (isDesktop && desktopSection === 'settings') || (!isDesktop && settingsOpen)
   const showMeTab = isDesktop ? desktopSection === 'profile' : sub === 'stats' && !settingsOpen
+
+  useSwipeBackLayer(showSettingsScreen && !isDesktop, () => setSettingsOpen(false))
+  useSwipeBackLayer(globalLbOpen, () => setGlobalLbOpen(false))
+  useSwipeBackLayer(prListOpen, () => setPrListOpen(false))
 
   const [trainerMode, setTrainerMode] = useState(readTrainerModeEnabled)
   const [trainerCode, setTrainerCode] = useState(readTrainerCode)

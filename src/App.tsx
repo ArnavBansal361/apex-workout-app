@@ -31,6 +31,7 @@ import { isSpotifyOAuthReturn } from './lib/spotify'
 import { ScheduleTab } from './components/ScheduleTab'
 import { ApexLogo } from './components/ApexLogo'
 import { TodayTab } from './components/TodayTab'
+import { installSwipeBackNavigation, useSwipeBackLayer } from './lib/swipeBackNavigation'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -103,6 +104,9 @@ function AppShell() {
   const [gymModeOverlay, setGymModeOverlay] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [achievementsOpen, setAchievementsOpen] = useState(false)
+
+  useSwipeBackLayer(historyOpen, () => setHistoryOpen(false))
+  useSwipeBackLayer(achievementsOpen, () => setAchievementsOpen(false))
   const [gymSettingsToken, setGymSettingsToken] = useState(0)
   const [todayMoreOpen, setTodayMoreOpen] = useTodaySectionOpen(APEX_TODAY_MORE_OPEN_KEY)
   const [todayPlanOpen, setTodayPlanOpen] = useTodaySectionOpen(APEX_TODAY_PLAN_OPEN_KEY)
@@ -208,6 +212,10 @@ function DashboardWithOnboarding() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    installSwipeBackNavigation()
+  }, [])
 
   function applySession(next: Session | null) {
     setSession((prev) => {

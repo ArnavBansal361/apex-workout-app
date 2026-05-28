@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useSwipeBackLayer } from '../lib/swipeBackNavigation'
 import { useWorkout } from '../context/WorkoutContext'
 import { APEX_COACH_PROFILE_KEY } from '../lib/persist'
 import { APEX_LOGO_URL } from '../lib/apexBrand'
@@ -110,6 +111,7 @@ export function Onboarding({ onComplete }: Props) {
   } = useWorkout()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
+  useSwipeBackLayer(step > 1, () => setStep((s) => (s === 3 ? 2 : 1)))
   const [name, setName] = useState(state.settings.displayName)
   const [goal, setGoal] = useState(state.settings.fitnessGoals)
   const [unit, setUnit] = useState<'lbs' | 'kg'>(state.settings.unit)

@@ -17,6 +17,7 @@ import { RestBanner } from './components/RestBanner'
 import { ScheduleTab } from './components/ScheduleTab'
 import { TodayTab } from './components/TodayTab'
 import { ApexLogo } from './components/ApexLogo'
+import { useSwipeBackLayer } from './lib/swipeBackNavigation'
 
 const DESKTOP_MIN_WIDTH = 768
 
@@ -59,6 +60,10 @@ export function DashboardShell() {
   const [nav, setNav] = useState<DashboardNavId>('today')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [achievementsOpen, setAchievementsOpen] = useState(false)
+
+  useSwipeBackLayer(historyOpen, () => setHistoryOpen(false))
+  useSwipeBackLayer(achievementsOpen, () => setAchievementsOpen(false))
+
   const [gymSettingsToken, setGymSettingsToken] = useState(0)
   const [aiSub, setAiSub] = useState<'coach' | 'parser' | 'form' | 'insights'>('coach')
   const [todayMoreOpen, setTodayMoreOpen] = useTodaySectionOpen(APEX_TODAY_MORE_OPEN_KEY)

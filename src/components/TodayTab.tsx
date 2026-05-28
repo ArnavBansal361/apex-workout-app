@@ -26,7 +26,6 @@ import {
 import { PostWorkoutCheckinScreen, WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
 import { readPostWorkoutCheckinEnabled } from '../lib/persist'
 import { AppleHealthBadge } from './AppleHealthBadge'
-import { sleepHoursFromHealthMinutes } from '../lib/appleHealth'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
 import { TodayWeekChartsSection } from './TodayVolumeCharts'
@@ -38,9 +37,7 @@ import {
   macroTotalsForDateKey,
   mealLogsForDateKey,
   sleepLogForDateKey,
-  sleepWeeklyAverages,
   waterOzForDateKey,
-  waterWeeklyAverageOz,
 } from '../lib/stats'
 import {
   DEFAULT_MACRO_GOAL_CALORIES,
@@ -48,7 +45,6 @@ import {
   DEFAULT_MACRO_GOAL_FAT_G,
   DEFAULT_MACRO_GOAL_PROTEIN_G,
   DEFAULT_WATER_GOAL_OZ,
-  WATER_LOG_INCREMENT_OZ,
 } from '../types'
 import {
   migrateDailyMotivationFromSession,
@@ -127,6 +123,275 @@ function dailyQuoteForDateKey(todayKey: string): string {
 function fmtCardioMin(m: number | null | undefined): string {
   if (m == null || !Number.isFinite(m)) return 'No duration'
   return `${m} min`
+}
+
+function minutesBetweenTimes(bed: string, wake: string): number | null {
+  if (!bed || !wake) return null
+  const [bh, bm] = bed.split(':').map(Number)
+  const [wh, wm] = wake.split(':').map(Number)
+  if (![bh, bm, wh, wm].every((n) => Number.isFinite(n))) return null
+  let start = bh * 60 + bm
+  let end = wh * 60 + wm
+  if (end <= start) end += 24 * 60
+  return end - start
+}
+
+function TodaySheetStepper({
+  label,
+  valueNode,
+  onMinus,
+  onPlus,
+  minusLabel,
+  plusLabel,
+}: {
+  label: string
+  valueNode: ReactNode
+  onMinus: () => void
+  onPlus: () => void
+  minusLabel: string
+  plusLabel: string
+}) {
+  return (
+    <div className="apex-log-set-sheet__stepper-card">
+      <p className="apex-log-set-sheet__stepper-label">{label}</p>
+      <div className="apex-log-set-sheet__stepper-row">
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={minusLabel}
+          onClick={onMinus}
+        >
+          −
+        </button>
+        <div className="apex-log-set-sheet__stepper-value">{valueNode}</div>
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={plusLabel}
+          onClick={onPlus}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SleepLogSheet({
+  open,
+  sleepHours,
+  sleepMinutes,
+  bedtime,
+  wakeTime,
+  appleHealthHint,
+  onBedtimeChange,
+  onWakeTimeChange,
+  onSleepHoursChange,
+  onSleepMinutesChange,
+  onClose,
+  onLog,
+}: {
+  open: boolean
+  sleepHours: number
+  sleepMinutes: number
+  bedtime: string
+  wakeTime: string
+  appleHealthHint: boolean
+  onBedtimeChange: (v: string) => void
+  onWakeTimeChange: (v: string) => void
+  onSleepHoursChange: (h: number) => void
+  onSleepMinutesChange: (m: number) => void
+  onClose: () => void
+  onLog: () => void
+}) {
+  if (!open) return null
+  const totalMin = sleepHours * 60 + sleepMinutes
+  return (
+    <div
+      className="apex-log-set-sheet-overlay fixed inset-0 z-[72] flex items-end justify-center p-0"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="apex-log-set-sheet w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Log sleep"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="apex-log-set-sheet__handle-wrap">
+          <span className="apex-log-set-sheet__pill" aria-hidden />
+        </div>
+        <h2 className="apex-log-set-sheet__title">Sleep</h2>
+        {appleHealthHint ? (
+          <p className="apex-log-set-sheet__last text-center px-2">
+            Imported from Apple Health — adjust and save
+          </p>
+        ) : null}
+        <div className="apex-log-set-sheet__steppers">
+          <TodaySheetStepper
+            label="HOURS"
+            valueNode={<span className="apex-log-set-sheet__num-main tabular-nums">{sleepHours}</span>}
+            onMinus={() => onSleepHoursChange(Math.max(0, sleepHours - 1))}
+            onPlus={() => onSleepHoursChange(Math.min(24, sleepHours + 1))}
+            minusLabel="Decrease hours"
+            plusLabel="Increase hours"
+          />
+          <TodaySheetStepper
+            label="MINUTES"
+            valueNode={<span className="apex-log-set-sheet__num-main tabular-nums">{sleepMinutes}</span>}
+            onMinus={() => onSleepMinutesChange((sleepMinutes + 55) % 60)}
+            onPlus={() => onSleepMinutesChange((sleepMinutes + 5) % 60)}
+            minusLabel="Decrease minutes"
+            plusLabel="Increase minutes"
+          />
+        </div>
+        <p className="text-[11px] font-medium text-[#7d7d88] uppercase tracking-wide mt-4 mb-2 px-1">
+          Optional
+        </p>
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          <label className="block">
+            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Bedtime</span>
+            <input
+              type="time"
+              className={inp}
+              value={bedtime}
+              onChange={(e) => onBedtimeChange(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Wake time</span>
+            <input
+              type="time"
+              className={inp}
+              value={wakeTime}
+              onChange={(e) => onWakeTimeChange(e.target.value)}
+            />
+          </label>
+        </div>
+        {totalMin > 0 ? (
+          <p className="text-[12px] font-medium text-[#a0a0a8] text-center pb-2 tabular-nums">
+            {formatSleepDuration(totalMin)}
+          </p>
+        ) : null}
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
+          <button
+            type="button"
+            className="apex-log-set-sheet__log-btn"
+            disabled={totalMin <= 0}
+            onClick={onLog}
+          >
+            Log sleep
+          </button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+function WaterLogSheet({
+  open,
+  waterTodayOz,
+  waterGoalOz,
+  customMode,
+  customOz,
+  onCustomMode,
+  onCustomOzChange,
+  onClose,
+  onAddOz,
+}: {
+  open: boolean
+  waterTodayOz: number
+  waterGoalOz: number
+  customMode: boolean
+  customOz: string
+  onCustomMode: (on: boolean) => void
+  onCustomOzChange: (v: string) => void
+  onClose: () => void
+  onAddOz: (oz: number) => void
+}) {
+  if (!open) return null
+  const quickAmounts = [8, 16, 32] as const
+  return (
+    <div
+      className="apex-log-set-sheet-overlay fixed inset-0 z-[72] flex items-end justify-center p-0"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="apex-log-set-sheet w-full max-w-lg"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Log water"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="apex-log-set-sheet__handle-wrap">
+          <span className="apex-log-set-sheet__pill" aria-hidden />
+        </div>
+        <h2 className="apex-log-set-sheet__title">Water</h2>
+        <p className="text-center mt-3 mb-1">
+          <span className="text-[32px] font-black tabular-nums text-[#f4f4f5] leading-none">
+            {waterTodayOz}
+          </span>
+          <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">oz today</span>
+        </p>
+        <p className="text-[12px] font-medium text-[#a0a0a8] text-center mb-5 tabular-nums">
+          Goal {waterGoalOz} oz
+        </p>
+        <div className="grid grid-cols-2 gap-2 pb-3">
+          {quickAmounts.map((oz) => (
+            <button
+              key={oz}
+              type="button"
+              className="min-h-12 rounded-[14px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-semibold text-[#ececee] touch-manipulation active:scale-[0.98]"
+              onClick={() => onAddOz(oz)}
+            >
+              +{oz} oz
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`min-h-12 rounded-[14px] border text-[15px] font-semibold touch-manipulation active:scale-[0.98] ${
+              customMode
+                ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
+                : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'
+            }`}
+            onClick={() => onCustomMode(!customMode)}
+          >
+            Custom
+          </button>
+        </div>
+        {customMode ? (
+          <div className="flex gap-2 pb-4">
+            <input
+              inputMode="decimal"
+              className={`min-h-11 flex-1 ${inp}`}
+              placeholder="Ounces"
+              value={customOz}
+              onChange={(e) => onCustomOzChange(e.target.value)}
+            />
+            <button
+              type="button"
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
+              onClick={() => {
+                const oz = Math.round(Number(customOz))
+                if (!Number.isFinite(oz) || oz <= 0) return
+                onAddOz(oz)
+                onCustomOzChange('')
+              }}
+            >
+              Add
+            </button>
+          </div>
+        ) : null}
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
+          <button type="button" className="apex-log-set-sheet__log-btn" onClick={onClose}>
+            Done
+          </button>
+        </footer>
+      </div>
+    </div>
+  )
 }
 
 export function TodayTab({
@@ -248,23 +513,24 @@ export function TodayTab({
   const [cardioName, setCardioName] = useState('')
   const [cardioManualMin, setCardioManualMin] = useState('')
   const [confirmCardioId, setConfirmCardioId] = useState<string | null>(null)
-  const [sleepHoursDraft, setSleepHoursDraft] = useState('')
-  const [sleepQualityDraft, setSleepQualityDraft] = useState<1 | 2 | 3 | 4 | 5>(3)
+  const [sleepSheetOpen, setSleepSheetOpen] = useState(false)
+  const [waterSheetOpen, setWaterSheetOpen] = useState(false)
+  const [sleepHours, setSleepHours] = useState(7)
+  const [sleepMinutes, setSleepMinutes] = useState(30)
+  const [sleepBedtime, setSleepBedtime] = useState('')
+  const [sleepWakeTime, setSleepWakeTime] = useState('')
+  const [waterCustomMode, setWaterCustomMode] = useState(false)
+  const [waterCustomOz, setWaterCustomOz] = useState('')
 
   const waterGoalOz = state.settings.waterGoalOz ?? DEFAULT_WATER_GOAL_OZ
   const waterTodayOz = useMemo(
     () => waterOzForDateKey(state, todayKey),
     [state.waterLogs, todayKey],
   )
-  const waterWeeklyAvgOz = useMemo(() => waterWeeklyAverageOz(state, clock), [state.waterLogs, clock])
-  const waterProgress = Math.min(1, waterGoalOz > 0 ? waterTodayOz / waterGoalOz : 0)
-
   const sleepTodayLog = useMemo(
     () => sleepLogForDateKey(state, todayKey),
     [state.sleepLogs, todayKey],
   )
-  const sleepWeekly = useMemo(() => sleepWeeklyAverages(state, clock), [state.sleepLogs, clock])
-
   const appleHealthToday = useMemo(() => {
     const h = state.appleHealthToday
     if (!h || h.dateKey !== todayKey || !state.settings.appleHealthSyncEnabled) return null
@@ -272,25 +538,28 @@ export function TodayTab({
   }, [state.appleHealthToday, state.settings.appleHealthSyncEnabled, todayKey])
 
   useEffect(() => {
+    if (!sleepSheetOpen) return
     if (sleepTodayLog) {
-      setSleepHoursDraft(String(Math.round((sleepTodayLog.durationMinutes / 60) * 100) / 100))
-      setSleepQualityDraft(sleepTodayLog.quality)
+      setSleepHours(Math.floor(sleepTodayLog.durationMinutes / 60))
+      setSleepMinutes(sleepTodayLog.durationMinutes % 60)
       return
     }
     if (appleHealthToday?.sleepMinutes) {
-      setSleepHoursDraft(sleepHoursFromHealthMinutes(appleHealthToday.sleepMinutes))
-      setSleepQualityDraft(3)
+      const total = Math.max(0, Math.round(appleHealthToday.sleepMinutes))
+      setSleepHours(Math.floor(total / 60))
+      setSleepMinutes(total % 60)
       return
     }
-    setSleepHoursDraft('')
-    setSleepQualityDraft(3)
-  }, [
-    sleepTodayLog?.id,
-    sleepTodayLog?.durationMinutes,
-    sleepTodayLog?.quality,
-    todayKey,
-    appleHealthToday?.sleepMinutes,
-  ])
+    setSleepHours(7)
+    setSleepMinutes(30)
+  }, [sleepSheetOpen, sleepTodayLog?.id, sleepTodayLog?.durationMinutes, appleHealthToday?.sleepMinutes])
+
+  useEffect(() => {
+    const fromTimes = minutesBetweenTimes(sleepBedtime, sleepWakeTime)
+    if (fromTimes == null || fromTimes <= 0) return
+    setSleepHours(Math.floor(fromTimes / 60))
+    setSleepMinutes(fromTimes % 60)
+  }, [sleepBedtime, sleepWakeTime])
 
   const [mealNameDraft, setMealNameDraft] = useState('')
   const [mealCalDraft, setMealCalDraft] = useState('')
@@ -411,6 +680,38 @@ export function TodayTab({
   )
 
   const [moreQuickPanel, setMoreQuickPanel] = useState<TodaySectionId | null>(null)
+
+  function handleMoreQuickSelect(id: TodaySectionId) {
+    if (id === 'water-tracker') {
+      setWaterSheetOpen(true)
+      setWaterCustomMode(false)
+      setWaterCustomOz('')
+      return
+    }
+    if (id === 'sleep-tracker') {
+      setSleepSheetOpen(true)
+      setSleepBedtime('')
+      setSleepWakeTime('')
+      return
+    }
+    setMoreQuickPanel((p) => (p === id ? null : id))
+  }
+
+  function submitSleepLog() {
+    const fromTimes = minutesBetweenTimes(sleepBedtime, sleepWakeTime)
+    const minutes =
+      fromTimes != null && fromTimes > 0 ? fromTimes : sleepHours * 60 + sleepMinutes
+    if (minutes <= 0) return
+    const quality = sleepTodayLog?.quality ?? 3
+    logSleep(minutes, quality)
+    notify('Sleep logged')
+    setSleepSheetOpen(false)
+  }
+
+  function addWaterFromSheet(oz: number) {
+    addWaterOz(oz)
+    notify(`+${oz} oz water`)
+  }
 
   const todayScheduledMode = useMemo(
     () => scheduledTrainingModeForDay(state.schedule, todayKey),
@@ -830,109 +1131,8 @@ export function TodayTab({
           </div>
         )
       case 'water-tracker':
-        return (
-          <button
-            type="button"
-            className="apex-card p-5 w-full text-left touch-manipulation hover:border-white/[0.14] active:scale-[0.99] transition-transform"
-            onClick={() => addWaterOz(WATER_LOG_INCREMENT_OZ)}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="apex-section-label">Water</p>
-                <p className="mt-2 text-[28px] font-black tabular-nums text-[#f4f4f5] leading-none">
-                  {waterTodayOz}
-                  <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">/ {waterGoalOz} oz</span>
-                </p>
-              </div>
-              <span className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-[12px] font-semibold text-[#ececee] shrink-0">
-                +{WATER_LOG_INCREMENT_OZ} oz
-              </span>
-            </div>
-            <div className="mt-4 h-2 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
-              <div
-                className="h-full rounded-full bg-[#ececee] transition-all duration-300"
-                style={{ width: `${Math.round(waterProgress * 100)}%` }}
-              />
-            </div>
-            <p className="mt-3 text-[12px] font-medium text-[#a0a0a8]">
-              Tap to log {WATER_LOG_INCREMENT_OZ} oz · Avg {waterWeeklyAvgOz} oz/day this week
-            </p>
-          </button>
-        )
       case 'sleep-tracker':
-        return (
-          <div className="apex-card p-5 space-y-4">
-            <div>
-              <div className="flex items-center justify-between gap-2">
-                <p className="apex-section-label">Sleep</p>
-                {appleHealthToday?.sleepMinutes ? <AppleHealthBadge /> : null}
-              </div>
-              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
-                {appleHealthToday?.sleepMinutes && !sleepTodayLog
-                  ? 'Imported from Apple Health — adjust quality and save'
-                  : "Log last night's rest"}
-              </p>
-            </div>
-            {sleepTodayLog ? (
-              <p className="text-[14px] font-medium text-[#ececee]">
-                Logged · {formatSleepDuration(sleepTodayLog.durationMinutes)} · {sleepTodayLog.quality}/5 quality
-                {appleHealthToday?.sleepMinutes ? (
-                  <span className="text-[#a0a0a8]"> · synced from Health</span>
-                ) : null}
-              </p>
-            ) : null}
-            <div className="flex gap-2">
-              <input
-                inputMode="decimal"
-                className={`min-h-11 flex-1 ${inp}`}
-                placeholder="Hours slept"
-                value={sleepHoursDraft}
-                onChange={(e) => setSleepHoursDraft(e.target.value)}
-              />
-              <button
-                type="button"
-                className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
-                onClick={() => {
-                  const hours = Number(sleepHoursDraft)
-                  if (!Number.isFinite(hours) || hours <= 0) return
-                  logSleep(Math.round(hours * 60), sleepQualityDraft)
-                  notify('Sleep logged')
-                }}
-              >
-                Save
-              </button>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-[#7d7d88] mb-2 uppercase tracking-wide">Quality</p>
-              <div className="flex gap-2">
-                {([1, 2, 3, 4, 5] as const).map((q) => {
-                  const active = sleepQualityDraft === q
-                  return (
-                    <button
-                      key={q}
-                      type="button"
-                      aria-label={`Sleep quality ${q} of 5`}
-                      aria-pressed={active}
-                      className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-semibold tabular-nums touch-manipulation ${
-                        active
-                          ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
-                          : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
-                      }`}
-                      onClick={() => setSleepQualityDraft(q)}
-                    >
-                      {q}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <p className="text-[12px] font-medium text-[#a0a0a8] pt-1 border-t border-white/[0.06]">
-              {sleepWeekly
-                ? `Avg ${formatSleepDuration(sleepWeekly.durationMinutes)} · ${sleepWeekly.quality.toFixed(1)}/5 quality this week`
-                : 'Log sleep to see your weekly average'}
-            </p>
-          </div>
-        )
+        return null
       case 'nutrition-tracker': {
         const macroRows = [
           { key: 'calories', label: 'Calories', current: macroToday.calories, goal: macroGoals.calories, unit: '' },
@@ -1319,10 +1519,12 @@ export function TodayTab({
 
         <TodayMoreQuickGrid
           activeId={moreQuickPanel}
-          onSelect={(id) => setMoreQuickPanel((p) => (p === id ? null : id))}
+          onSelect={handleMoreQuickSelect}
         />
 
-        {moreQuickPanel ? (
+        {moreQuickPanel &&
+        moreQuickPanel !== 'water-tracker' &&
+        moreQuickPanel !== 'sleep-tracker' ? (
           <div className="apex-today-more__panel">{sectionBody(moreQuickPanel)}</div>
         ) : null}
 
@@ -1670,6 +1872,33 @@ export function TodayTab({
           onComplete={finishMoodCheckin}
         />
       ) : null}
+
+      <SleepLogSheet
+        open={sleepSheetOpen}
+        sleepHours={sleepHours}
+        sleepMinutes={sleepMinutes}
+        bedtime={sleepBedtime}
+        wakeTime={sleepWakeTime}
+        appleHealthHint={Boolean(appleHealthToday?.sleepMinutes && !sleepTodayLog)}
+        onBedtimeChange={setSleepBedtime}
+        onWakeTimeChange={setSleepWakeTime}
+        onSleepHoursChange={setSleepHours}
+        onSleepMinutesChange={setSleepMinutes}
+        onClose={() => setSleepSheetOpen(false)}
+        onLog={submitSleepLog}
+      />
+
+      <WaterLogSheet
+        open={waterSheetOpen}
+        waterTodayOz={waterTodayOz}
+        waterGoalOz={waterGoalOz}
+        customMode={waterCustomMode}
+        customOz={waterCustomOz}
+        onCustomMode={setWaterCustomMode}
+        onCustomOzChange={setWaterCustomOz}
+        onClose={() => setWaterSheetOpen(false)}
+        onAddOz={addWaterFromSheet}
+      />
 
     </div>
     </>
