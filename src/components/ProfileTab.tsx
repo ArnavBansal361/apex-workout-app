@@ -2747,7 +2747,6 @@ export function ProfileTab({
             >
               {clearDataBusy ? 'Clearing…' : 'Clear all data'}
             </button>
-
             <button
               type="button"
               className="apex-sign-out-btn w-full min-h-12 text-[13px] mt-6"

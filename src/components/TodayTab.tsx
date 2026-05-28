@@ -28,7 +28,6 @@ import { readPostWorkoutCheckinEnabled } from '../lib/persist'
 import { AppleHealthBadge } from './AppleHealthBadge'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
-import { TodayWeekChartsSection } from './TodayVolumeCharts'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
 import { buildSessionSummaryExtras } from '../lib/sessionSummary'
@@ -1033,7 +1032,7 @@ export function TodayTab({
       case 'spotify-player':
         return <SpotifyPlayerCard />
       case 'weekly-volume':
-        return <TodayWeekChartsSection />
+        return null
       case 'muscle-balance':
         return null
       case 'gym-tracker':
