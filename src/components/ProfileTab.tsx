@@ -1042,16 +1042,28 @@ function IosSwitch({
   ariaLabel: string
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      className={`apex-ios-switch${checked ? ' is-on' : ''}`}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="apex-ios-switch__thumb" />
-    </button>
+    <div className="apex-settings-toggle-segment" role="group" aria-label={ariaLabel}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={`${ariaLabel} on`}
+        className={`apex-settings-toggle-segment__btn${checked ? ' is-active' : ''}`}
+        onClick={() => onChange(true)}
+      >
+        ON
+      </button>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!checked}
+        aria-label={`${ariaLabel} off`}
+        className={`apex-settings-toggle-segment__btn${!checked ? ' is-active' : ''}`}
+        onClick={() => onChange(false)}
+      >
+        OFF
+      </button>
+    </div>
   )
 }
 
@@ -2296,8 +2308,8 @@ export function ProfileTab({
 
       {showSettingsScreen ? (
         <div
-          className={`apex-settings-screen flex flex-col bg-[#090d14] ${
-            !isDesktop ? 'apex-settings-screen--overlay fixed inset-0' : 'min-h-0'
+          className={`apex-settings-screen flex flex-col bg-[var(--apex-surface-page)] ${
+            !isDesktop ? 'apex-settings-screen--overlay fixed inset-0 min-h-0' : 'min-h-0'
           }`}
         >
           {!isDesktop ? (

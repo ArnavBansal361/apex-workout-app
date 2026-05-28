@@ -4606,6 +4606,7 @@ html[data-apex-theme='light'] html {
 /* Settings screen (Me tab) */
 .apex-settings-screen {
   color: #ffffff;
+  min-height: 0;
 }
 
 .apex-settings-screen--overlay {
@@ -4643,9 +4644,10 @@ html[data-apex-theme='light'] html {
 
 .apex-settings-screen__scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px 16px 32px;
+  padding: 12px 16px calc(32px + env(safe-area-inset-bottom, 0px));
 }
 
 .apex-settings-v2-label {
@@ -4771,6 +4773,34 @@ html[data-apex-theme='light'] html {
   color: #ffffff;
 }
 
+.apex-settings-toggle-segment {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.apex-settings-toggle-segment__btn {
+  min-width: 40px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: #13181f;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+  touch-action: manipulation;
+}
+
+.apex-settings-toggle-segment__btn.is-active {
+  background: #3d7ab5;
+  color: #ffffff;
+}
+
 .apex-ios-switch {
   position: relative;
   flex-shrink: 0;
@@ -4881,6 +4911,73 @@ html[data-apex-theme='light'] html {
   background: #3d7ab5;
   border: 2px solid #ffffff;
   box-shadow: none;
+}
+
+html[data-apex-theme='light'] .apex-settings-screen {
+  color: var(--apex-text-primary);
+  background: var(--apex-surface-page);
+}
+
+html[data-apex-theme='light'] .apex-settings-screen__header {
+  border-bottom: 0.5px solid var(--apex-divider);
+  background: var(--apex-surface-page);
+}
+
+html[data-apex-theme='light'] .apex-settings-screen__title {
+  color: var(--apex-text-primary);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-label,
+html[data-apex-theme='light'] .apex-settings-text-size__label,
+html[data-apex-theme='light'] .apex-settings-v2-helper {
+  color: var(--apex-text-tertiary);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-card {
+  background: var(--apex-surface-card);
+  border: 0.5px solid var(--apex-border);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-row + .apex-settings-v2-row,
+html[data-apex-theme='light'] .apex-settings-v2-trainer-code,
+html[data-apex-theme='light'] .apex-settings-text-size {
+  border-top: 0.5px solid var(--apex-divider);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-row--tap:active {
+  background: var(--apex-surface-nested);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-row__label,
+html[data-apex-theme='light'] .apex-settings-v2-trainer-code__value {
+  color: var(--apex-text-primary);
+}
+
+html[data-apex-theme='light'] .apex-settings-v2-row__sub,
+html[data-apex-theme='light'] .apex-settings-v2-row__value,
+html[data-apex-theme='light'] .apex-settings-connected-link {
+  color: var(--apex-text-secondary);
+}
+
+html[data-apex-theme='light'] .apex-settings-icon--muted,
+html[data-apex-theme='light'] .apex-settings-icon--notification {
+  background: var(--apex-surface-nested);
+  color: var(--apex-text-secondary);
+}
+
+html[data-apex-theme='light'] .apex-settings-segment,
+html[data-apex-theme='light'] .apex-settings-toggle-segment,
+html[data-apex-theme='light'] .apex-settings-text-size__slider {
+  background: var(--apex-surface-nested);
+}
+
+html[data-apex-theme='light'] .apex-settings-segment__btn,
+html[data-apex-theme='light'] .apex-settings-toggle-segment__btn {
+  color: var(--apex-text-secondary);
+}
+
+html[data-apex-theme='light'] .apex-settings-toggle-segment__btn {
+  background: var(--apex-surface-card);
 }
 
 .apex-settings-footer-version {

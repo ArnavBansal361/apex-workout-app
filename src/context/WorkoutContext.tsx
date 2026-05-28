@@ -96,6 +96,9 @@ import {
   upsertUserWorkoutState,
 } from '../lib/supabase'
 import { XP_PER_PR, XP_PER_SET, XP_PER_WORKOUT_COMPLETE } from '../lib/xpLevel'
+import { weeklyVolumeLoadByMuscleLbs } from '../lib/volumeStats'
+import { Capacitor } from '@capacitor/core'
+import { Preferences } from '@capacitor/preferences'
 import type {
   AppPersisted,
   CardioEntry,
@@ -228,6 +231,61 @@ type Ctx = {
 
 const WorkoutContext = createContext<Ctx | null>(null)
 const WorkoutTickContext = createContext<TickCtx | null>(null)
+const WIDGET_GROUP = 'group.com.arnav.apex'
+const WIDGET_MUSCLES = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const
+
+function buildWidgetVolumeBalance(state: AppPersisted, nowMs: number): Record<string, number> {
+  const vols = weeklyVolumeLoadByMuscleLbs(state, nowMs)
+  const maxVol = Math.max(1, ...WIDGET_MUSCLES.map((muscle) => vols[muscle] ?? 0))
+  const out: Record<string, number> = {}
+  for (const muscle of WIDGET_MUSCLES) {
+    const ratio = (vols[muscle] ?? 0) / maxVol
+    out[muscle] = Math.max(0, Math.min(1, Number.isFinite(ratio) ? ratio : 0))
+  }
+  return out
+}
+
+function buildWidgetPayload(state: AppPersisted, nowMs: number, todayKey: string) {
+  const ws = weekStartMonday(new Date(nowMs))
+  const we = new Date(ws)
+  we.setDate(ws.getDate() + 7)
+  const setLogsThisWeek = state.setLogs.filter((l) => {
+    const at = new Date(l.at)
+    return at >= ws && at < we
+  })
+  const sessionDays = new Set(setLogsThisWeek.map((l) => dateKey(new Date(l.at))))
+  const todayHasWorkout = state.setLogs.some((l) => dateKey(new Date(l.at)) === todayKey)
+  const streakCount = Math.max(0, streakCurrent(state, nowMs))
+  const volumeByMuscle = weeklyVolumeLoadByMuscleLbs(state, nowMs)
+  const weeklyVolume = Math.round(
+    WIDGET_MUSCLES.reduce((sum, muscle) => sum + (volumeByMuscle[muscle] ?? 0), 0),
+  )
+
+  const todayIndex = state.schedule.findIndex((d) => d.dateKey === todayKey)
+  const scheduleWithFallback =
+    todayIndex >= 0
+      ? [...state.schedule.slice(todayIndex), ...state.schedule.slice(0, todayIndex)]
+      : state.schedule
+  const nextPlanned = scheduleWithFallback.find(
+    (d) => d.workoutName.trim().length > 0 || (d.plannedExerciseIds?.length ?? 0) > 0,
+  )
+  const allExercises = [...EXERCISES, ...state.customExercises]
+  const nextWorkoutTags = (nextPlanned?.plannedExerciseIds ?? [])
+    .map((id) => allExercises.find((e) => e.id === id)?.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .slice(0, 4)
+
+  return {
+    streakCount,
+    todayStatus: todayHasWorkout ? 'Workout day' : 'Rest day',
+    sessionsThisWeek: sessionDays.size,
+    setsThisWeek: setLogsThisWeek.length,
+    weeklyVolume,
+    volumeBalance: buildWidgetVolumeBalance(state, nowMs),
+    nextWorkoutName: nextPlanned?.workoutName?.trim() || null,
+    nextWorkoutTags,
+  }
+}
 
 function withAchievements(prev: AppPersisted): AppPersisted {
   return { ...prev, achievements: evaluateAchievements(prev) }
@@ -469,6 +527,37 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
   }, [])
 
   const todayKey = dateKey(new Date(clock))
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') return
+    const payload = buildWidgetPayload(state, clock, todayKey)
+    void (async () => {
+      try {
+        await Preferences.configure({ group: WIDGET_GROUP })
+        await Preferences.set({ key: 'streakCount', value: String(payload.streakCount) })
+        await Preferences.set({ key: 'todayStatus', value: payload.todayStatus })
+        await Preferences.set({ key: 'sessionsThisWeek', value: String(payload.sessionsThisWeek) })
+        await Preferences.set({ key: 'setsThisWeek', value: String(payload.setsThisWeek) })
+        await Preferences.set({ key: 'weeklyVolume', value: String(payload.weeklyVolume) })
+        await Preferences.set({ key: 'volumeBalance', value: JSON.stringify(payload.volumeBalance) })
+        if (payload.nextWorkoutName) {
+          await Preferences.set({ key: 'nextWorkoutName', value: payload.nextWorkoutName })
+        } else {
+          await Preferences.remove({ key: 'nextWorkoutName' })
+        }
+        if (payload.nextWorkoutTags.length) {
+          await Preferences.set({
+            key: 'nextWorkoutTags',
+            value: JSON.stringify(payload.nextWorkoutTags),
+          })
+        } else {
+          await Preferences.remove({ key: 'nextWorkoutTags' })
+        }
+      } catch {
+        /* ignore widget sync failures */
+      }
+    })()
+  }, [state, clock, todayKey])
 
   useEffect(() => {
     if (!cloudReadyRef.current || !isAppOnline()) return

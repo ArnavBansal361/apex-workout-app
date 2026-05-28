@@ -33,7 +33,8 @@ function downloadText(filename: string, text: string) {
 }
 
 export function FullHistory({ onClose }: Props) {
-  const { state, deleteSetLog, updateSetLog, notify, visibleExercises } = useWorkout()
+  const { state, deleteSetLog, deleteCardio, deleteBodyweight, updateSetLog, notify, visibleExercises } =
+    useWorkout()
   const [exerciseId, setExerciseId] = useState<string>('')
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [editLog, setEditLog] = useState<SetLog | null>(null)
@@ -55,18 +56,42 @@ export function FullHistory({ onClose }: Props) {
     return [...m.entries()].sort((a, b) => (a[0] < b[0] ? 1 : a[0] > b[0] ? -1 : 0))
   }, [filtered])
 
+  function clearAllHistory() {
+    const confirmed = window.confirm(
+      'This will permanently delete your entire workout history. This cannot be undone.',
+    )
+    if (!confirmed) return
+    const setIds = state.setLogs.map((l) => l.id)
+    const cardioIds = state.cardioEntries.map((c) => c.id)
+    const bodyweightIds = state.bodyweightLogs.map((b) => b.id)
+    for (const id of setIds) deleteSetLog(id)
+    for (const id of cardioIds) deleteCardio(id)
+    for (const id of bodyweightIds) deleteBodyweight(id)
+    const total = setIds.length + cardioIds.length + bodyweightIds.length
+    notify(total ? 'Workout history cleared' : 'No history to clear')
+  }
+
   return (
     <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)]">
       <header className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] shrink-0">
         <div className="flex items-center justify-between gap-2 mb-3">
           <ApexLogo size={48} />
-          <button
-            type="button"
-            className={`${historyCard} min-h-11 min-w-11 px-0 flex items-center justify-center text-[13px] font-normal text-[#e0e0e0]`}
-            onClick={onClose}
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={`${historyGhostBtn} min-h-11 px-3 text-[12px] font-medium`}
+              onClick={clearAllHistory}
+            >
+              Clear all history
+            </button>
+            <button
+              type="button"
+              className={`${historyCard} min-h-11 min-w-11 px-0 flex items-center justify-center text-[13px] font-normal text-[#e0e0e0]`}
+              onClick={onClose}
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <p className="text-[15px] font-medium text-[#ececee] mb-3">Full history</p>
         <div className={`${historyCard} p-4 space-y-3`}>

@@ -13,6 +13,7 @@ const BACK_CONTROL_SELECTORS = [
 
 let installed = false
 let edgeListenerInstalled = false
+let popHandledByLayer = false
 
 function isCapacitorNative(): boolean {
   return Capacitor.isNativePlatform()
@@ -101,6 +102,7 @@ export function installSwipeBackNavigation(): void {
   }
 
   window.addEventListener('popstate', () => {
+    if (popHandledByLayer) return
     if (!window.history.state?.[NAV_STATE_KEY]) {
       tryActivateBackControl()
     }
@@ -123,9 +125,14 @@ export function useSwipeBackLayer(active: boolean, onBack: () => void): void {
     window.history.pushState({ [NAV_STATE_KEY]: true }, '')
     pushedRef.current = true
 
-    const onPopState = () => {
+    const onPopState = (event: PopStateEvent) => {
+      popHandledByLayer = true
       pushedRef.current = false
       onBackRef.current()
+      event.stopImmediatePropagation()
+      queueMicrotask(() => {
+        popHandledByLayer = false
+      })
     }
 
     window.addEventListener('popstate', onPopState, { capture: true })
