@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 const NAV_STATE_KEY = 'apexSwipeBack'
+const APP_ROOT_KEY = 'apexAppRoot'
 
 /** Selectors for visible custom back / dismiss controls (topmost first). */
 const BACK_CONTROL_SELECTORS = [
@@ -40,6 +41,13 @@ function tryActivateBackControl(): boolean {
   if (!control) return false
   control.click()
   return true
+}
+
+function ensureAppHistoryAnchor(): void {
+  const state = window.history.state as Record<string, unknown> | null
+  if (!state?.[APP_ROOT_KEY]) {
+    window.history.replaceState({ [APP_ROOT_KEY]: true }, '')
+  }
 }
 
 function installEdgeSwipeFallback() {
@@ -97,13 +105,22 @@ export function installSwipeBackNavigation(): void {
   if (installed || typeof window === 'undefined') return
   installed = true
 
+  ensureAppHistoryAnchor()
+
   if (isCapacitorNative()) {
     document.documentElement.classList.add('apex-capacitor-native')
   }
 
   window.addEventListener('popstate', () => {
     if (popHandledByLayer) return
-    if (!window.history.state?.[NAV_STATE_KEY]) {
+    const state = window.history.state as Record<string, unknown> | null
+    // Native swipe can pop past our overlay stack; re-anchor instead of remounting the SPA root.
+    if (state == null || (!state[APP_ROOT_KEY] && !state[NAV_STATE_KEY])) {
+      ensureAppHistoryAnchor()
+      return
+    }
+    // Only use button fallback when no overlay layer owns this pop (e.g. edge swipe without history entry).
+    if (!state[NAV_STATE_KEY]) {
       tryActivateBackControl()
     }
   })
@@ -126,6 +143,7 @@ export function useSwipeBackLayer(active: boolean, onBack: () => void): void {
     pushedRef.current = true
 
     const onPopState = (event: PopStateEvent) => {
+      if (!pushedRef.current) return
       popHandledByLayer = true
       pushedRef.current = false
       onBackRef.current()
@@ -140,7 +158,10 @@ export function useSwipeBackLayer(active: boolean, onBack: () => void): void {
       window.removeEventListener('popstate', onPopState, { capture: true })
       if (pushedRef.current) {
         pushedRef.current = false
-        window.history.back()
+        const state = window.history.state as Record<string, unknown> | null
+        if (state?.[NAV_STATE_KEY]) {
+          window.history.back()
+        }
       }
     }
   }, [active])

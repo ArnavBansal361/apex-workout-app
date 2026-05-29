@@ -2128,7 +2128,7 @@ html[data-apex-theme='light'] .apex-phone-column {
 
 html[data-apex-theme='light'] .apex-app-header {
   background: var(--apex-surface-page) !important;
-  border-bottom-color: var(--apex-divider) !important;
+  border-bottom: none !important;
 }
 
 html[data-apex-theme='light'] .apex-card {
@@ -2636,11 +2636,14 @@ html[data-apex-theme='light'] .apex-ios-switch.is-on {
 
 html[data-apex-theme='light'] :is(
   .bg-\[\#13181f\],
-  .bg-\[\#1a2028\],
   .bg-\[\#1a1a1e\],
   .bg-\[\#1a1a24\]
 ) {
   background-color: var(--apex-surface-card) !important;
+}
+
+html[data-apex-theme='light'] .bg-\[\#1a2028\] {
+  background-color: var(--apex-surface-nested) !important;
 }
 
 html[data-apex-theme='light'] :is(
@@ -4976,8 +4979,19 @@ html[data-apex-theme='light'] .apex-settings-toggle-segment__btn {
   color: var(--apex-text-secondary);
 }
 
-html[data-apex-theme='light'] .apex-settings-toggle-segment__btn {
-  background: var(--apex-surface-card);
+html[data-apex-theme='light'] .apex-settings-toggle-segment__btn:not(.is-active) {
+  background: var(--apex-switch-off) !important;
+  color: var(--apex-text-secondary) !important;
+}
+
+html[data-apex-theme='light'] .apex-settings-toggle-segment__btn.is-active {
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
+}
+
+html[data-apex-theme='light'] .apex-settings-segment__btn.is-active {
+  background: var(--apex-accent) !important;
+  color: #ffffff !important;
 }
 
 .apex-settings-footer-version {
