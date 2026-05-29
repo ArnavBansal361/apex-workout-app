@@ -18,33 +18,26 @@ struct ApexEntry: TimelineEntry {
     let nextWorkoutTags: [String]
 }
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
+    typealias Intent = ConfigurationAppIntent
+    typealias Entry = ApexEntry
+
     func placeholder(in context: Context) -> ApexEntry {
-      return ApexEntry(
-            date: Date(),
-            todayStatus: "Rest day",
-            streakCount: 0,
-            sessionsThisWeek: 0,
-            setsThisWeek: 0,
-            weeklyVolume: 0,
-            volumeBalance: defaultVolumeBalance(),
-            nextWorkoutName: nil,
-            nextWorkoutTags: []
-        )
+        makeEntry()
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (ApexEntry) -> Void) {
-        completion(makeEntry())
+    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> ApexEntry {
+        makeEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<ApexEntry>) -> Void) {
+    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<ApexEntry> {
         let entry = makeEntry()
-        completion(Timeline(entries: [entry], policy: .atEnd))
+        return Timeline(entries: [entry], policy: .atEnd)
     }
 
     private func makeEntry() -> ApexEntry {
         let defaults = UserDefaults(suiteName: appGroupSuite)
-        ApexEntry(
+        return ApexEntry(
             date: Date(),
             todayStatus: getTodayStatus(defaults),
             streakCount: max(0, defaults?.integer(forKey: "streakCount") ?? 0),
@@ -103,13 +96,38 @@ private func defaultVolumeBalance() -> [String: Double] {
     return out
 }
 
+/// Geometric Apex peak mark (from app logo path).
+private struct ApexMountainShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let srcMinY: CGFloat = 10
+        let srcHeight: CGFloat = 8
+        let srcWidth: CGFloat = 21
+
+        func map(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(
+                x: rect.minX + (x / srcWidth) * rect.width,
+                y: rect.minY + ((y - srcMinY) / srcHeight) * rect.height
+            )
+        }
+
+        var p = Path()
+        p.move(to: map(3, 18))
+        p.addLine(to: map(9, 10))
+        p.addLine(to: map(13, 15))
+        p.addLine(to: map(16, 11))
+        p.addLine(to: map(21, 18))
+        p.closeSubpath()
+        return p
+    }
+}
+
 private struct ApexMountainMark: View {
     let size: CGFloat
 
     var body: some View {
-        Image(systemName: "mountain.2.fill")
-            .font(.system(size: size, weight: .semibold))
-            .foregroundColor(.white)
+        ApexMountainShape()
+            .fill(Color.white)
+            .frame(width: size, height: size * 0.62)
     }
 }
 
@@ -266,10 +284,10 @@ struct ApexWidgetLargeView: View {
                             ForEach(entry.nextWorkoutTags.prefix(4), id: \.self) { tag in
                                 Text(tag)
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(accentBlue)
+                                    .foregroundColor(.white)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(accentBlue.opacity(0.16))
+                                    .background(accentBlue)
                                     .clipShape(Capsule())
                             }
                         }
@@ -305,8 +323,8 @@ struct ApexWidgetLargeView: View {
     private func volumeRow(muscle: String, ratio: Double) -> some View {
         HStack(spacing: 8) {
             Text(muscle)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.55))
                 .frame(width: 70, alignment: .leading)
 
             GeometryReader { geo in
@@ -336,7 +354,7 @@ struct ApexWidget: Widget {
     let kind: String = "ApexWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             ApexWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Apex")
