@@ -1,146 +1,351 @@
 import WidgetKit
 import SwiftUI
 
+private let accentBlue = Color(red: 61 / 255, green: 122 / 255, blue: 181 / 255)
+private let widgetBackground = Color(red: 0.035, green: 0.051, blue: 0.078)
+private let appGroupSuite = "group.com.arnav.apex"
+private let supportedMuscles = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core"]
+
 struct ApexEntry: TimelineEntry {
     let date: Date
-    let workoutName: String
-    let streak: Int
+    let todayStatus: String
+    let streakCount: Int
+    let sessionsThisWeek: Int
+    let setsThisWeek: Int
+    let weeklyVolume: Int
+    let volumeBalance: [String: Double]
+    let nextWorkoutName: String?
+    let nextWorkoutTags: [String]
 }
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
+    typealias Intent = ConfigurationAppIntent
+    typealias Entry = ApexEntry
+
     func placeholder(in context: Context) -> ApexEntry {
-        ApexEntry(date: Date(), workoutName: "Push Day", streak: 7)
+        makeEntry()
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (ApexEntry) -> Void) {
-        let entry = ApexEntry(date: Date(), workoutName: getWorkoutName(), streak: getStreak())
-        completion(entry)
+    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> ApexEntry {
+        makeEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<ApexEntry>) -> Void) {
-        let entry = ApexEntry(date: Date(), workoutName: getWorkoutName(), streak: getStreak())
-        let timeline = Timeline(entries: [entry], policy: .atEnd)
-        completion(timeline)
+    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<ApexEntry> {
+        let entry = makeEntry()
+        return Timeline(entries: [entry], policy: .atEnd)
     }
 
-    func getWorkoutName() -> String {
-        let defaults = UserDefaults(suiteName: "group.com.arnav.apex")
-        return defaults?.string(forKey: "todayWorkout") ?? "Rest day"
+    private func makeEntry() -> ApexEntry {
+        let defaults = UserDefaults(suiteName: appGroupSuite)
+        return ApexEntry(
+            date: Date(),
+            todayStatus: getTodayStatus(defaults),
+            streakCount: max(0, defaults?.integer(forKey: "streakCount") ?? 0),
+            sessionsThisWeek: max(0, defaults?.integer(forKey: "sessionsThisWeek") ?? 0),
+            setsThisWeek: max(0, defaults?.integer(forKey: "setsThisWeek") ?? 0),
+            weeklyVolume: max(0, defaults?.integer(forKey: "weeklyVolume") ?? 0),
+            volumeBalance: getVolumeBalance(defaults),
+            nextWorkoutName: getOptionalString(defaults, key: "nextWorkoutName"),
+            nextWorkoutTags: getStringArray(defaults, key: "nextWorkoutTags")
+        )
     }
 
-    func getStreak() -> Int {
-        let defaults = UserDefaults(suiteName: "group.com.arnav.apex")
-        return defaults?.integer(forKey: "currentStreak") ?? 0
+    private func getTodayStatus(_ defaults: UserDefaults?) -> String {
+        let status = defaults?.string(forKey: "todayStatus")?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if status == "Workout day" || status == "Rest day" {
+            return status ?? "Rest day"
+        }
+        return "Rest day"
+    }
+
+    private func getOptionalString(_ defaults: UserDefaults?, key: String) -> String? {
+        let value = defaults?.string(forKey: key)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value, !value.isEmpty else { return nil }
+        return value
+    }
+
+    private func getStringArray(_ defaults: UserDefaults?, key: String) -> [String] {
+        guard let raw = defaults?.string(forKey: key), let data = raw.data(using: .utf8) else { return [] }
+        if let arr = try? JSONDecoder().decode([String].self, from: data) {
+            return arr.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        }
+        return []
+    }
+
+    private func getVolumeBalance(_ defaults: UserDefaults?) -> [String: Double] {
+        guard let raw = defaults?.string(forKey: "volumeBalance"), let data = raw.data(using: .utf8) else {
+            return defaultVolumeBalance()
+        }
+        guard let decoded = try? JSONDecoder().decode([String: Double].self, from: data) else {
+            return defaultVolumeBalance()
+        }
+        var normalized = defaultVolumeBalance()
+        for muscle in supportedMuscles {
+            let value = decoded[muscle] ?? 0
+            normalized[muscle] = min(max(value, 0), 1)
+        }
+        return normalized
     }
 }
 
-// SMALL WIDGET
-struct SmallWidgetView: View {
-    let entry: ApexEntry
+private func defaultVolumeBalance() -> [String: Double] {
+    var out: [String: Double] = [:]
+    for muscle in supportedMuscles {
+        out[muscle] = 0
+    }
+    return out
+}
+
+/// Geometric Apex peak mark (from app logo path).
+private struct ApexMountainShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let srcMinY: CGFloat = 10
+        let srcHeight: CGFloat = 8
+        let srcWidth: CGFloat = 21
+
+        func map(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(
+                x: rect.minX + (x / srcWidth) * rect.width,
+                y: rect.minY + ((y - srcMinY) / srcHeight) * rect.height
+            )
+        }
+
+        var p = Path()
+        p.move(to: map(3, 18))
+        p.addLine(to: map(9, 10))
+        p.addLine(to: map(13, 15))
+        p.addLine(to: map(16, 11))
+        p.addLine(to: map(21, 18))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct ApexMountainMark: View {
+    let size: CGFloat
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: "mountain.2.fill")
-                    .foregroundColor(.white)
-                    .font(.system(size: 14, weight: .medium))
-                Spacer()
-                Text("APEX")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+        ApexMountainShape()
+            .fill(Color.white)
+            .frame(width: size, height: size * 0.62)
+    }
+}
+
+// MARK: - Widget views
+
+struct ApexWidgetEntryView: View {
+    @Environment(\.widgetFamily) var family
+    let entry: ApexEntry
+
+    var body: some View {
+        Group {
+            switch family {
+            case .systemSmall:
+                ApexWidgetSmallView(entry: entry)
+            case .systemMedium:
+                ApexWidgetMediumView(entry: entry)
+            case .systemLarge:
+                ApexWidgetLargeView(entry: entry)
+            default:
+                ApexWidgetSmallView(entry: entry)
             }
+        }
+        .containerBackground(widgetBackground, for: .widget)
+        .widgetURL(URL(string: "apex://today"))
+    }
+}
+
+struct ApexWidgetSmallView: View {
+    let entry: ApexEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ApexMountainMark(size: 16)
             Spacer()
-            Text("\(entry.streak)d streak")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
-            Text(entry.workoutName)
-                .font(.system(size: 16, weight: .medium))
+            Text(entry.todayStatus)
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.white)
-                .lineLimit(2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .center)
+            Spacer()
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                Text("\(entry.streakCount)")
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(accentBlue)
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color(red: 9/255, green: 13/255, blue: 20/255))
+        .containerBackground(widgetBackground, for: .widget)
     }
 }
 
-// MEDIUM WIDGET
-struct MediumWidgetView: View {
+struct ApexWidgetMediumView: View {
     let entry: ApexEntry
-    var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: "mountain.2.fill")
-                        .foregroundColor(.white)
-                        .font(.system(size: 14, weight: .medium))
-                    Text("APEX")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                Spacer()
-                Text("\(entry.streak)d streak")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
-                Text(entry.workoutName)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-            }
-            .padding(14)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color(red: 9/255, green: 13/255, blue: 20/255))
-    }
-}
 
-// LARGE WIDGET
-struct LargeWidgetView: View {
-    let entry: ApexEntry
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "mountain.2.fill")
-                    .foregroundColor(.white)
-                    .font(.system(size: 16, weight: .medium))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                ApexMountainMark(size: 14)
                 Text("APEX")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
-                Spacer()
-                Text(Date(), style: .date)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.5))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
             }
-            Divider().background(Color.white.opacity(0.08))
-            Text("\(entry.streak)d streak")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
-            Text(entry.workoutName)
-                .font(.system(size: 24, weight: .medium))
-                .foregroundColor(.white)
+
+            HStack(alignment: .top, spacing: 12) {
+                Text(entry.todayStatus)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    statCell(value: "\(entry.sessionsThisWeek)", label: "Sessions this week")
+                    statCell(value: "\(entry.setsThisWeek)", label: "Sets this week")
+                    statCell(value: "\(entry.weeklyVolume)", label: "Weekly volume")
+                    statCell(value: "\(entry.streakCount)", label: "Streak")
+                }
+                .frame(width: 145, alignment: .trailing)
+            }
+
             Spacer()
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Color(red: 9/255, green: 13/255, blue: 20/255))
+        .containerBackground(widgetBackground, for: .widget)
+    }
+
+    @ViewBuilder
+    private func statCell(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.55))
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-struct ApexWidgetEntryView: View {
-    @Environment(\.widgetFamily) var family
-    var entry: ApexEntry
+struct ApexWidgetLargeView: View {
+    let entry: ApexEntry
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            SmallWidgetView(entry: entry)
-        case .systemMedium:
-            MediumWidgetView(entry: entry)
-        case .systemLarge:
-            LargeWidgetView(entry: entry)
-        default:
-            SmallWidgetView(entry: entry)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                ApexMountainMark(size: 14)
+                Text("APEX")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                Text(entry.todayStatus)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    statCell(value: "\(entry.sessionsThisWeek)", label: "Sessions this week")
+                    statCell(value: "\(entry.setsThisWeek)", label: "Sets this week")
+                    statCell(value: "\(entry.weeklyVolume)", label: "Weekly volume")
+                    statCell(value: "\(entry.streakCount)", label: "Streak")
+                }
+                .frame(width: 145, alignment: .trailing)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("VOLUME BALANCE")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
+                ForEach(supportedMuscles, id: \.self) { muscle in
+                    volumeRow(muscle: muscle, ratio: entry.volumeBalance[muscle] ?? 0)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("NEXT WORKOUT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.55))
+                if let name = entry.nextWorkoutName, !name.isEmpty {
+                    Text(name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                    if !entry.nextWorkoutTags.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(entry.nextWorkoutTags.prefix(4), id: \.self) { tag in
+                                Text(tag)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(accentBlue)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                } else {
+                    Text("No workout planned")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.55))
+                }
+            }
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .containerBackground(widgetBackground, for: .widget)
+    }
+
+    @ViewBuilder
+    private func statCell(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.55))
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func volumeRow(muscle: String, ratio: Double) -> some View {
+        HStack(spacing: 8) {
+            Text(muscle)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.55))
+                .frame(width: 70, alignment: .leading)
+
+            GeometryReader { geo in
+                let clamped = min(max(ratio, 0), 1)
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(height: 4)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(accentBlue)
+                        .frame(width: geo.size.width * clamped, height: 4)
+                }
+            }
+            .frame(height: 4)
+
+            Text("\(Int((min(max(ratio, 0), 1) * 100).rounded()))%")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 36, alignment: .trailing)
+        }
+        .frame(height: 12)
     }
 }
 
@@ -149,7 +354,7 @@ struct ApexWidget: Widget {
     let kind: String = "ApexWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             ApexWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Apex")

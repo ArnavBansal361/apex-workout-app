@@ -24,6 +24,8 @@ type Props = {
   unit: 'lbs' | 'kg'
   lastSessionLine?: string | null
   initialWeighted?: LastWeightedSetDefaults | null
+  /** When set, the sheet pre-fills from this log and the primary action updates it. */
+  editingLog?: SetLog | null
   setLogs?: SetLog[]
   onClose: () => void
   onSave: (payload: LogSetSavePayload) => void | boolean
@@ -284,6 +286,7 @@ export function LogSetModal({
   unit,
   lastSessionLine: _lastSessionLine,
   initialWeighted,
+  editingLog = null,
   setLogs = [],
   onClose,
   onSave,
@@ -313,6 +316,24 @@ export function LogSetModal({
 
   useEffect(() => {
     if (!open || !exercise) return
+    if (editingLog && editingLog.exerciseId === exercise.id) {
+      if (editingLog.kind === 'timed') {
+        setMode('timed')
+        setDuration(Math.max(0, Math.floor(editingLog.durationSec)))
+      } else {
+        setMode('weighted')
+        setBodyweight(editingLog.bodyweight)
+        setWeight(
+          editingLog.bodyweight || editingLog.weight == null
+            ? defaultSheetPrefill(unit).weight ?? 0
+            : editingLog.weight,
+        )
+        setReps(editingLog.reps)
+      }
+      setPlateCalcOpen(false)
+      return
+    }
+
     const lastLog = [...setLogs]
       .filter((l) => l.exerciseId === exercise.id)
       .sort((a, b) => b.at - a.at)[0]
@@ -336,7 +357,7 @@ export function LogSetModal({
     )
     setReps(prefill.reps)
     setPlateCalcOpen(false)
-  }, [open, exercise?.id, initialWeighted, setLogs, unit])
+  }, [open, exercise?.id, initialWeighted, editingLog, setLogs, unit])
 
   const lastLine = useMemo(() => {
     if (!exercise) return null
@@ -424,7 +445,7 @@ export function LogSetModal({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Log set — ${exercise.name}`}
+        aria-label={`${editingLog ? 'Edit' : 'Log'} set — ${exercise.name}`}
         className="apex-log-set-sheet w-full max-w-lg max-h-[92vh] overflow-y-auto"
         style={{
           transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
@@ -531,7 +552,7 @@ export function LogSetModal({
 
         <footer className="apex-log-set-sheet__footer apex-safe-bottom">
           <button type="button" className="apex-log-set-sheet__log-btn" onClick={submit}>
-            Log set
+            {editingLog ? 'Save' : 'Log set'}
           </button>
         </footer>
       </div>

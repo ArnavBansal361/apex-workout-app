@@ -44,10 +44,23 @@ function getAnthropicApiKey(): string {
     import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim()
   if (!k) {
     throw new Error(
-      'Missing Anthropic API key. Add VITE_ANTHROPIC_API_KEY to `.env` and restart the dev server.',
+      'Missing Anthropic API key. Add VITE_ANTHROPIC_API_KEY (or VITE_CLAUDE_API_KEY) to `.env` in the project root (same folder as vite.config.ts), then restart `npm run dev`.',
     )
   }
   return k
+}
+
+function formatAnthropicApiError(status: number, data: unknown, rawText: string): string {
+  const err = (data as { error?: { message?: string; type?: string } })?.error
+  const apiMsg = err?.message?.trim() ?? ''
+  if (err?.type === 'not_found_error' && /^model:\s*/i.test(apiMsg)) {
+    return `AI templates unavailable (model "${TEMPLATE_MODEL}" not found). Check your API key and model access.`
+  }
+  if (apiMsg && !/^model:\s*/i.test(apiMsg)) return apiMsg
+  if (rawText.trim() && !/^model:\s*/i.test(rawText.trim())) {
+    return rawText.trim().slice(0, 200)
+  }
+  return `AI templates request failed (${status})`
 }
 
 function parseJsonObjectFromModelText(text: string): unknown {
@@ -238,21 +251,29 @@ ${athleteContext}
 
 Generate 3 weekly templates now.`
 
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': getAnthropicApiKey(),
-      'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: TEMPLATE_MODEL,
-      max_tokens: 4096,
-      system,
-      messages: [{ role: 'user', content: user }],
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': getAnthropicApiKey(),
+        'anthropic-version': ANTHROPIC_VERSION,
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: TEMPLATE_MODEL,
+        max_tokens: 4096,
+        system,
+        messages: [{ role: 'user', content: user }],
+      }),
+    })
+  } catch (e) {
+    if (e instanceof TypeError) {
+      throw new Error('Network error — could not reach Anthropic. Check your connection and try again.')
+    }
+    throw e instanceof Error ? e : new Error('AI templates request failed')
+  }
 
   const rawText = await res.text()
   let data: unknown = {}
@@ -262,13 +283,16 @@ Generate 3 weekly templates now.`
     /* ignore */
   }
   if (!res.ok) {
-    const err = (data as { error?: { message?: string } })?.error?.message
-    throw new Error(err?.trim() || `AI templates request failed (${res.status})`)
+    throw new Error(formatAnthropicApiError(res.status, data, rawText))
   }
 
-  const text = extractAssistantText(data)
-  const parsed = parseJsonObjectFromModelText(text)
-  return sanitizeAiWeeklyTemplates(parsed, state)
+  try {
+    const text = extractAssistantText(data)
+    const parsed = parseJsonObjectFromModelText(text)
+    return sanitizeAiWeeklyTemplates(parsed, state)
+  } catch (e) {
+    throw e instanceof Error ? e : new Error('Could not parse AI templates response')
+  }
 }
 
 export function buildSchedulePatchesFromTemplate(

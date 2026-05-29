@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useWorkout } from '../context/WorkoutContext'
+import { dateKey } from '../lib/dates'
+import { formatExerciseLastHistoryLine } from '../lib/lastSession'
 import type { Exercise, SetLog } from '../types'
 import { formatDuration } from '../lib/timers'
+import { LogSetModal, type LogSetSavePayload } from './LogSetModal'
 import {
   exerciseRowStatus,
   formatLastCompactLine,
@@ -175,6 +179,167 @@ function WorkoutExerciseRow({
   )
 }
 
+const pickerInputClass =
+  'w-full min-h-12 rounded-[12px] border border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
+
+function formatSessionSetLine(log: SetLog, unit: 'lbs' | 'kg'): string {
+  if (log.kind === 'timed') return `${log.durationSec}s timed`
+  if (log.bodyweight) return `Bodyweight × ${log.reps}`
+  return `${log.weight ?? 0} ${unit} × ${log.reps}`
+}
+
+function formatSessionSetTime(at: number): string {
+  return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+type SessionSetRowProps = {
+  log: SetLog
+  unit: 'lbs' | 'kg'
+  onEdit: () => void
+  onDelete: () => void
+}
+
+function SessionSetRow({ log, unit, onEdit, onDelete }: SessionSetRowProps) {
+  return (
+    <li className="flex items-stretch gap-0 rounded-[12px] border border-white/[0.08] bg-[var(--apex-surface-card)] overflow-hidden">
+      <button
+        type="button"
+        className="flex flex-1 min-w-0 items-center justify-between gap-3 px-3 py-2.5 text-left touch-manipulation active:bg-white/[0.04]"
+        onClick={onEdit}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-medium text-[#f0f0f2] truncate">{log.exerciseName}</p>
+          <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5 tabular-nums">
+            {formatSessionSetLine(log, unit)}
+          </p>
+        </div>
+        <span className="shrink-0 text-[11px] font-medium text-[#7d7d88] tabular-nums">
+          {formatSessionSetTime(log.at)}
+        </span>
+      </button>
+      <button
+        type="button"
+        className="flex shrink-0 items-center justify-center w-11 border-l border-white/[0.08] text-[#7d7d88] touch-manipulation active:bg-red-950/30 active:text-red-400"
+        aria-label={`Delete ${log.exerciseName} set`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
+      >
+        <i className="ti ti-trash text-[16px]" aria-hidden />
+      </button>
+    </li>
+  )
+}
+
+function WorkoutExercisePicker({
+  open,
+  search,
+  unit,
+  planExerciseIds,
+  setLogs,
+  onSearchChange,
+  onClose,
+  onPick,
+}: {
+  open: boolean
+  search: string
+  unit: 'lbs' | 'kg'
+  planExerciseIds: string[]
+  setLogs: SetLog[]
+  onSearchChange: (value: string) => void
+  onClose: () => void
+  onPick: (ex: Exercise) => void
+}) {
+  const { visibleExercises } = useWorkout()
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return visibleExercises
+      .filter((e) => !planExerciseIds.includes(e.id))
+      .filter(
+        (e) =>
+          !q ||
+          e.name.toLowerCase().includes(q) ||
+          e.muscleGroup.toLowerCase().includes(q),
+      )
+      .slice(0, 36)
+  }, [visibleExercises, search, planExerciseIds])
+
+  if (!open) return null
+
+  return (
+    <div
+      role="presentation"
+      className="apex-modal-overlay fixed inset-0 z-[98] flex items-end justify-center sm:items-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg max-h-[min(92dvh,40rem)] flex flex-col rounded-t-[14px] sm:rounded-[14px] apex-card sm:max-h-[85vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-white/[0.08]">
+          <div>
+            <p className="apex-section-label">Add exercise</p>
+            <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+              Search your library to add to this workout.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="min-h-11 min-w-11 rounded-[12px] border border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+          <label className="block">
+            <span className="apex-section-label block mb-2">Search exercise</span>
+            <input
+              className={pickerInputClass}
+              placeholder="Name or muscle group…"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+          </label>
+          <ul className="mt-2 max-h-[min(50vh,20rem)] overflow-y-auto rounded-[12px] border border-white/[0.08] bg-[var(--apex-surface-card)] divide-y divide-white/[0.06]">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-[13px] font-medium text-[#a0a0a8]">
+                {planExerciseIds.length >= visibleExercises.length
+                  ? 'All exercises are already in this workout.'
+                  : 'No matches — try another search.'}
+              </li>
+            ) : (
+              filtered.map((e) => (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    className="w-full min-h-11 text-left px-3 py-2.5 text-[13px] font-medium text-[#ececee] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors"
+                    onClick={() => onPick(e)}
+                  >
+                    <span className="block">{e.name}</span>
+                    {formatExerciseLastHistoryLine(setLogs, e.id, unit) ? (
+                      <span className="block text-[11px] font-medium text-[#a0a0a8] mt-0.5">
+                        {formatExerciseLastHistoryLine(setLogs, e.id, unit)}
+                      </span>
+                    ) : (
+                      <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
+                    )}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export type WorkoutInProgressViewProps = {
   workoutName: string
   elapsedSec: number
@@ -208,9 +373,26 @@ export function WorkoutInProgressView({
   onOpenExerciseDetail,
   onOpenGymMode,
 }: WorkoutInProgressViewProps) {
+  const { addPlanExercise, updateSetLog, deleteSetLog } = useWorkout()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const [editLog, setEditLog] = useState<SetLog | null>(null)
   const [showSwipeHint, setShowSwipeHint] = useState(
     () => !readWorkoutSwipeHintDismissed(),
   )
+
+  const sessionLogs = useMemo(
+    () =>
+      [...setLogs]
+        .filter((l) => dateKey(new Date(l.at)) === todayKey)
+        .sort((a, b) => b.at - a.at),
+    [setLogs, todayKey],
+  )
+
+  const editExercise = useMemo(() => {
+    if (!editLog) return null
+    return resolveExercise(editLog.exerciseId) ?? null
+  }, [editLog, resolveExercise])
 
   const resolvedActiveId = useMemo(
     () => pickActiveExerciseId(planExerciseIds, setLogs, todayKey, activeExerciseId),
@@ -225,6 +407,50 @@ export function WorkoutInProgressView({
 
   const title = workoutName.trim() || 'Workout'
   const timerLabel = formatDuration(elapsedSec)
+  const hasExercises = planExerciseIds.length > 0
+
+  function openPicker() {
+    setPickerSearch('')
+    setPickerOpen(true)
+  }
+
+  function pickExercise(ex: Exercise) {
+    addPlanExercise(ex.id)
+    onActiveExerciseChange(ex.id)
+    setPickerOpen(false)
+    setPickerSearch('')
+  }
+
+  function closeEditModal() {
+    setEditLog(null)
+  }
+
+  function saveEditedSet(p: LogSetSavePayload) {
+    if (!editLog) return false
+    try {
+      if (p.mode === 'weighted' && editLog.kind === 'weighted') {
+        updateSetLog(editLog.id, {
+          kind: 'weighted',
+          weight: p.bodyweight ? null : p.weight ?? 0,
+          bodyweight: p.bodyweight,
+          reps: p.reps,
+          sets: editLog.sets,
+          note: p.note,
+        })
+      } else if (p.mode === 'timed' && editLog.kind === 'timed') {
+        updateSetLog(editLog.id, {
+          kind: 'timed',
+          durationSec: p.durationSec,
+          note: p.note,
+        })
+      } else {
+        return false
+      }
+      setEditLog(null)
+    } catch {
+      return false
+    }
+  }
 
   return (
     <div className="apex-workout-progress fixed inset-0 z-[96] flex flex-col bg-[var(--apex-surface-page)]">
@@ -251,10 +477,12 @@ export function WorkoutInProgressView({
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]">
-        {planExerciseIds.length === 0 ? (
-          <p className="text-[14px] font-medium text-[#a0a0a8] py-8 text-center">
-            Add exercises to today&apos;s plan to log sets.
-          </p>
+        {!hasExercises ? (
+          <div className="flex min-h-[min(52vh,28rem)] flex-col items-center justify-center px-2">
+            <button type="button" className="apex-workout-log-btn max-w-[17.5rem]" onClick={openPicker}>
+              Add exercise
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {planExerciseIds.map((id, index) => {
@@ -283,8 +511,28 @@ export function WorkoutInProgressView({
                 />
               )
             })}
+            <button type="button" className="apex-workout-add-exercise-secondary" onClick={openPicker}>
+              Add exercise
+            </button>
           </div>
         )}
+
+        {sessionLogs.length > 0 ? (
+          <section className="mt-6 pt-5 border-t border-white/[0.08]" aria-label="Session log">
+            <h2 className="apex-section-label mb-3">Session log</h2>
+            <ul className="space-y-2">
+              {sessionLogs.map((log) => (
+                <SessionSetRow
+                  key={log.id}
+                  log={log}
+                  unit={unit}
+                  onEdit={() => setEditLog(log)}
+                  onDelete={() => deleteSetLog(log.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
 
       <footer className="apex-workout-progress__footer apex-safe-bottom shrink-0 px-4 pb-4 pt-2 space-y-2">
@@ -297,6 +545,31 @@ export function WorkoutInProgressView({
           </button>
         ) : null}
       </footer>
+
+      <WorkoutExercisePicker
+        open={pickerOpen}
+        search={pickerSearch}
+        unit={unit}
+        planExerciseIds={planExerciseIds}
+        setLogs={setLogs}
+        onSearchChange={setPickerSearch}
+        onClose={() => {
+          setPickerOpen(false)
+          setPickerSearch('')
+        }}
+        onPick={pickExercise}
+      />
+
+      <LogSetModal
+        open={!!editLog && !!editExercise}
+        exercise={editExercise}
+        unit={unit}
+        editingLog={editLog}
+        setLogs={setLogs}
+        overlayClassName="z-[98]"
+        onClose={closeEditModal}
+        onSave={saveEditedSet}
+      />
     </div>
   )
 }

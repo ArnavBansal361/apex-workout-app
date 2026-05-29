@@ -46,7 +46,7 @@ export function RestBanner() {
     restTimer.endAt != null &&
     startedAt != null
 
-  const visible = timerActive && !gymMode
+  const visible = timerActive
 
   const durationMs = durationSec * 1000
   const msLeft = visible && restTimer.endAt ? Math.max(0, restTimer.endAt - clock) : 0

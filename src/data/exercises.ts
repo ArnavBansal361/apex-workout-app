@@ -1,5 +1,6 @@
 import { equipmentForExercise } from '../lib/equipment'
 import type { Exercise, ExerciseHelp, MuscleGroup } from '../types'
+import { BULK_EXERCISES, BULK_EXERCISE_HELP } from './exercisesBulk'
 import { MORE_EXERCISES } from './exercisesMore'
 import { getStretchExerciseHelp, STRETCH_EXERCISE_ENTRIES } from './stretches'
 
@@ -162,6 +163,7 @@ const RAW: [string, MuscleGroup][] = [
   ['Swimming', 'Cardio'],
   ...STRETCH_EXERCISE_ENTRIES,
   ...MORE_EXERCISES,
+  ...BULK_EXERCISES,
 ]
 
 function buildExerciseCatalog(entries: [string, MuscleGroup][]): Exercise[] {
@@ -270,6 +272,7 @@ const MUSCLE_HINTS: Record<MuscleGroup, Omit<ExerciseHelp, 'diagramDescription'>
 
 /** Built-in library additions — full cues per movement (ids from `slug(name)`). */
 const EXTENDED_EXERCISE_HELP: Record<string, ExerciseHelp> = {
+  ...BULK_EXERCISE_HELP,
   'cable-crossover': {
     formTips:
       'Step forward slightly with a soft split stance; hands meet low-to-high or high-to-low in a smooth arc in front of the sternum. Keep shoulders down, slight elbow bend fixed, and squeeze chest at crossover without shrugging.',

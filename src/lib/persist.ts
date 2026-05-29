@@ -30,6 +30,9 @@ export const APEX_COACH_PROFILE_KEY = 'apex-coach-profile'
 /** PWA install banner dismissed (show at most once). */
 export const APEX_PWA_DISMISSED_KEY = 'apex-pwa-dismissed'
 
+/** Last calendar day the in-progress workout session was tied to (`dateKey`). */
+export const APEX_LAST_SESSION_DATE_KEY = 'apex-last-session-date'
+
 export const OFFLINE_SYNC_TOAST = "You're offline — data will sync when reconnected"
 
 export function isPwaInstallDismissed(): boolean {
@@ -598,6 +601,38 @@ function emptyScheduleForWeek(weekStart: string): AppPersisted['schedule'] {
   }))
 }
 
+function readLastSessionDateKey(): string | null {
+  try {
+    const v = localStorage.getItem(APEX_LAST_SESSION_DATE_KEY)
+    return typeof v === 'string' && v.length > 0 ? v : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastSessionDateKey(key: string): void {
+  try {
+    localStorage.setItem(APEX_LAST_SESSION_DATE_KEY, key)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clear in-progress workout + today's plan when the calendar day changes. */
+export function applyDailySessionReset(state: AppPersisted): AppPersisted {
+  const today = dateKey(new Date())
+  const stored = readLastSessionDateKey()
+  if (stored === today) return state
+
+  writeLastSessionDateKey(today)
+  return {
+    ...state,
+    todayPlanExerciseIds: [],
+    todaySupersetPairs: [],
+    gymSession: { ...defaultState().gymSession },
+  }
+}
+
 export function defaultState(): AppPersisted {
   const ws = dateKey(weekStartMonday(new Date()))
   return {
@@ -657,11 +692,11 @@ export function loadState(): AppPersisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      return defaultState()
+      return applyDailySessionReset(defaultState())
     }
     const rawObj = JSON.parse(raw) as Record<string, unknown>
     if (!rawObj || typeof rawObj !== 'object') {
-      return defaultState()
+      return applyDailySessionReset(defaultState())
     }
 
     const hasAppData =
@@ -672,7 +707,7 @@ export function loadState(): AppPersisted {
       (typeof rawObj.settings === 'object' && rawObj.settings !== null)
 
     if (!hasAppData) {
-      return defaultState()
+      return applyDailySessionReset(defaultState())
     }
 
     const v = rawObj.version
@@ -721,9 +756,9 @@ export function loadState(): AppPersisted {
 
     merged = { ...merged, chatMessages: normalizeCoachChatMessages(merged.chatMessages) }
 
-    return merged
+    return applyDailySessionReset(merged)
   } catch {
-    return defaultState()
+    return applyDailySessionReset(defaultState())
   }
 }
 
@@ -915,7 +950,7 @@ export function alignScheduleWeek(state: AppPersisted): AppPersisted {
   if (state.scheduleWeekStart === ws && state.schedule.length === 7) {
     const expected = emptyScheduleForWeek(ws).map((s) => s.dateKey)
     const ok = state.schedule.every((s, i) => s.dateKey === expected[i])
-    if (ok) return state
+    if (ok) return applyDailySessionReset(state)
   }
   const base = emptyScheduleForWeek(ws)
   const next = base.map((slot) => {
@@ -924,5 +959,5 @@ export function alignScheduleWeek(state: AppPersisted): AppPersisted {
       ? { ...old, dateKey: slot.dateKey, plannedExerciseIds: old.plannedExerciseIds ?? [] }
       : { dateKey: slot.dateKey, workoutName: '', notes: '', plannedExerciseIds: [] }
   })
-  return { ...state, schedule: next, scheduleWeekStart: ws }
+  return applyDailySessionReset({ ...state, schedule: next, scheduleWeekStart: ws })
 }

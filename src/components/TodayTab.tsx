@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type DragEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
 import { dateKey, formatLong, getNow } from '../lib/dates'
 import { formatDuration } from '../lib/timers'
@@ -17,20 +9,13 @@ import {
   isDeloadWeekActive,
   shouldSuggestDeloadWeek,
 } from '../lib/deload'
-import {
-  formatExerciseLastHistoryLine,
-  formatLastSessionLine,
-  type LastWeightedSetDefaults,
-} from '../lib/lastSession'
-import { AiWorkoutTemplatesSection } from './AiWorkoutTemplatesSection'
-import { PLAN_PRESETS } from '../data/planPresets'
+import { formatLastSessionLine, type LastWeightedSetDefaults } from '../lib/lastSession'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
 import { GymModeView } from './GymModeView'
 import { WorkoutInProgressView } from './WorkoutInProgressView'
 import { LogSetModal } from './LogSetModal'
-import { QuickLogModal } from './QuickLogModal'
 import {
   pickActiveExerciseId,
   readGymModeEnabled,
@@ -41,11 +26,8 @@ import {
 import { PostWorkoutCheckinScreen, WorkoutMoodCheckinModal } from './WorkoutMoodCheckinModal'
 import { readPostWorkoutCheckinEnabled } from '../lib/persist'
 import { AppleHealthBadge } from './AppleHealthBadge'
-import { sleepHoursFromHealthMinutes } from '../lib/appleHealth'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
-import { TodayMuscleBalanceSection, TodayWeeklyVolumeSection } from './TodayVolumeCharts'
-import { TODAY_SECTION_LABELS } from '../lib/todayLayout'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
 import { buildSessionSummaryExtras } from '../lib/sessionSummary'
@@ -54,9 +36,7 @@ import {
   macroTotalsForDateKey,
   mealLogsForDateKey,
   sleepLogForDateKey,
-  sleepWeeklyAverages,
   waterOzForDateKey,
-  waterWeeklyAverageOz,
 } from '../lib/stats'
 import {
   DEFAULT_MACRO_GOAL_CALORIES,
@@ -64,7 +44,6 @@ import {
   DEFAULT_MACRO_GOAL_FAT_G,
   DEFAULT_MACRO_GOAL_PROTEIN_G,
   DEFAULT_WATER_GOAL_OZ,
-  WATER_LOG_INCREMENT_OZ,
 } from '../types'
 import {
   migrateDailyMotivationFromSession,
@@ -82,7 +61,7 @@ import {
 import { PostWorkoutStretchesCard, stretchSuggestionsForSummary } from './PostWorkoutStretchesCard'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
 import { SpotifyPlayerCard } from './SpotifyPlayerCard'
-import type { Exercise, SetLog, TodaySectionId, TodaySupersetPair } from '../types'
+import type { Exercise, SetLog, TodaySectionId } from '../types'
 
 type Props = {
   onOpenHistory: () => void
@@ -101,11 +80,6 @@ const MORE_QUICK_SECTION_IDS: TodaySectionId[] = [
   'water-tracker',
   'sleep-tracker',
 ]
-
-function timeToMsSinceMidnight(time: string): number {
-  const [h, m] = time.split(':').map((x) => Number(x))
-  return ((h || 0) * 3600 + (m || 0) * 60) * 1000
-}
 
 const inp = 'apex-input w-full px-3 py-2.5 min-h-11 font-normal'
 const btnNeutral = 'apex-btn min-h-11 px-3 text-[13px] font-medium touch-manipulation'
@@ -145,272 +119,276 @@ function dailyQuoteForDateKey(todayKey: string): string {
   return DAILY_FITNESS_QUOTES[idx]!
 }
 
-type PlanRow =
-  | { kind: 'single'; id: string }
-  | { kind: 'superset'; ids: [string, string] }
-
-function buildPlanRows(ids: string[], pairs: TodaySupersetPair[]): PlanRow[] {
-  const used = new Set<string>()
-  const partnerOf = new Map<string, string>()
-  for (const [a, b] of pairs) {
-    partnerOf.set(a, b)
-    partnerOf.set(b, a)
-  }
-  const rows: PlanRow[] = []
-  for (const id of ids) {
-    if (used.has(id)) continue
-    const partner = partnerOf.get(id)
-    if (partner && ids.includes(partner)) {
-      const ordered: [string, string] =
-        ids.indexOf(id) < ids.indexOf(partner) ? [id, partner] : [partner, id]
-      rows.push({ kind: 'superset', ids: ordered })
-      used.add(ordered[0])
-      used.add(ordered[1])
-    } else {
-      rows.push({ kind: 'single', id })
-      used.add(id)
-    }
-  }
-  return rows
-}
-
-type PlanExerciseSwipeRowProps = {
-  ex: Exercise
-  lastHistoryLine?: string | null
-  logged: boolean
-  flash: boolean
-  linkPickActive: boolean
-  onSwipeLog: () => void
-  onOpenLog: () => void
-  onRemove: () => void
-  onLongPress: () => void
-  onTapWhileLinking: () => void
-}
-
-function PlanExerciseSwipeRow({
-  ex,
-  lastHistoryLine,
-  logged,
-  flash,
-  linkPickActive,
-  onSwipeLog,
-  onOpenLog,
-  onRemove,
-  onLongPress,
-  onTapWhileLinking,
-}: PlanExerciseSwipeRowProps) {
-  const rowRef = useRef<HTMLLIElement>(null)
-  const [offset, setOffset] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const startX = useRef(0)
-  const widthRef = useRef(280)
-
-  useEffect(() => {
-    if (rowRef.current) widthRef.current = rowRef.current.offsetWidth || 280
-  }, [])
-
-  function endDrag(clientX: number) {
-    const dx = clientX - startX.current
-    const w = widthRef.current
-    if (dx >= w * 0.4) onSwipeLog()
-    setOffset(0)
-    setDragging(false)
-  }
-
-  const longPressTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
-
-  function onPointerDown(e: ReactPointerEvent) {
-    if (linkPickActive) {
-      onTapWhileLinking()
-      return
-    }
-    if ((e.target as HTMLElement).closest('button')) return
-    startX.current = e.clientX
-    setDragging(true)
-    if (rowRef.current) widthRef.current = rowRef.current.offsetWidth || 280
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }
-
-  function onPointerMove(e: ReactPointerEvent) {
-    if (!dragging || linkPickActive) return
-    const dx = e.clientX - startX.current
-    if (dx > 8) setOffset(Math.min(dx, widthRef.current))
-    else if (dx < -4) setOffset(0)
-  }
-
-  function onPointerUp(e: ReactPointerEvent) {
-    if (!dragging) return
-    endDrag(e.clientX)
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <li
-      ref={rowRef}
-      className={`relative overflow-hidden transition-colors duration-150 ${
-        flash ? 'bg-white/[0.15]' : ''
-      } ${logged ? 'opacity-40' : ''}`}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        onLongPress()
-      }}
-    >
-      <div
-        className="absolute inset-y-0 left-0 flex items-center overflow-hidden"
-        style={{
-          width: Math.max(offset, 0),
-          background: 'rgba(255,255,255,0.08)',
-        }}
-        aria-hidden
-      >
-        <i
-          className="ti ti-check shrink-0 ml-3 text-white text-[18px] leading-none"
-          style={{ opacity: offset > 24 ? 1 : offset / 24 }}
-        />
-      </div>
-      <div
-        className={`flex items-center gap-3 px-4 py-3.5 bg-transparent touch-pan-y ${
-          dragging ? '' : 'transition-transform duration-200 ease-out'
-        }`}
-        style={{ transform: `translateX(${offset}px)` }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onTouchStart={() => {
-          longPressTimerRef.current = window.setTimeout(() => onLongPress(), 520)
-        }}
-        onTouchEnd={() => {
-          if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current)
-        }}
-        onTouchMove={() => {
-          if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current)
-        }}
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-[#f0f0f2] truncate tracking-tight">{ex.name}</p>
-          {lastHistoryLine ? (
-            <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 truncate">{lastHistoryLine}</p>
-          ) : (
-            <p className="text-[11px] font-medium text-[#a0a0a8] mt-0.5 uppercase tracking-wider">
-              {ex.muscleGroup}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            className="apex-btn-primary rounded-[12px] min-h-10 px-3.5 text-[12px]"
-            onClick={onOpenLog}
-          >
-            Log Set
-          </button>
-          <button
-            type="button"
-            className="text-[11px] font-normal text-red-500 px-1"
-            onClick={onRemove}
-          >
-            Remove
-          </button>
-        </div>
-      </div>
-    </li>
-  )
-}
-
 function fmtCardioMin(m: number | null | undefined): string {
   if (m == null || !Number.isFinite(m)) return 'No duration'
   return `${m} min`
 }
 
-type SectionEditShellProps = {
-  label: string
-  editing: boolean
-  hidden: boolean
-  canMoveUp: boolean
-  canMoveDown: boolean
-  onToggleHidden: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
-  onDragStart: () => void
-  onDragEnd: () => void
-  onDragOver: (e: DragEvent) => void
-  onDrop: (e: DragEvent) => void
-  dragging: boolean
-  children: ReactNode
+function minutesBetweenTimes(bed: string, wake: string): number | null {
+  if (!bed || !wake) return null
+  const [bh, bm] = bed.split(':').map(Number)
+  const [wh, wm] = wake.split(':').map(Number)
+  if (![bh, bm, wh, wm].every((n) => Number.isFinite(n))) return null
+  let start = bh * 60 + bm
+  let end = wh * 60 + wm
+  if (end <= start) end += 24 * 60
+  return end - start
 }
 
-function SectionEditShell({
+function TodaySheetStepper({
   label,
-  editing,
-  hidden,
-  canMoveUp,
-  canMoveDown,
-  onToggleHidden,
-  onMoveUp,
-  onMoveDown,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
-  dragging,
-  children,
-}: SectionEditShellProps) {
-  if (!editing) return children
+  valueNode,
+  onMinus,
+  onPlus,
+  minusLabel,
+  plusLabel,
+}: {
+  label: string
+  valueNode: ReactNode
+  onMinus: () => void
+  onPlus: () => void
+  minusLabel: string
+  plusLabel: string
+}) {
+  return (
+    <div className="apex-log-set-sheet__stepper-card">
+      <p className="apex-log-set-sheet__stepper-label">{label}</p>
+      <div className="apex-log-set-sheet__stepper-row">
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={minusLabel}
+          onClick={onMinus}
+        >
+          −
+        </button>
+        <div className="apex-log-set-sheet__stepper-value">{valueNode}</div>
+        <button
+          type="button"
+          className="apex-log-set-sheet__stepper-btn"
+          aria-label={plusLabel}
+          onClick={onPlus}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SleepLogSheet({
+  open,
+  sleepHours,
+  sleepMinutes,
+  bedtime,
+  wakeTime,
+  appleHealthHint,
+  onBedtimeChange,
+  onWakeTimeChange,
+  onSleepHoursChange,
+  onSleepMinutesChange,
+  onClose,
+  onLog,
+}: {
+  open: boolean
+  sleepHours: number
+  sleepMinutes: number
+  bedtime: string
+  wakeTime: string
+  appleHealthHint: boolean
+  onBedtimeChange: (v: string) => void
+  onWakeTimeChange: (v: string) => void
+  onSleepHoursChange: (h: number) => void
+  onSleepMinutesChange: (m: number) => void
+  onClose: () => void
+  onLog: () => void
+}) {
+  if (!open) return null
+  const totalMin = sleepHours * 60 + sleepMinutes
   return (
     <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = 'move'
-        e.dataTransfer.setData('text/plain', label)
-        onDragStart()
-      }}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={`rounded-[20px] border-2 border-dashed p-3 transition-opacity ${
-        hidden ? 'border-white/[0.12]' : 'border-white/[0.22]'
-      } ${dragging ? 'opacity-60' : ''}`}
+      className="apex-log-set-sheet-overlay fixed inset-0 z-[72] flex items-end justify-center p-0"
+      role="presentation"
+      onClick={onClose}
     >
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">{label}</p>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <div
+        className="apex-log-set-sheet w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Log sleep"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="apex-log-set-sheet__handle-wrap">
+          <span className="apex-log-set-sheet__pill" aria-hidden />
+        </div>
+        <h2 className="apex-log-set-sheet__title">Sleep</h2>
+        {appleHealthHint ? (
+          <p className="apex-log-set-sheet__last text-center px-2">
+            Imported from Apple Health — adjust and save
+          </p>
+        ) : null}
+        <div className="apex-log-set-sheet__steppers">
+          <TodaySheetStepper
+            label="HOURS"
+            valueNode={<span className="apex-log-set-sheet__num-main tabular-nums">{sleepHours}</span>}
+            onMinus={() => onSleepHoursChange(Math.max(0, sleepHours - 1))}
+            onPlus={() => onSleepHoursChange(Math.min(24, sleepHours + 1))}
+            minusLabel="Decrease hours"
+            plusLabel="Increase hours"
+          />
+          <TodaySheetStepper
+            label="MINUTES"
+            valueNode={<span className="apex-log-set-sheet__num-main tabular-nums">{sleepMinutes}</span>}
+            onMinus={() => onSleepMinutesChange((sleepMinutes + 55) % 60)}
+            onPlus={() => onSleepMinutesChange((sleepMinutes + 5) % 60)}
+            minusLabel="Decrease minutes"
+            plusLabel="Increase minutes"
+          />
+        </div>
+        <p className="text-[11px] font-medium text-[#7d7d88] uppercase tracking-wide mt-4 mb-2 px-1">
+          Optional
+        </p>
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          <label className="block">
+            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Bedtime</span>
+            <input
+              type="time"
+              className={inp}
+              value={bedtime}
+              onChange={(e) => onBedtimeChange(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Wake time</span>
+            <input
+              type="time"
+              className={inp}
+              value={wakeTime}
+              onChange={(e) => onWakeTimeChange(e.target.value)}
+            />
+          </label>
+        </div>
+        {totalMin > 0 ? (
+          <p className="text-[12px] font-medium text-[#a0a0a8] text-center pb-2 tabular-nums">
+            {formatSleepDuration(totalMin)}
+          </p>
+        ) : null}
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
           <button
             type="button"
-            className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#141414] px-2.5 text-[12px] text-[#e0e0e0] disabled:opacity-35"
-            disabled={!canMoveUp}
-            onClick={onMoveUp}
+            className="apex-log-set-sheet__log-btn"
+            disabled={totalMin <= 0}
+            onClick={onLog}
           >
-            Up
+            Log sleep
           </button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+function WaterLogSheet({
+  open,
+  waterTodayOz,
+  waterGoalOz,
+  customMode,
+  customOz,
+  onCustomMode,
+  onCustomOzChange,
+  onClose,
+  onAddOz,
+}: {
+  open: boolean
+  waterTodayOz: number
+  waterGoalOz: number
+  customMode: boolean
+  customOz: string
+  onCustomMode: (on: boolean) => void
+  onCustomOzChange: (v: string) => void
+  onClose: () => void
+  onAddOz: (oz: number) => void
+}) {
+  if (!open) return null
+  const quickAmounts = [8, 16, 32] as const
+  return (
+    <div
+      className="apex-log-set-sheet-overlay fixed inset-0 z-[72] flex items-end justify-center p-0"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="apex-log-set-sheet w-full max-w-lg"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Log water"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="apex-log-set-sheet__handle-wrap">
+          <span className="apex-log-set-sheet__pill" aria-hidden />
+        </div>
+        <h2 className="apex-log-set-sheet__title">Water</h2>
+        <p className="text-center mt-3 mb-1">
+          <span className="text-[32px] font-black tabular-nums text-[#f4f4f5] leading-none">
+            {waterTodayOz}
+          </span>
+          <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">oz today</span>
+        </p>
+        <p className="text-[12px] font-medium text-[#a0a0a8] text-center mb-5 tabular-nums">
+          Goal {waterGoalOz} oz
+        </p>
+        <div className="grid grid-cols-2 gap-2 pb-3">
+          {quickAmounts.map((oz) => (
+            <button
+              key={oz}
+              type="button"
+              className="min-h-12 rounded-[14px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-semibold text-[#ececee] touch-manipulation active:scale-[0.98]"
+              onClick={() => onAddOz(oz)}
+            >
+              +{oz} oz
+            </button>
+          ))}
           <button
             type="button"
-            className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#141414] px-2.5 text-[12px] text-[#e0e0e0] disabled:opacity-35"
-            disabled={!canMoveDown}
-            onClick={onMoveDown}
+            className={`min-h-12 rounded-[14px] border text-[15px] font-semibold touch-manipulation active:scale-[0.98] ${
+              customMode
+                ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
+                : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'
+            }`}
+            onClick={() => onCustomMode(!customMode)}
           >
-            Down
-          </button>
-          <button
-            type="button"
-            className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#141414] px-2.5 text-[12px] font-medium text-[#e0e0e0]"
-            onClick={onToggleHidden}
-          >
-            {hidden ? 'Show' : 'Hide'}
+            Custom
           </button>
         </div>
+        {customMode ? (
+          <div className="flex gap-2 pb-4">
+            <input
+              inputMode="decimal"
+              className={`min-h-11 flex-1 ${inp}`}
+              placeholder="Ounces"
+              value={customOz}
+              onChange={(e) => onCustomOzChange(e.target.value)}
+            />
+            <button
+              type="button"
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
+              onClick={() => {
+                const oz = Math.round(Number(customOz))
+                if (!Number.isFinite(oz) || oz <= 0) return
+                onAddOz(oz)
+                onCustomOzChange('')
+              }}
+            >
+              Add
+            </button>
+          </div>
+        ) : null}
+        <footer className="apex-log-set-sheet__footer apex-safe-bottom">
+          <button type="button" className="apex-log-set-sheet__log-btn" onClick={onClose}>
+            Done
+          </button>
+        </footer>
       </div>
-      {hidden ? (
-        <p className="py-6 text-center text-[13px] font-medium text-[#a0a0a8]">
-          Hidden on Today — tap Show to bring it back.
-        </p>
-      ) : (
-        children
-      )}
     </div>
   )
 }
@@ -422,7 +400,7 @@ export function TodayTab({
   screenLayout = 'mobile',
   moreOpen: _moreOpen,
   onMoreOpenChange,
-  planOpen,
+  planOpen: _planOpen,
   onPlanOpenChange,
 }: Props) {
   const isDesktop = screenLayout === 'desktop'
@@ -434,15 +412,7 @@ export function TodayTab({
     addSetLog,
     updateSetLog,
     deleteSetLog,
-    addPlanExercise,
-    removePlanExercise,
-    clearTodayPlan,
-    saveTemplate,
-    deleteTemplate,
-    applyPresetPlan,
-    loadTemplate,
     updateScheduleDay,
-    linkSuperset,
     getSupersetPartner,
     startGymSession,
     pauseGymSession,
@@ -455,9 +425,7 @@ export function TodayTab({
     applyCardioTimerToEntry,
     deleteCardio,
     buildTodayShareText,
-    visibleExercises,
     resolveExerciseById,
-    updateTodayLayout,
     completeNotificationPrompt,
     coachNote,
     refreshCoachNote,
@@ -484,14 +452,16 @@ export function TodayTab({
   const sched = state.schedule.find((d) => d.dateKey === todayKey)
   const planName = sched?.workoutName?.trim() ?? ''
   const isRestDay = !planName
-  const headerDateLabel = useMemo(
-    () =>
-      new Date(clock).toLocaleDateString(undefined, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      }),
-    [clock],
+  const dayStatusLabel = isRestDay ? 'Rest day' : planName || 'Workout day'
+  const headerDateLabel = useMemo(() => {
+    const d = new Date(clock)
+    const dow = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
+    const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()
+    return `${dow}, ${md}`
+  }, [clock])
+  const headerStreakLabel = useMemo(
+    () => `${streakDays} DAY${streakDays === 1 ? '' : 'S'} STREAK`,
+    [streakDays],
   )
 
   useEffect(() => {
@@ -528,9 +498,6 @@ export function TodayTab({
     void refreshCoachNote()
   }, [refreshCoachNote])
 
-  const [planSearch, setPlanSearch] = useState('')
-  const [templatesOpen, setTemplatesOpen] = useState(false)
-  const [templateName, setTemplateName] = useState('')
   const [logTarget, setLogTarget] = useState<Exercise | null>(null)
   const [gymModeEnabled, setGymModeEnabled] = useState(() => readGymModeEnabled())
   const [gymModeStandardOnce, setGymModeStandardOnce] = useState(false)
@@ -542,28 +509,27 @@ export function TodayTab({
   const [gymModeEditPrefillVersion, setGymModeEditPrefillVersion] = useState(0)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [sessionSummary, setSessionSummary] = useState<SessionSummaryData | null>(null)
-  const [gymTime, setGymTime] = useState('09:00')
-  const [gymManualOpen, setGymManualOpen] = useState(false)
   const [cardioName, setCardioName] = useState('')
   const [cardioManualMin, setCardioManualMin] = useState('')
   const [confirmCardioId, setConfirmCardioId] = useState<string | null>(null)
-  const [sleepHoursDraft, setSleepHoursDraft] = useState('')
-  const [sleepQualityDraft, setSleepQualityDraft] = useState<1 | 2 | 3 | 4 | 5>(3)
+  const [sleepSheetOpen, setSleepSheetOpen] = useState(false)
+  const [waterSheetOpen, setWaterSheetOpen] = useState(false)
+  const [sleepHours, setSleepHours] = useState(7)
+  const [sleepMinutes, setSleepMinutes] = useState(30)
+  const [sleepBedtime, setSleepBedtime] = useState('')
+  const [sleepWakeTime, setSleepWakeTime] = useState('')
+  const [waterCustomMode, setWaterCustomMode] = useState(false)
+  const [waterCustomOz, setWaterCustomOz] = useState('')
 
   const waterGoalOz = state.settings.waterGoalOz ?? DEFAULT_WATER_GOAL_OZ
   const waterTodayOz = useMemo(
     () => waterOzForDateKey(state, todayKey),
     [state.waterLogs, todayKey],
   )
-  const waterWeeklyAvgOz = useMemo(() => waterWeeklyAverageOz(state, clock), [state.waterLogs, clock])
-  const waterProgress = Math.min(1, waterGoalOz > 0 ? waterTodayOz / waterGoalOz : 0)
-
   const sleepTodayLog = useMemo(
     () => sleepLogForDateKey(state, todayKey),
     [state.sleepLogs, todayKey],
   )
-  const sleepWeekly = useMemo(() => sleepWeeklyAverages(state, clock), [state.sleepLogs, clock])
-
   const appleHealthToday = useMemo(() => {
     const h = state.appleHealthToday
     if (!h || h.dateKey !== todayKey || !state.settings.appleHealthSyncEnabled) return null
@@ -571,25 +537,28 @@ export function TodayTab({
   }, [state.appleHealthToday, state.settings.appleHealthSyncEnabled, todayKey])
 
   useEffect(() => {
+    if (!sleepSheetOpen) return
     if (sleepTodayLog) {
-      setSleepHoursDraft(String(Math.round((sleepTodayLog.durationMinutes / 60) * 100) / 100))
-      setSleepQualityDraft(sleepTodayLog.quality)
+      setSleepHours(Math.floor(sleepTodayLog.durationMinutes / 60))
+      setSleepMinutes(sleepTodayLog.durationMinutes % 60)
       return
     }
     if (appleHealthToday?.sleepMinutes) {
-      setSleepHoursDraft(sleepHoursFromHealthMinutes(appleHealthToday.sleepMinutes))
-      setSleepQualityDraft(3)
+      const total = Math.max(0, Math.round(appleHealthToday.sleepMinutes))
+      setSleepHours(Math.floor(total / 60))
+      setSleepMinutes(total % 60)
       return
     }
-    setSleepHoursDraft('')
-    setSleepQualityDraft(3)
-  }, [
-    sleepTodayLog?.id,
-    sleepTodayLog?.durationMinutes,
-    sleepTodayLog?.quality,
-    todayKey,
-    appleHealthToday?.sleepMinutes,
-  ])
+    setSleepHours(7)
+    setSleepMinutes(30)
+  }, [sleepSheetOpen, sleepTodayLog?.id, sleepTodayLog?.durationMinutes, appleHealthToday?.sleepMinutes])
+
+  useEffect(() => {
+    const fromTimes = minutesBetweenTimes(sleepBedtime, sleepWakeTime)
+    if (fromTimes == null || fromTimes <= 0) return
+    setSleepHours(Math.floor(fromTimes / 60))
+    setSleepMinutes(fromTimes % 60)
+  }, [sleepBedtime, sleepWakeTime])
 
   const [mealNameDraft, setMealNameDraft] = useState('')
   const [mealCalDraft, setMealCalDraft] = useState('')
@@ -652,12 +621,8 @@ export function TodayTab({
     setMealFatDraft(String(parsed.fatG))
   }
 
-  const [templateDeleteId, setTemplateDeleteId] = useState<string | null>(null)
-  const [planRemoveId, setPlanRemoveId] = useState<string | null>(null)
   const [editLog, setEditLog] = useState<SetLog | null>(null)
   const [confirmDeleteSetId, setConfirmDeleteSetId] = useState<string | null>(null)
-  const [confirmClearAllPlan, setConfirmClearAllPlan] = useState(false)
-  const [quickLogOpen, setQuickLogOpen] = useState(false)
   const [moodCheckinOpen, setMoodCheckinOpen] = useState(false)
   const [postWorkoutCheckinOpen, setPostWorkoutCheckinOpen] = useState(false)
   const [endedSessionTrainingMode, setEndedSessionTrainingMode] = useState<
@@ -666,10 +631,6 @@ export function TodayTab({
   const [gymCardOpen, setGymCardOpen] = useState(false)
   const [gymBarcodeRenderError, setGymBarcodeRenderError] = useState<string | null>(null)
   const gymBarcodeCanvasRef = useRef<HTMLCanvasElement>(null)
-  const [layoutEditing, setLayoutEditing] = useState(false)
-  const [flashPlanId, setFlashPlanId] = useState<string | null>(null)
-  const [supersetLinkFrom, setSupersetLinkFrom] = useState<string | null>(null)
-  const [planActionMenuId, setPlanActionMenuId] = useState<string | null>(null)
   const [supersetLogFromId, setSupersetLogFromId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -693,14 +654,19 @@ export function TodayTab({
       releaseWake()
     }
   }, [gymCardOpen, gymBarcode])
-  const [dragId, setDragId] = useState<TodaySectionId | null>(null)
-
   const layout = state.todayLayout
   const hiddenSet = useMemo(() => new Set(layout.hidden), [layout.hidden])
-  const orderedSectionIds = useMemo(() => {
-    if (layoutEditing) return layout.order
-    return layout.order.filter((id) => !hiddenSet.has(id))
-  }, [layoutEditing, layout.order, hiddenSet])
+  const orderedSectionIds = useMemo(
+    () =>
+      layout.order.filter(
+        (id) =>
+          !hiddenSet.has(id) &&
+          id !== 'muscle-balance' &&
+          id !== 'gym-tracker' &&
+          id !== 'my-plan',
+      ),
+    [layout.order, hiddenSet],
+  )
 
   const moreSectionIds = useMemo(
     () => orderedSectionIds.filter((id) => id !== 'daily-motivation'),
@@ -708,12 +674,43 @@ export function TodayTab({
   )
 
   const moreListSectionIds = useMemo(
-    () =>
-      moreSectionIds.filter((id) => layoutEditing || !MORE_QUICK_SECTION_IDS.includes(id)),
-    [moreSectionIds, layoutEditing],
+    () => moreSectionIds.filter((id) => !MORE_QUICK_SECTION_IDS.includes(id)),
+    [moreSectionIds],
   )
 
   const [moreQuickPanel, setMoreQuickPanel] = useState<TodaySectionId | null>(null)
+
+  function handleMoreQuickSelect(id: TodaySectionId) {
+    if (id === 'water-tracker') {
+      setWaterSheetOpen(true)
+      setWaterCustomMode(false)
+      setWaterCustomOz('')
+      return
+    }
+    if (id === 'sleep-tracker') {
+      setSleepSheetOpen(true)
+      setSleepBedtime('')
+      setSleepWakeTime('')
+      return
+    }
+    setMoreQuickPanel((p) => (p === id ? null : id))
+  }
+
+  function submitSleepLog() {
+    const fromTimes = minutesBetweenTimes(sleepBedtime, sleepWakeTime)
+    const minutes =
+      fromTimes != null && fromTimes > 0 ? fromTimes : sleepHours * 60 + sleepMinutes
+    if (minutes <= 0) return
+    const quality = sleepTodayLog?.quality ?? 3
+    logSleep(minutes, quality)
+    notify('Sleep logged')
+    setSleepSheetOpen(false)
+  }
+
+  function addWaterFromSheet(oz: number) {
+    addWaterOz(oz)
+    notify(`+${oz} oz water`)
+  }
 
   const todayScheduledMode = useMemo(
     () => scheduledTrainingModeForDay(state.schedule, todayKey),
@@ -734,19 +731,6 @@ export function TodayTab({
       if (firstEx) setLogTarget(firstEx)
     }
   }
-
-  const filteredAdd = useMemo(() => {
-    const q = planSearch.trim().toLowerCase()
-    return visibleExercises
-      .filter((e) => !state.todayPlanExerciseIds.includes(e.id))
-      .filter(
-        (e) =>
-          !q ||
-          e.name.toLowerCase().includes(q) ||
-          e.muscleGroup.toLowerCase().includes(q),
-      )
-      .slice(0, 40)
-  }, [visibleExercises, planSearch, state.todayPlanExerciseIds])
 
   const todaysLogs = useMemo(
     () =>
@@ -794,16 +778,6 @@ export function TodayTab({
     )
   }, [logTarget, state.setLogs, state.settings.unit, state.deloadActiveWeekStart])
 
-  const planRows = useMemo(
-    () => buildPlanRows(state.todayPlanExerciseIds, state.todaySupersetPairs ?? []),
-    [state.todayPlanExerciseIds, state.todaySupersetPairs],
-  )
-
-  function flashPlanCard(planId: string) {
-    setFlashPlanId(planId)
-    window.setTimeout(() => setFlashPlanId(null), 150)
-  }
-
   function commitWeightedLog(
     ex: Exercise,
     vals: { bodyweight: boolean; weight: number | null; reps: number; sets: number; note: string },
@@ -830,17 +804,6 @@ export function TodayTab({
     setEditLog(null)
     setGymModeStandardOnce(false)
     setLogTarget(ex)
-  }
-
-  function toggleGymMode(enabled: boolean) {
-    setGymModeEnabled(enabled)
-    writeGymModeEnabled(enabled)
-    if (enabled) {
-      setGymModeStandardOnce(false)
-    } else {
-      setGymModeEnteredAt(null)
-      setGymModeEditOpen(false)
-    }
   }
 
   const useGymModeView =
@@ -919,7 +882,6 @@ export function TodayTab({
       },
       { deferRestTimer: deferRest, skipRestTimer: true },
     )
-    flashPlanCard(ex.id)
     notify(`Set logged — ${ex.name}`, 1600)
     if (partner && supersetLogFromId === null) {
       setSupersetLogFromId(ex.id)
@@ -972,7 +934,6 @@ export function TodayTab({
       },
       { deferRestTimer: deferRest },
     )
-    flashPlanCard(ex.id)
     notify(`Set logged — ${ex.name}`, 2000)
     if (partner && supersetLogFromId === null) {
       setSupersetLogFromId(ex.id)
@@ -996,7 +957,6 @@ export function TodayTab({
             },
             { deferRestTimer: false },
           )
-          flashPlanCard(next.id)
           notify(`Set logged — ${next.name}`, 2000)
           setSupersetLogFromId(null)
         } else {
@@ -1006,14 +966,6 @@ export function TodayTab({
       }
     }
     setSupersetLogFromId(null)
-  }
-
-  function handlePlanLinkTap(targetId: string) {
-    if (supersetLinkFrom && supersetLinkFrom !== targetId) {
-      linkSuperset(supersetLinkFrom, targetId)
-      setSupersetLinkFrom(null)
-      return
-    }
   }
 
   async function endGym() {
@@ -1055,33 +1007,6 @@ export function TodayTab({
     onGoToTodayTab?.()
   }
 
-  function reorderSectionDrag(fromId: TodaySectionId, toId: TodaySectionId) {
-    if (fromId === toId) return
-    const o = [...layout.order]
-    const from = o.indexOf(fromId)
-    const to = o.indexOf(toId)
-    if (from < 0 || to < 0) return
-    const [item] = o.splice(from, 1)
-    o.splice(to, 0, item!)
-    updateTodayLayout({ ...layout, order: o })
-  }
-
-  function moveSectionStep(id: TodaySectionId, dir: -1 | 1) {
-    const o = [...layout.order]
-    const i = o.indexOf(id)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= o.length) return
-    ;[o[i], o[j]] = [o[j]!, o[i]!]
-    updateTodayLayout({ ...layout, order: o })
-  }
-
-  function toggleSectionHidden(id: TodaySectionId) {
-    const nextHidden = hiddenSet.has(id)
-      ? layout.hidden.filter((h) => h !== id)
-      : [...layout.hidden, id]
-    updateTodayLayout({ ...layout, hidden: nextHidden })
-  }
-
   function sectionBody(id: TodaySectionId): ReactNode {
     switch (id) {
       case 'daily-motivation':
@@ -1107,69 +1032,11 @@ export function TodayTab({
       case 'spotify-player':
         return <SpotifyPlayerCard />
       case 'weekly-volume':
-        return <TodayWeeklyVolumeSection />
+        return null
       case 'muscle-balance':
-        return <TodayMuscleBalanceSection />
+        return null
       case 'gym-tracker':
-        return (
-          <div className="apex-card flex flex-col gap-3 min-h-[158px]">
-            <p className="apex-section-label">Gym</p>
-            {!state.gymSession.active ? (
-              <>
-                <button
-                  type="button"
-                  className={`${btnNeutral} w-full text-[13px]`}
-                  onClick={() => startGymSession('stopwatch')}
-                >
-                  Start stopwatch
-                </button>
-                {!gymManualOpen ? (
-                  <button
-                    type="button"
-                    className="text-[12px] font-medium text-[#a0a0a8] underline-offset-2 hover:underline self-start"
-                    onClick={() => setGymManualOpen(true)}
-                  >
-                    Enter time manually
-                  </button>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <input
-                      type="time"
-                      className={`${inp} w-full min-h-10`}
-                      value={gymTime}
-                      onChange={(e) => setGymTime(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className={`${btnNeutral} w-full text-[13px]`}
-                      onClick={() => startGymSession('manual', timeToMsSinceMidnight(gymTime))}
-                    >
-                      From time
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="apex-stat-num tabular-nums">{formatDuration(gymSec)}</p>
-                <div className="flex flex-col gap-2 mt-auto">
-                  {state.gymSession.pauseStartedAt ? (
-                    <button type="button" className={`${btnNeutral} w-full`} onClick={resumeGymSession}>
-                      Resume
-                    </button>
-                  ) : (
-                    <button type="button" className={`${btnNeutral} w-full`} onClick={pauseGymSession}>
-                      Pause
-                    </button>
-                  )}
-                  <button type="button" className={`${btnNeutral} w-full`} onClick={endGym}>
-                    End session
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )
+        return null
       case 'cardio-tracker':
         return (
           <div className="space-y-4">
@@ -1263,109 +1130,8 @@ export function TodayTab({
           </div>
         )
       case 'water-tracker':
-        return (
-          <button
-            type="button"
-            className="apex-card p-5 w-full text-left touch-manipulation hover:border-white/[0.14] active:scale-[0.99] transition-transform"
-            onClick={() => addWaterOz(WATER_LOG_INCREMENT_OZ)}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="apex-section-label">Water</p>
-                <p className="mt-2 text-[28px] font-black tabular-nums text-[#f4f4f5] leading-none">
-                  {waterTodayOz}
-                  <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">/ {waterGoalOz} oz</span>
-                </p>
-              </div>
-              <span className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-[12px] font-semibold text-[#ececee] shrink-0">
-                +{WATER_LOG_INCREMENT_OZ} oz
-              </span>
-            </div>
-            <div className="mt-4 h-2 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
-              <div
-                className="h-full rounded-full bg-[#ececee] transition-all duration-300"
-                style={{ width: `${Math.round(waterProgress * 100)}%` }}
-              />
-            </div>
-            <p className="mt-3 text-[12px] font-medium text-[#a0a0a8]">
-              Tap to log {WATER_LOG_INCREMENT_OZ} oz · Avg {waterWeeklyAvgOz} oz/day this week
-            </p>
-          </button>
-        )
       case 'sleep-tracker':
-        return (
-          <div className="apex-card p-5 space-y-4">
-            <div>
-              <div className="flex items-center justify-between gap-2">
-                <p className="apex-section-label">Sleep</p>
-                {appleHealthToday?.sleepMinutes ? <AppleHealthBadge /> : null}
-              </div>
-              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
-                {appleHealthToday?.sleepMinutes && !sleepTodayLog
-                  ? 'Imported from Apple Health — adjust quality and save'
-                  : "Log last night's rest"}
-              </p>
-            </div>
-            {sleepTodayLog ? (
-              <p className="text-[14px] font-medium text-[#ececee]">
-                Logged · {formatSleepDuration(sleepTodayLog.durationMinutes)} · {sleepTodayLog.quality}/5 quality
-                {appleHealthToday?.sleepMinutes ? (
-                  <span className="text-[#a0a0a8]"> · synced from Health</span>
-                ) : null}
-              </p>
-            ) : null}
-            <div className="flex gap-2">
-              <input
-                inputMode="decimal"
-                className={`min-h-11 flex-1 ${inp}`}
-                placeholder="Hours slept"
-                value={sleepHoursDraft}
-                onChange={(e) => setSleepHoursDraft(e.target.value)}
-              />
-              <button
-                type="button"
-                className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
-                onClick={() => {
-                  const hours = Number(sleepHoursDraft)
-                  if (!Number.isFinite(hours) || hours <= 0) return
-                  logSleep(Math.round(hours * 60), sleepQualityDraft)
-                  notify('Sleep logged')
-                }}
-              >
-                Save
-              </button>
-            </div>
-            <div>
-              <p className="text-[11px] font-medium text-[#7d7d88] mb-2 uppercase tracking-wide">Quality</p>
-              <div className="flex gap-2">
-                {([1, 2, 3, 4, 5] as const).map((q) => {
-                  const active = sleepQualityDraft === q
-                  return (
-                    <button
-                      key={q}
-                      type="button"
-                      aria-label={`Sleep quality ${q} of 5`}
-                      aria-pressed={active}
-                      className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-semibold tabular-nums touch-manipulation ${
-                        active
-                          ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
-                          : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
-                      }`}
-                      onClick={() => setSleepQualityDraft(q)}
-                    >
-                      {q}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <p className="text-[12px] font-medium text-[#a0a0a8] pt-1 border-t border-white/[0.06]">
-              {sleepWeekly
-                ? `Avg ${formatSleepDuration(sleepWeekly.durationMinutes)} · ${sleepWeekly.quality.toFixed(1)}/5 quality this week`
-                : 'Log sleep to see your weekly average'}
-            </p>
-          </div>
-        )
+        return null
       case 'nutrition-tracker': {
         const macroRows = [
           { key: 'calories', label: 'Calories', current: macroToday.calories, goal: macroGoals.calories, unit: '' },
@@ -1505,267 +1271,7 @@ export function TodayTab({
         )
       }
       case 'my-plan':
-        return (
-          <section className="apex-card overflow-hidden">
-            <button
-              type="button"
-              className="w-full min-h-14 flex items-center justify-between px-5 py-3 text-left transition-colors hover:bg-white/[0.03] active:bg-white/[0.05]"
-              onClick={() => onPlanOpenChange(!planOpen)}
-            >
-              <span className="apex-section-title">My plan</span>
-              <span className="text-[15px] font-light text-[#a0a0a8]">{planOpen ? '−' : '+'}</span>
-            </button>
-            {planOpen ? (
-              <div className="px-5 pb-5 space-y-4 border-t border-white/[0.06] pt-4">
-                <label className="flex items-center justify-between gap-4 min-h-14 px-4 rounded-[14px] border border-white/[0.08] bg-white/[0.03] touch-manipulation">
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-semibold text-[#f0f0f2]">Gym mode</p>
-                    <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5 leading-snug">
-                      Full-screen logging with large controls
-                    </p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={gymModeEnabled}
-                    onChange={(e) => toggleGymMode(e.target.checked)}
-                    className="apex-checkbox scale-125 shrink-0"
-                    aria-label="Enable gym mode"
-                  />
-                </label>
-                {gymModeEnabled && state.todayPlanExerciseIds.length > 0 ? (
-                  <button
-                    type="button"
-                    className="apex-btn-primary w-full min-h-14 rounded-[14px] text-[15px] font-semibold touch-manipulation"
-                    onClick={() => {
-                      const first =
-                        state.todayPlanExerciseIds
-                          .map((id) => resolveExerciseById(id))
-                          .find((ex): ex is Exercise => Boolean(ex)) ?? null
-                      if (first) enterGymMode(first)
-                    }}
-                  >
-                    Open gym mode
-                  </button>
-                ) : null}
-                <AiWorkoutTemplatesSection enabled={planOpen} />
-                <p className="apex-section-label">Quick presets</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {PLAN_PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="rounded-[18px] border border-white/[0.07] bg-white/[0.03] apex-card-interactive p-4 text-left min-h-[6rem]"
-                      onClick={() => applyPresetPlan(p.exerciseIds)}
-                    >
-                      <p className="text-[15px] font-semibold text-[#f0f0f2] leading-tight tracking-tight">
-                        {p.title}
-                      </p>
-                      <p className="text-[11px] text-[#8e8e96] mt-2 leading-snug font-medium">{p.subtitle}</p>
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className={`${btnNeutral} w-full min-h-11 text-[13px]`}
-                  onClick={() => setTemplatesOpen(true)}
-                >
-                  My templates
-                </button>
-                <div className="relative">
-                  <p className="apex-section-label mb-2">Add exercise</p>
-                  <input
-                    className={`w-full min-h-11 ${inp}`}
-                    placeholder="Search exercises to add"
-                    value={planSearch}
-                    onChange={(e) => setPlanSearch(e.target.value)}
-                    autoComplete="off"
-                  />
-                  {planSearch.trim() ? (
-                    <ul className="absolute z-20 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-[14px] border border-white/[0.08] bg-[var(--apex-surface-card)]">
-                      {filteredAdd.length === 0 ? (
-                        <li className="px-4 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
-                      ) : (
-                        filteredAdd.map((e) => (
-                          <li key={e.id}>
-                            <button
-                              type="button"
-                              className="w-full min-h-12 text-left px-4 text-[14px] font-medium text-[#ececee] hover:bg-white/[0.06] active:scale-[0.99] transition-colors"
-                              onClick={() => {
-                                addPlanExercise(e.id)
-                                setPlanSearch('')
-                              }}
-                            >
-                              <span className="block">{e.name}</span>
-                              {formatExerciseLastHistoryLine(
-                                state.setLogs,
-                                e.id,
-                                state.settings.unit,
-                              ) ? (
-                                <span className="block text-[11px] font-medium text-[#a8a8b0] mt-0.5">
-                                  {formatExerciseLastHistoryLine(
-                                    state.setLogs,
-                                    e.id,
-                                    state.settings.unit,
-                                  )}
-                                </span>
-                              ) : (
-                                <span className="text-[#a8a8b0]"> · {e.muscleGroup}</span>
-                              )}
-                            </button>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  ) : null}
-                </div>
-
-                {supersetLinkFrom ? (
-                  <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">
-                    Tap a second exercise to link as superset
-                  </p>
-                ) : null}
-
-                <ul className="space-y-3">
-                  {planRows.map((row) => {
-                    if (row.kind === 'single') {
-                      const ex = resolveExerciseById(row.id)
-                      if (!ex) return null
-                      const logged = todaysLogs.some((l) => l.exerciseId === row.id)
-                      return (
-                        <div
-                          key={row.id}
-                          className="border border-white/[0.08] rounded-[16px] overflow-hidden"
-                        >
-                          <ul className="divide-y divide-white/[0.06]">
-                            <PlanExerciseSwipeRow
-                              ex={ex}
-                              lastHistoryLine={formatExerciseLastHistoryLine(
-                                state.setLogs,
-                                ex.id,
-                                state.settings.unit,
-                              )}
-                              logged={logged}
-                              flash={flashPlanId === row.id}
-                              linkPickActive={!!supersetLinkFrom}
-                              onSwipeLog={() => swipeQuickLog(ex)}
-                              onOpenLog={() => openExerciseLog(ex)}
-                              onRemove={() => setPlanRemoveId(row.id)}
-                              onLongPress={() => setPlanActionMenuId(row.id)}
-                              onTapWhileLinking={() => handlePlanLinkTap(row.id)}
-                            />
-                          </ul>
-                        </div>
-                      )
-                    }
-                    const exA = resolveExerciseById(row.ids[0])
-                    const exB = resolveExerciseById(row.ids[1])
-                    if (!exA || !exB) return null
-                    return (
-                      <li
-                        key={`${row.ids[0]}-${row.ids[1]}`}
-                        className="rounded-[12px] p-3"
-          style={{
-                          background: 'var(--apex-surface-nested)',
-                          border: '0.5px solid var(--apex-border)',
-                        }}
-                      >
-                        <div className="flex items-center gap-2 mb-2 min-w-0">
-                          <p className="flex-1 min-w-0 text-[14px] font-semibold text-[#f0f0f2] truncate">
-                            {exA.name}
-                          </p>
-                          <span
-                            className="shrink-0 text-[9px] font-normal uppercase tracking-wider"
-                            style={{
-                              color: 'rgba(255,255,255,0.4)',
-                              border: '0.5px solid rgba(255,255,255,0.2)',
-                              borderRadius: 4,
-                              padding: '2px 5px',
-                              background: 'transparent',
-                            }}
-                          >
-                            SS
-                          </span>
-                          <p className="flex-1 min-w-0 text-[14px] font-semibold text-[#f0f0f2] truncate text-right">
-                            {exB.name}
-                          </p>
-                        </div>
-                        <div
-                          className="mb-2"
-                          style={{ height: 0.5, background: 'rgba(255,255,255,0.1)' }}
-                        />
-                        <ul className="divide-y divide-white/[0.06]">
-                          {[exA, exB].map((ex) => {
-                            const logged = todaysLogs.some((l) => l.exerciseId === ex.id)
-                            return (
-                              <PlanExerciseSwipeRow
-                                key={ex.id}
-                                ex={ex}
-                                lastHistoryLine={formatExerciseLastHistoryLine(
-                                  state.setLogs,
-                                  ex.id,
-                                  state.settings.unit,
-                                )}
-                                logged={logged}
-                                flash={flashPlanId === ex.id}
-                                linkPickActive={!!supersetLinkFrom}
-                                onSwipeLog={() => swipeQuickLog(ex)}
-                                onOpenLog={() => openExerciseLog(ex)}
-                                onRemove={() => setPlanRemoveId(ex.id)}
-                                onLongPress={() => setPlanActionMenuId(ex.id)}
-                                onTapWhileLinking={() => handlePlanLinkTap(ex.id)}
-                              />
-                            )
-                          })}
-                        </ul>
-                      </li>
-                    )
-                  })}
-                </ul>
-
-                {planActionMenuId ? (
-                  <div
-                    role="presentation"
-                    className="fixed inset-0 z-[62] flex items-end justify-center p-4 bg-black/50"
-                    onClick={() => setPlanActionMenuId(null)}
-                  >
-                    <div
-                      className="w-full max-w-sm apex-card p-4 space-y-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="apex-btn w-full min-h-11 text-[13px]"
-                        onClick={() => {
-                          setSupersetLinkFrom(planActionMenuId)
-                          setPlanActionMenuId(null)
-                        }}
-                      >
-                        Link as superset
-                      </button>
-                      <button
-                        type="button"
-                        className="apex-btn-muted w-full min-h-11 text-[13px]"
-                        onClick={() => setPlanActionMenuId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {state.todayPlanExerciseIds.length > 0 ? (
-                  <button
-                    type="button"
-                    className="w-full min-h-11 rounded-[12px] border border-red-900/45 bg-[#121212] text-[13px] font-normal text-red-400"
-                    onClick={() => setConfirmClearAllPlan(true)}
-                  >
-                    Clear all
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-        )
+        return null
       case 'todays-log':
         return (
           <section>
@@ -1878,10 +1384,10 @@ export function TodayTab({
       ) : null}
 
     <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}${state.gymSession.active ? ' hidden' : ''}`}>
-      <header className="apex-card px-6 py-6 relative">
+      <header className="apex-card apex-today-header-card px-6 py-6">
         <button
           type="button"
-          className="absolute top-4 right-4 z-[1] flex h-9 w-9 items-center justify-center rounded-[10px] border border-white/[0.12] bg-black/30 text-[#ececee] touch-manipulation active:scale-[0.98]"
+          className="apex-today-header-barcode"
           aria-label={
             gymBarcode ? 'Open gym membership barcode' : 'Set up gym membership barcode'
           }
@@ -1897,15 +1403,14 @@ export function TodayTab({
         >
           <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
         </button>
-        <div className="apex-today-header-meta pr-14" aria-label="Today">
+        <div className="apex-today-header-meta pr-12" aria-label="Today">
           <span>{headerDateLabel}</span>
           <span className="apex-today-header-meta__sep" aria-hidden>
             ·
           </span>
-          <span className="tabular-nums">
-            {streakDays} day{streakDays === 1 ? '' : 's'} streak
-          </span>
+          <span className="tabular-nums">{headerStreakLabel}</span>
         </div>
+        <h1 className="apex-today-header-title">{dayStatusLabel}</h1>
         <div className="apex-today-header-actions">
           <button
             type="button"
@@ -2013,10 +1518,12 @@ export function TodayTab({
 
         <TodayMoreQuickGrid
           activeId={moreQuickPanel}
-          onSelect={(id) => setMoreQuickPanel((p) => (p === id ? null : id))}
+          onSelect={handleMoreQuickSelect}
         />
 
-        {moreQuickPanel && !layoutEditing ? (
+        {moreQuickPanel &&
+        moreQuickPanel !== 'water-tracker' &&
+        moreQuickPanel !== 'sleep-tracker' ? (
           <div className="apex-today-more__panel">{sectionBody(moreQuickPanel)}</div>
         ) : null}
 
@@ -2143,63 +1650,10 @@ export function TodayTab({
         </div>
       ) : null}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          className={`${btnNeutral} min-h-10 ${layoutEditing ? 'border-white/20 text-white' : ''}`}
-          onClick={() => {
-            setLayoutEditing((v) => !v)
-            setDragId(null)
-          }}
-        >
-          {layoutEditing ? 'Done editing' : 'Edit layout'}
-        </button>
-      </div>
-
-      {layoutEditing ? (
-        <p className="text-[12px] font-medium text-[#a0a0a8] -mt-5 text-right">
-          Drag a section onto another to reorder. Use Hide to remove blocks from Today.
-        </p>
-      ) : null}
-
       <div className="apex-tab-stack">
-        {moreListSectionIds.map((sid) => {
-          const label = TODAY_SECTION_LABELS[sid]
-          const hidden = hiddenSet.has(sid)
-          const idx = layout.order.indexOf(sid)
-          const body = layoutEditing && hidden ? null : sectionBody(sid)
-          return (
-            <div key={sid}>
-              {layoutEditing ? (
-                <SectionEditShell
-                  label={label}
-                  editing={layoutEditing}
-                  hidden={hidden}
-                  canMoveUp={idx > 0}
-                  canMoveDown={idx < layout.order.length - 1}
-                  onToggleHidden={() => toggleSectionHidden(sid)}
-                  onMoveUp={() => moveSectionStep(sid, -1)}
-                  onMoveDown={() => moveSectionStep(sid, 1)}
-                  onDragStart={() => setDragId(sid)}
-                  onDragEnd={() => setDragId(null)}
-                  onDragOver={(e) => {
-                    if (layoutEditing) e.preventDefault()
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (dragId && dragId !== sid) reorderSectionDrag(dragId, sid)
-                    setDragId(null)
-                  }}
-                  dragging={dragId === sid}
-                >
-                  {body}
-                </SectionEditShell>
-              ) : (
-                body
-              )}
-            </div>
-          )
-        })}
+        {moreListSectionIds.map((sid) => (
+          <div key={sid}>{sectionBody(sid)}</div>
+        ))}
       </div>
         </div>
       </div>
@@ -2324,73 +1778,6 @@ export function TodayTab({
         }}
       />
 
-      {templatesOpen ? (
-        <div
-          role="presentation"
-          className="apex-modal-overlay fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
-          onClick={() => setTemplatesOpen(false)}
-        >
-          <div
-            className="w-full max-w-md apex-card p-4 max-h-[85vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center">
-              <h3 className="apex-section-label">Templates</h3>
-              <button
-                type="button"
-                className="min-h-10 min-w-10 rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[#e0e0e0]"
-                onClick={() => setTemplatesOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <input
-                className={`min-h-11 flex-1 ${inp}`}
-                placeholder="Template name"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-              />
-              <button
-                type="button"
-                className={`${btnNeutral} min-h-11 px-4`}
-                onClick={() => {
-                  saveTemplate(templateName)
-                  setTemplateName('')
-                }}
-              >
-                Save
-              </button>
-            </div>
-            <ul className="mt-4 space-y-2">
-              {state.templates.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center justify-between gap-2 rounded-[12px] border border-[#1e1e1e] bg-[#121212] p-3"
-                >
-                  <div>
-                    <p className="text-[13px] font-normal text-[#e0e0e0]">{t.name}</p>
-                    <p className="text-[11px] text-[#a8a8b0]">{t.exerciseIds.length} exercises</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" className={btnNeutral} onClick={() => loadTemplate(t.id)}>
-                      Load
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-[12px] border border-red-900/50 min-h-10 px-3 text-[12px] text-red-500"
-                      onClick={() => setTemplateDeleteId(t.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : null}
-
       <ConfirmDialog
         open={!!confirmMealDeleteId}
         title="Delete meal?"
@@ -2401,20 +1788,6 @@ export function TodayTab({
         onConfirm={() => {
           if (confirmMealDeleteId) deleteMealLog(confirmMealDeleteId)
           setConfirmMealDeleteId(null)
-        }}
-      />
-
-      <ConfirmDialog
-        open={confirmClearAllPlan}
-        title="Clear today's plan?"
-        message="Remove every exercise from My Plan. Your logged sets and templates are not deleted."
-        confirmLabel="Clear all"
-       
-        destructive
-        onCancel={() => setConfirmClearAllPlan(false)}
-        onConfirm={() => {
-          clearTodayPlan()
-          setConfirmClearAllPlan(false)
         }}
       />
 
@@ -2442,32 +1815,6 @@ export function TodayTab({
         onConfirm={() => {
           if (confirmCardioId) deleteCardio(confirmCardioId)
           setConfirmCardioId(null)
-        }}
-      />
-
-      <ConfirmDialog
-        open={!!templateDeleteId}
-        title="Delete template?"
-        message="This template will be removed permanently."
-        confirmLabel="Delete"
-       
-        onCancel={() => setTemplateDeleteId(null)}
-        onConfirm={() => {
-          if (templateDeleteId) deleteTemplate(templateDeleteId)
-          setTemplateDeleteId(null)
-        }}
-      />
-
-      <ConfirmDialog
-        open={!!planRemoveId}
-        title="Remove from plan?"
-        message="This exercise will be removed from today's plan."
-        confirmLabel="Remove"
-       
-        onCancel={() => setPlanRemoveId(null)}
-        onConfirm={() => {
-          if (planRemoveId) removePlanExercise(planRemoveId)
-          setPlanRemoveId(null)
         }}
       />
 
@@ -2525,24 +1872,33 @@ export function TodayTab({
         />
       ) : null}
 
-      {quickLogOpen ? <QuickLogModal onClose={() => setQuickLogOpen(false)} /> : null}
+      <SleepLogSheet
+        open={sleepSheetOpen}
+        sleepHours={sleepHours}
+        sleepMinutes={sleepMinutes}
+        bedtime={sleepBedtime}
+        wakeTime={sleepWakeTime}
+        appleHealthHint={Boolean(appleHealthToday?.sleepMinutes && !sleepTodayLog)}
+        onBedtimeChange={setSleepBedtime}
+        onWakeTimeChange={setSleepWakeTime}
+        onSleepHoursChange={setSleepHours}
+        onSleepMinutesChange={setSleepMinutes}
+        onClose={() => setSleepSheetOpen(false)}
+        onLog={submitSleepLog}
+      />
 
-      {!state.gymSession.active && !useGymModeView && !postWorkoutCheckinOpen ? (
-      <button
-        type="button"
-        aria-label="Quick log a set"
-        className="apex-fab fixed z-[56] flex h-14 w-14 items-center justify-center rounded-full bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-5 transition-transform active:scale-90 touch-manipulation"
-        onClick={() => {
-          setQuickLogOpen(true)
-          setLogTarget(null)
-          setEditLog(null)
-        }}
-      >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" aria-hidden>
-          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-        </svg>
-      </button>
-      ) : null}
+      <WaterLogSheet
+        open={waterSheetOpen}
+        waterTodayOz={waterTodayOz}
+        waterGoalOz={waterGoalOz}
+        customMode={waterCustomMode}
+        customOz={waterCustomOz}
+        onCustomMode={setWaterCustomMode}
+        onCustomOzChange={setWaterCustomOz}
+        onClose={() => setWaterSheetOpen(false)}
+        onAddOz={addWaterFromSheet}
+      />
+
     </div>
     </>
   )
