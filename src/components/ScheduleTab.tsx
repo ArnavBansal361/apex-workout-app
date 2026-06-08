@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
+import { AiWorkoutTemplatesSection } from './AiWorkoutTemplatesSection'
 import { EXERCISE_BY_ID, EXERCISES } from '../data/exercises'
 import { PLAN_PRESETS } from '../data/planPresets'
 import { dateKey, formatShortWeekday, mondayFirstColumnIndex, parseDateKey, todayDateKey } from '../lib/dates'
@@ -656,6 +657,10 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   )
                 })}
               </div>
+            </section>
+
+            <section className="apex-card p-5">
+              <AiWorkoutTemplatesSection enabled />
             </section>
           </>
         ) : (

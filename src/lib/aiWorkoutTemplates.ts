@@ -8,7 +8,7 @@ import { computePersonalRecords } from './personalRecords'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
-const TEMPLATE_MODEL = 'claude-sonnet-4-20250514'
+const TEMPLATE_MODEL = 'claude-sonnet-4-6'
 
 const WEEKDAYS = [
   'monday',
