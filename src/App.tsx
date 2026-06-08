@@ -212,6 +212,7 @@ function DashboardWithOnboarding() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false)
 
   useEffect(() => {
     installSwipeBackNavigation()
@@ -254,6 +255,12 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, s) => {
       if (!mounted) return
+      if (event === 'PASSWORD_RECOVERY') {
+        applySession(s)
+        setLoading(false)
+        setNeedsPasswordReset(true)
+        return
+      }
       applySession(s)
       setLoading(false)
       if (
@@ -263,6 +270,7 @@ export default function App() {
           event === 'INITIAL_SESSION')
       ) {
         clearOAuthUrl()
+        setNeedsPasswordReset(false)
       }
     })
 
@@ -281,8 +289,8 @@ export default function App() {
     )
   }
 
-  if (!session) {
-    return <Auth />
+  if (!session || needsPasswordReset) {
+    return <Auth initialMode={needsPasswordReset ? 'reset-password' : 'sign-in'} onPasswordReset={() => setNeedsPasswordReset(false)} />
   }
 
   return (

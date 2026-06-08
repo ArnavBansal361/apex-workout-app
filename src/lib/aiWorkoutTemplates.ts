@@ -226,7 +226,7 @@ export async function generateAiWeeklyWorkoutTemplates(
     14_000,
   )
 
-  const system = `You are an expert strength coach for the Apex app. Return ONLY valid JSON (no markdown).
+  const system = `You are an expert strength coach for the Lift app. Return ONLY valid JSON (no markdown).
 Shape:
 {"templates":[{"id":"ppl","name":"Push / Pull / Legs","subtitle":"one line","days":[{"weekday":"monday","sessionName":"Push","exercises":[{"exerciseId":"bench-press","sets":4,"reps":"6-8"}]}]}]}
 Rules:

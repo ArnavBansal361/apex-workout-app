@@ -1684,7 +1684,7 @@ export function ProfileTab({
   const [friendCodeLoading, setFriendCodeLoading] = useState(true)
   const [friendLbTop, setFriendLbTop] = useState<FriendLeaderboardRow[]>(sortedMeLeaderboardBots)
   const [friendLbMe, setFriendLbMe] = useState<FriendLeaderboardRow>(() =>
-    buildMeLeaderboardMe(userId, 'Apex Athlete', 0),
+    buildMeLeaderboardMe(userId, 'Lift Athlete', 0),
   )
   const [friendLbLoading, setFriendLbLoading] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
@@ -1856,7 +1856,7 @@ export function ProfileTab({
 
   const levelInfo = useMemo(() => getLevelInfo(state.lifetimeXp ?? 0), [state.lifetimeXp])
   const xpLabels = useMemo(() => xpBarLabels(state.lifetimeXp ?? 0), [state.lifetimeXp])
-  const displayName = state.settings.displayName.trim() || 'Apex Athlete'
+  const displayName = state.settings.displayName.trim() || 'Lift Athlete'
 
   const prDisplayRows = useMemo(
     () => computePersonalRecordDisplayRows(state.setLogs, state.settings.unit),

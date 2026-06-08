@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
+import { ApexLogo } from './ApexLogo'
 import {
   formatAiUpdatedAgo,
   lastAiIntelligenceUpdatedMs,
@@ -81,7 +82,10 @@ export function AiTab() {
   return (
     <div className="apex-ai-tab apex-safe-top pb-28">
       <header className="apex-ai-tab__header">
-        <p className="apex-ai-tab__eyebrow">Apex Intelligence</p>
+        <div className="flex items-center gap-2 mb-1">
+          <ApexLogo size={24} />
+          <p className="apex-ai-tab__eyebrow" style={{ marginBottom: 0 }}>Lift Intelligence</p>
+        </div>
         <h1 className="apex-ai-tab__title">AI Coach</h1>
         <p className="apex-ai-tab__subtitle">Your training intelligence.</p>
       </header>

@@ -1781,7 +1781,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       return `${l.exerciseName}: ${l.durationSec}s timed${l.isPr ? ' PR' : ''}`
     })
     const sched = state.schedule.find((d) => d.dateKey === t)
-    const head = sched?.workoutName ? `${sched.workoutName} — ${t}` : `Apex — ${t}`
+    const head = sched?.workoutName ? `${sched.workoutName} — ${t}` : `Lift — ${t}`
     return [head, ...lines].join('\n')
   }, [state.setLogs, state.schedule, state.settings.unit, todayKey])
 

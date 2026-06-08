@@ -1629,7 +1629,7 @@ export function TodayTab({
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
             <p className="text-[14px] font-medium text-[#d4d4d8] leading-snug">
-              Enable notifications for Sunday evening week summaries and when your rest timer finishes while Apex is in the background.
+              Enable notifications for Sunday evening week summaries and when your rest timer finishes while Lift is in the background.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">

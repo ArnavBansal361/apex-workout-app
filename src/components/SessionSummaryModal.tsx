@@ -54,7 +54,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
   async function shareOut() {
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Apex workout', text: shareText })
+        await navigator.share({ title: 'Lift workout', text: shareText })
       } catch {
         await navigator.clipboard.writeText(shareText)
       }

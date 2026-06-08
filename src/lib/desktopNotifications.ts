@@ -72,7 +72,7 @@ export function showGymLeaveNotification(): boolean {
   if (!notificationsSupported() || Notification.permission !== 'granted') return false
   try {
     const n = new Notification('Left the gym', {
-      body: 'You left your gym area. Open Apex to end your session when you are done.',
+      body: 'You left your gym area. Open Lift to end your session when you are done.',
       tag: 'apex-gym-leave',
     })
     n.onclick = () => {

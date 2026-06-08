@@ -341,7 +341,7 @@ function buildExerciseLines(state: AppPersisted, day: ScheduleDay, todayKey: str
 
 function buildDescription(state: AppPersisted, day: ScheduleDay, todayKey: string): string {
   const parts: string[] = []
-  parts.push('Synced from Apex.')
+  parts.push('Synced from Lift.')
   if (day.notes?.trim()) parts.push('', day.notes.trim())
   const ex = buildExerciseLines(state, day, todayKey)
   if (ex) parts.push('', ex)

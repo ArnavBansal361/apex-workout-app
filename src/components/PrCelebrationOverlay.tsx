@@ -126,10 +126,10 @@ async function sharePrCanvas(canvas: HTMLCanvasElement, data: PrCelebrationData)
   if (navigator.share) {
     try {
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Apex PR', text })
+        await navigator.share({ files: [file], title: 'Lift PR', text })
         return
       }
-      await navigator.share({ title: 'Apex PR', text })
+      await navigator.share({ title: 'Lift PR', text })
       return
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return
