@@ -34,6 +34,7 @@ import {
 } from '../lib/anthropicCoach'
 import { computeStrengthAge } from '../lib/strengthAge'
 import { LongevityScoreCard } from './LongevityScoreCard'
+import { InjuryRiskScoreCard } from './InjuryRiskScoreCard'
 import { PerformanceInsightsCard } from './PerformanceInsightsCard'
 import { dateKey, weekStartMonday } from '../lib/dates'
 import {
@@ -2116,6 +2117,7 @@ export function ProfileTab({
             Achievements
           </button>
           <LongevityScoreCard className={isDesktop ? 'col-span-2' : ''} />
+          <InjuryRiskScoreCard className={isDesktop ? 'col-span-2' : ''} />
           <PerformanceInsightsCard className={isDesktop ? 'col-span-2' : ''} />
           {trainerMode ? (
             <>

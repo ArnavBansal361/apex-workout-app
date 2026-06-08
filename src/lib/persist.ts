@@ -87,7 +87,7 @@ export function setOnboardingCompleteLocal(complete: boolean): void {
 }
 
 const COACH_WELCOME_ID = 'apex-claude-welcome-v1'
-const COACH_WELCOME_PREFIX = "Hi — I'm your Apex AI coach"
+const COACH_WELCOME_PREFIX = "Hi — I'm your Lift AI coach"
 
 /** Lines duplicated by the suggestion chips — never show inside a bubble. */
 const COACH_UI_PROMPT_LINES = new Set([
@@ -149,7 +149,7 @@ export function coachWelcomeMessages(): ChatMessage[] {
     {
       id: COACH_WELCOME_ID,
       role: 'model',
-      text: "Hi — I'm your Apex AI coach. I can see your goals, this week's logged work, your schedule, and your streak. Ask me anything about training, recovery, or programming.",
+      text: "Hi — I'm your Lift AI coach. I can see your goals, this week's logged work, your schedule, and your streak. Ask me anything about training, recovery, or programming.",
       at: Date.now(),
     },
   ]
@@ -235,7 +235,7 @@ function isCoachWelcomeMessage(m: ChatMessage): boolean {
     m.role === 'model' &&
     (m.id === COACH_WELCOME_ID ||
       text.startsWith(COACH_WELCOME_PREFIX) ||
-      text.startsWith("Hi — I'm your Apex coach"))
+      text.startsWith("Hi — I'm your Lift coach"))
   )
 }
 

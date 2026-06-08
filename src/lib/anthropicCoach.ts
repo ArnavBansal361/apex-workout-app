@@ -839,7 +839,7 @@ export async function claudePlanWeekFromCalendar(
 
   const nowMs = Date.now()
   const todayLine = formatCoachTodayLine(new Date(nowMs))
-  const system = `${todayLine}\n\nYou plan workouts for the Apex app. Return ONLY valid JSON (no markdown fences) in this exact shape:
+  const system = `${todayLine}\n\nYou plan workouts for the Lift app. Return ONLY valid JSON (no markdown fences) in this exact shape:
 {"suggestedDays":[{"day":"monday","workoutType":"Push","time":"7:00 AM"}]}
 Rules:
 - Include exactly one entry per weekday (monday through sunday) for the athlete's current schedule week.

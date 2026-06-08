@@ -1,7 +1,7 @@
 {
-  "name": "Apex",
-  "short_name": "Apex",
-  "description": "Apex workout tracker",
+  "name": "Lift",
+  "short_name": "Lift",
+  "description": "Lift workout tracker",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
