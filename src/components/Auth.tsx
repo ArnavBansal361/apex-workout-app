@@ -111,7 +111,7 @@ export function Auth({
     },
     'forgot-password': {
       title: 'Reset password',
-      subtitle: 'Enter your email and we'll send you a reset link.',
+      subtitle: "Enter your email and we'll send you a reset link.",
     },
     'reset-password': {
       title: 'Set new password',
