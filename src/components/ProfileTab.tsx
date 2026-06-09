@@ -103,6 +103,7 @@ import {
   startSpotifyOAuth,
 } from '../lib/spotify'
 import { bodyweightSeries, useApexChartColors, weeklyVolumeSeries } from '../lib/stats'
+import { strengthProgressSeries } from '../lib/overload'
 import {
   isGoogleCalendarConfigured,
   isGoogleCalendarConnected,
@@ -153,6 +154,147 @@ function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) 
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ─── Top Lifts Progress Card ──────────────────────────────────────────────────
+
+type TopLiftRange = '4w' | '8w' | 'all'
+
+function TopLiftSparkline({
+  points,
+  color,
+}: {
+  points: number[]
+  color: string
+}) {
+  if (points.length < 2) return null
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const range = max - min || 1
+  const w = 80
+  const h = 32
+  const pad = 3
+  const xs = points.map((_, i) => pad + (i / (points.length - 1)) * (w - pad * 2))
+  const ys = points.map((v) => pad + (1 - (v - min) / range) * (h - pad * 2))
+  const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i]!.toFixed(1)}`).join(' ')
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden>
+      <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={xs[xs.length - 1]!} cy={ys[ys.length - 1]!} r={2.5} fill={color} />
+    </svg>
+  )
+}
+
+export function TopLiftsProgressCard({
+  className = '',
+  onOpenLibrary,
+}: {
+  className?: string
+  onOpenLibrary?: (exerciseId: string) => void
+}) {
+  const { state } = useWorkout()
+  const [range, setRange] = useState<TopLiftRange>('8w')
+
+  const accentColor = '#6db87a'
+
+  // Find the most-logged weighted exercises (top 6 by set count)
+  const topExercises = useMemo(() => {
+    const counts: Record<string, { count: number; name: string }> = {}
+    for (const log of state.setLogs) {
+      if (log.kind !== 'weighted' || log.bodyweight) continue
+      if (!counts[log.exerciseId]) {
+        const ex = state.customExercises.find((e) => e.id === log.exerciseId)
+        const name = ex?.name ?? log.exerciseId.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        counts[log.exerciseId] = { count: 0, name }
+      }
+      counts[log.exerciseId]!.count++
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 4)
+      .map(([id, { name }]) => ({ id, name }))
+  }, [state.setLogs, state.customExercises])
+
+  // For each top exercise, compute weekly max weight series
+  const lifts = useMemo(() => {
+    const weeksBack = range === '4w' ? 4 : range === '8w' ? 8 : 52
+    return topExercises.map(({ id, name }) => {
+      const series = strengthProgressSeries(state.setLogs, id)
+      const sliced = range === 'all' ? series : series.slice(series.length - weeksBack)
+      const plotted = sliced.filter((p) => p.weight != null).map((p) => p.weight as number)
+      const currentMax = plotted.length ? plotted[plotted.length - 1]! : null
+      const firstMax = plotted.length ? plotted[0]! : null
+      const delta = currentMax != null && firstMax != null ? currentMax - firstMax : null
+      return { id, name, plotted, currentMax, delta }
+    }).filter((l) => l.plotted.length >= 2)
+  }, [topExercises, state.setLogs, range])
+
+  if (lifts.length === 0) {
+    return (
+      <div className={`apex-card p-5 ${className}`.trim()}>
+        <p className="apex-section-label mb-1">Progress</p>
+        <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed mt-2">
+          Log weighted sets for the same exercises across multiple weeks to see your strength trends here.
+        </p>
+      </div>
+    )
+  }
+
+  const rangeOptions: { id: TopLiftRange; label: string }[] = [
+    { id: '4w', label: '4W' },
+    { id: '8w', label: '8W' },
+    { id: 'all', label: 'All' },
+  ]
+
+  return (
+    <div className={`apex-card p-5 ${className}`.trim()}>
+      <div className="flex items-center justify-between mb-4">
+        <p className="apex-section-label">Progress</p>
+        <div className="flex gap-1">
+          {rangeOptions.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => setRange(o.id)}
+              className={`px-2.5 py-1 rounded-[6px] text-[11px] font-semibold transition-colors ${
+                range === o.id
+                  ? 'bg-white/[0.12] text-[#ececee]'
+                  : 'text-[#7d7d88] hover:text-[#a0a0a8]'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        {lifts.map((lift) => (
+          <button
+            key={lift.id}
+            type="button"
+            className="w-full flex items-center gap-3 rounded-[10px] p-3 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left touch-manipulation"
+            onClick={() => onOpenLibrary?.(lift.id)}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-[#ececee] truncate">{lift.name}</p>
+              <p className="text-[11px] font-medium text-[#7d7d88] mt-0.5">
+                {lift.currentMax != null ? `${lift.currentMax} ${state.settings.unit}` : '—'}
+                {lift.delta != null && lift.delta !== 0 ? (
+                  <span style={{ color: lift.delta > 0 ? accentColor : '#e07070' }}>
+                    {' '}{lift.delta > 0 ? '↑' : '↓'}{Math.abs(lift.delta)} {state.settings.unit}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            <TopLiftSparkline points={lift.plotted} color={accentColor} />
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] font-medium text-[#5a5a65] mt-3 text-center">
+        Tap any lift to see full chart in Library
+      </p>
     </div>
   )
 }
@@ -2202,6 +2344,7 @@ export function ProfileTab({
           >
             Achievements
           </button>
+          <TopLiftsProgressCard className={isDesktop ? 'col-span-2' : ''} onOpenLibrary={() => {}} />
           <LongevityScoreCard className={isDesktop ? 'col-span-2' : ''} />
           <InjuryRiskScoreCard className={isDesktop ? 'col-span-2' : ''} />
           <PerformanceInsightsCard className={isDesktop ? 'col-span-2' : ''} />
