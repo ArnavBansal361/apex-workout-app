@@ -185,6 +185,63 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
   const [pendingImage, setPendingImage] = useState<CoachChatImage | null>(null)
   const [busy, setBusy] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  // Voice-to-text
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  // Text-to-speech toggle (persisted per session)
+  const [ttsEnabled, setTtsEnabled] = useState(() => {
+    try { return localStorage.getItem('lift-coach-tts') === '1' } catch { return false }
+  })
+
+  function toggleTts() {
+    setTtsEnabled((prev: boolean) => {
+      const next = !prev
+      try { localStorage.setItem('lift-coach-tts', next ? '1' : '0') } catch {}
+      if (!next) window.speechSynthesis?.cancel()
+      return next
+    })
+  }
+
+  function speakText(text: string) {
+    if (!ttsEnabled || !window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const utt = new SpeechSynthesisUtterance(text)
+    utt.rate = 1.05
+    utt.pitch = 1
+    // Prefer a natural English voice if available
+    const voices = window.speechSynthesis.getVoices()
+    const preferred = voices.find(
+      (v) => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Google') || v.localService)
+    )
+    if (preferred) utt.voice = preferred
+    window.speechSynthesis.speak(utt)
+  }
+
+  function startListening() {
+    const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
+      ?? (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    if (!SR) { notify('Voice input not supported in this browser'); return }
+    if (listening) {
+      recognitionRef.current?.stop()
+      setListening(false)
+      return
+    }
+    const rec = new SR()
+    rec.lang = 'en-US'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0]?.[0]?.transcript ?? ''
+      if (transcript) setChatInput((prev: string) => (prev ? `${prev} ${transcript}` : transcript))
+    }
+    rec.onerror = () => setListening(false)
+    rec.onend = () => setListening(false)
+    rec.start()
+    recognitionRef.current = rec
+    setListening(true)
+  }
   const coachSuggestions = useMemo(() => dailyCoachSuggestions(todayKey), [todayKey])
 
   async function onAttachImage(file: File) {
@@ -255,6 +312,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
     try {
       const reply = await claudeCoachComplete(state, historyForApi, { userId })
       pushChat('model', reply)
+      speakText(reply)
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Coach error')
     } finally {
@@ -415,6 +473,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
               if (file) void onAttachImage(file)
             }}
           />
+          {/* Photo attach */}
           <button
             type="button"
             disabled={busy}
@@ -424,15 +483,42 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           >
             <i className="ti ti-photo-plus text-[20px] leading-none" aria-hidden />
           </button>
+          {/* Voice-to-text mic */}
+          <button
+            type="button"
+            disabled={busy}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border touch-manipulation disabled:opacity-45 transition-colors ${
+              listening
+                ? 'border-[#e07070] bg-[rgba(224,112,112,0.12)] text-[#e07070]'
+                : 'border-white/[0.12] bg-[#121212] text-[#ececee]'
+            }`}
+            aria-label={listening ? 'Stop listening' : 'Voice input'}
+            onClick={startListening}
+          >
+            <i className={`ti ${listening ? 'ti-microphone-off' : 'ti-microphone'} text-[20px] leading-none`} aria-hidden />
+          </button>
           <input
             className={`min-h-11 min-w-0 flex-1 ${inp}`}
-            placeholder="Message coach…"
+            placeholder={listening ? 'Listening…' : 'Message coach…'}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') void sendCoach()
             }}
           />
+          {/* TTS toggle */}
+          <button
+            type="button"
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border touch-manipulation transition-colors ${
+              ttsEnabled
+                ? 'border-[var(--apex-accent)] bg-[rgba(var(--apex-accent-rgb,109,184,122),0.12)] text-[var(--apex-accent)]'
+                : 'border-white/[0.12] bg-[#121212] text-[#9898a0]'
+            }`}
+            aria-label={ttsEnabled ? 'Disable voice reply' : 'Enable voice reply'}
+            onClick={toggleTts}
+          >
+            <i className={`ti ${ttsEnabled ? 'ti-volume' : 'ti-volume-off'} text-[20px] leading-none`} aria-hidden />
+          </button>
           <button
             type="button"
             disabled={busy || (!chatInput.trim() && !pendingImage)}
