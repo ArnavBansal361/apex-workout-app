@@ -2658,7 +2658,27 @@ export function ProfileTab({
 
             <p className="apex-settings-v2-label">Gym</p>
             <div className="apex-settings-v2-card">
-              {/* Gym barcode hidden for beta — geofencing unreliable on web */}
+              <button
+                type="button"
+                className="apex-settings-v2-row apex-settings-v2-row--tap"
+                onClick={() => {
+                  const cur = readGymBarcode()
+                  setGymDraftNumber(cur?.number ?? '')
+                  setGymDraftFormat(cur?.format ?? 'code128')
+                  setGymDraftGymName(cur?.gymName ?? '')
+                  setGymSettingsOpen(true)
+                }}
+              >
+                <span className="apex-settings-icon" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 7V6a2 2 0 012-2h2M4 17v1a2 2 0 002 2h2M16 4h2a2 2 0 012 2v1M20 16v1a2 2 0 01-2 2h-2M7 10h10v4H7z" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                </span>
+                <span className="apex-settings-v2-row__main apex-settings-v2-row__label">Gym barcode</span>
+                <span className="apex-settings-v2-row__value">
+                  {gymBarcode?.number ?? 'Not set'}
+                </span>
+              </button>
               <div className="apex-settings-v2-row">
                 <span className="apex-settings-icon" aria-hidden>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -2741,7 +2761,9 @@ export function ProfileTab({
                 </div>
               ) : null}
             </div>
-            {/* Gym barcode helper text hidden for beta */}
+            <p className="apex-settings-v2-helper">
+              Your barcode lets you check in at participating gyms without a separate card.
+            </p>
 
             <p className="apex-settings-v2-label">Connections</p>
             <div className="apex-settings-v2-card">
