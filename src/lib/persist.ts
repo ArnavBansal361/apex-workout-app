@@ -235,7 +235,9 @@ function isCoachWelcomeMessage(m: ChatMessage): boolean {
     m.role === 'model' &&
     (m.id === COACH_WELCOME_ID ||
       text.startsWith(COACH_WELCOME_PREFIX) ||
-      text.startsWith("Hi — I'm your Lift coach"))
+      text.startsWith("Hi — I'm your Lift coach") ||
+      text.startsWith("Hi — I'm your Apex") ||
+      text.startsWith("Hi — I'm your apex"))
   )
 }
 

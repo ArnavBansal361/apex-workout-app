@@ -1,7 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
   <rect width="80" height="80" rx="16" fill="#141414"/>
   <rect x="0.25" y="0.25" width="79.5" height="79.5" rx="15.75" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="0.5"/>
-  <g transform="translate(28, 28)">
-    <path d="M3 18l6-8 4 5 3-4 5 7H3z" fill="#ffffff"/>
-  </g>
+  <!-- Barbell / dumbbell icon centered -->
+  <!-- Left plate -->
+  <rect x="14" y="33" width="6" height="14" rx="2" fill="#ffffff"/>
+  <!-- Left collar -->
+  <rect x="20" y="36" width="4" height="8" rx="1" fill="#ffffff"/>
+  <!-- Bar -->
+  <rect x="24" y="38.5" width="32" height="3" rx="1.5" fill="#ffffff"/>
+  <!-- Right collar -->
+  <rect x="56" y="36" width="4" height="8" rx="1" fill="#ffffff"/>
+  <!-- Right plate -->
+  <rect x="60" y="33" width="6" height="14" rx="2" fill="#ffffff"/>
 </svg>
