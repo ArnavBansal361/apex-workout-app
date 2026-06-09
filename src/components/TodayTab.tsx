@@ -1442,6 +1442,39 @@ export function TodayTab({
         </div>
       </header>
 
+      {/* ── New-user empty state ─────────────────────────────────────────── */}
+      {state.setLogs.length === 0 && !state.gymSession.active ? (
+        <div className="apex-card p-6 flex flex-col items-center text-center gap-4">
+          <div
+            className="w-14 h-14 rounded-[16px] flex items-center justify-center text-[28px]"
+            style={{ background: 'rgba(109,184,122,0.12)' }}
+            aria-hidden
+          >
+            💪
+          </div>
+          <div>
+            <p className="text-[18px] font-bold text-[#f4f4f5] tracking-tight">Start your first workout</p>
+            <p className="text-[13px] font-medium text-[#a0a0a8] mt-1.5 leading-relaxed max-w-[260px] mx-auto">
+              Log a set to unlock progress tracking, your AI coach, and streak.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="apex-btn-primary w-full max-w-[240px] min-h-12 rounded-[14px] text-[14px] font-semibold touch-manipulation"
+            onClick={beginWorkoutFlow}
+          >
+            Start workout →
+          </button>
+          <div className="flex gap-4 text-[11px] font-medium text-[#5a5a65]">
+            <span>Track sets &amp; reps</span>
+            <span>·</span>
+            <span>Hit PRs</span>
+            <span>·</span>
+            <span>AI coaching</span>
+          </div>
+        </div>
+      ) : null}
+
       {state.gymSession.active ? (
         <div
           className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-white/[0.1] bg-[var(--apex-surface-page)]/95 backdrop-blur-md px-4 py-3 -mt-px"
