@@ -2168,18 +2168,28 @@ export function ProfileTab({
     let cancelled = false
     setFriendLbLoading(true)
     setFriendLbTop(sortedMeLeaderboardBots())
+    const timeout = setTimeout(() => {
+      if (!cancelled) setFriendLbLoading(false)
+    }, 5000)
     void (async () => {
-      const profile = await ensureFriendProfile(userId)
-      if (cancelled) return
-      const friendXp = profile?.friends.length
-        ? await fetchLeaderboardXpForUsers(profile.friends)
-        : []
-      if (cancelled) return
-      setFriendLbTop(buildMeLeaderboardTop(friendXp))
-      setFriendLbLoading(false)
+      try {
+        const profile = await ensureFriendProfile(userId)
+        if (cancelled) return
+        const friendXp = profile?.friends.length
+          ? await fetchLeaderboardXpForUsers(profile.friends)
+          : []
+        if (cancelled) return
+        setFriendLbTop(buildMeLeaderboardTop(friendXp))
+      } catch {
+        // silently fall back to bots
+      } finally {
+        if (!cancelled) setFriendLbLoading(false)
+        clearTimeout(timeout)
+      }
     })()
     return () => {
       cancelled = true
+      clearTimeout(timeout)
     }
   }, [showMeTab, userId, friendsRefresh])
 
