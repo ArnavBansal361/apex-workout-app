@@ -132,7 +132,7 @@ function WorkoutExerciseRow({
         aria-hidden
       >
         <span
-          className="ml-4 text-[12px] font-semibold text-[#3d7ab5]"
+          className="ml-4 text-[12px] font-medium text-[#3d7ab5]"
           style={{ opacity: offset > 40 ? 1 : offset / 40 }}
         >
           Log

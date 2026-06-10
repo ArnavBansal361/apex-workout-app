@@ -166,11 +166,11 @@ export function AchievementsPage({ onClose }: Props) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`text-[14px] font-semibold leading-snug ${ok ? 'text-[#ececee]' : 'text-[#a0a0a8]'}`}>
+                    <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[#ececee]' : 'text-[#a0a0a8]'}`}>
                       {a.title}
                     </p>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] ${
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
                         ok ? 'text-[#0c0c0c]' : 'text-[#9898a0] bg-[#1a1a1e] border border-[#2a2a2e]'
                       }`}
                       style={ok ? { backgroundColor: '#ffffff' } : undefined}
@@ -186,7 +186,7 @@ export function AchievementsPage({ onClose }: Props) {
                     {a.description}
                   </p>
                   <div className="mt-3">
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#9898a0]">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
                       <span>Progress</span>
                       <span className="tabular-nums text-[#a0a0a8]">
                         {prog.current} / {prog.target}

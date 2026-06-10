@@ -440,13 +440,13 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
           >
             <div className="flex justify-between gap-2 items-start">
               <div>
-                <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight">{active.name}</h3>
+                <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight">{active.name}</h3>
                 {activeLastHistoryLine ? (
                   <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
                     {activeLastHistoryLine}
                   </p>
                 ) : null}
-                <p className="text-[12px] font-semibold text-[#a0a0a8] uppercase tracking-wider mt-1">
+                <p className="text-[12px] font-medium text-[#a0a0a8] uppercase tracking-wider mt-1">
                   {activeStretch
                     ? `${activeStretch.targets.join(' · ')} · ${activeStretch.hold}`
                     : active.muscleGroup}
@@ -470,7 +470,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             </div>
             <button
               type="button"
-              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[14px] text-[13px] font-semibold touch-manipulation"
+              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[14px] text-[13px] font-medium touch-manipulation"
               onClick={() => {
                 const ex = active
                 if (activeStretch) {
@@ -570,7 +570,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             <div className="flex justify-between items-start gap-2">
               <div>
                 <p className="apex-page-sub">Library</p>
-                <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-0.5">New exercise</h3>
+                <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">New exercise</h3>
                 <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
                   Add your own movement to the library. It will show on the muscle diagram for its group.
                 </p>
@@ -696,7 +696,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </button>
               <button
                 type="button"
-                className="apex-btn-primary flex-1 min-h-12 rounded-[14px] text-[13px] font-semibold"
+                className="apex-btn-primary flex-1 min-h-12 rounded-[14px] text-[13px] font-medium"
                 onClick={() => {
                   const n = createName.trim()
                   if (!n) {

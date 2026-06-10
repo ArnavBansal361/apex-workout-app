@@ -258,7 +258,7 @@ export function TopLiftsProgressCard({
               key={o.id}
               type="button"
               onClick={() => setRange(o.id)}
-              className={`px-2.5 py-1 rounded-[6px] text-[11px] font-semibold transition-colors ${
+              className={`px-2.5 py-1 rounded-[6px] text-[11px] font-medium transition-colors ${
                 range === o.id
                   ? 'bg-white/[0.12] text-[#ececee]'
                   : 'text-[#7d7d88] hover:text-[#a0a0a8]'
@@ -278,7 +278,7 @@ export function TopLiftsProgressCard({
             onClick={() => onOpenLibrary?.(lift.id)}
           >
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-[#ececee] truncate">{lift.name}</p>
+              <p className="text-[13px] font-medium text-[#ececee] truncate">{lift.name}</p>
               <p className="text-[11px] font-medium text-[#7d7d88] mt-0.5">
                 {lift.currentMax != null ? `${lift.currentMax} ${state.settings.unit}` : '—'}
                 {lift.delta != null && lift.delta !== 0 ? (
@@ -988,7 +988,7 @@ function AiInsightsPanel() {
 
       <section className="rounded-[12px] p-4 bg-[#13181f]">
         <p className="apex-section-label">CONSISTENCY</p>
-        <p className="mt-2 text-[38px] leading-none font-semibold text-[#f4f4f5] tabular-nums">
+        <p className="mt-2 text-[38px] leading-none font-medium text-[#f4f4f5] tabular-nums">
           {consistency.score}
           <span className="text-[18px] text-[#a0a0a8] font-medium">/100</span>
         </p>
@@ -1205,7 +1205,7 @@ export function AiHub({
             <div className="mt-6 flex gap-2">
               <button
                 type="button"
-                className="apex-btn min-h-12 flex-1 text-[14px] font-semibold"
+                className="apex-btn min-h-12 flex-1 text-[14px] font-medium"
                 onClick={() => setImportPreview(null)}
               >
                 Cancel
@@ -2347,7 +2347,7 @@ export function ProfileTab({
         <div className="grid grid-cols-2 gap-4 mt-5">
           <button
             type="button"
-            className={`apex-btn apex-stats-achievements-divider w-full text-[14px] font-semibold border-white/[0.1] ${
+            className={`apex-btn apex-stats-achievements-divider w-full text-[14px] font-medium border-white/[0.1] ${
               isDesktop ? 'col-span-2' : ''
             }`}
             onClick={onOpenAchievements}
@@ -2366,12 +2366,12 @@ export function ProfileTab({
                   Share this code with clients so they can connect in Settings.
                 </p>
                 <div className="flex items-center gap-3">
-                  <p className="flex-1 text-[26px] font-bold tracking-[0.22em] text-[#ececee] tabular-nums">
+                  <p className="flex-1 text-[26px] font-medium tracking-[0.22em] text-[#ececee] tabular-nums">
                     {trainerCode || ensureTrainerCode()}
                   </p>
                   <button
                     type="button"
-                    className="apex-btn min-h-11 px-5 text-[13px] font-semibold shrink-0"
+                    className="apex-btn min-h-11 px-5 text-[13px] font-medium shrink-0"
                     onClick={() => {
                       const code = trainerCode || ensureTrainerCode()
                       void navigator.clipboard.writeText(code).then(
@@ -2401,7 +2401,7 @@ export function ProfileTab({
                           className="apex-card w-full p-4 text-left touch-manipulation hover:border-white/[0.14]"
                           onClick={() => openClientDetail(c)}
                         >
-                          <p className="text-[15px] font-semibold text-[#ececee]">{c.displayName}</p>
+                          <p className="text-[15px] font-medium text-[#ececee]">{c.displayName}</p>
                           <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
                             Last active · {formatLastActive(c.lastActiveMs)}
                           </p>
@@ -2425,7 +2425,7 @@ export function ProfileTab({
           ) : null}
           <div className="apex-card p-5">
             <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-2">Muscle groups</p>
-            <p className="text-[15px] font-semibold text-[#ececee] leading-relaxed">
+            <p className="text-[15px] font-medium text-[#ececee] leading-relaxed">
               {muscleGroupsThisWeek(state).length
                 ? muscleGroupsThisWeek(state).join(', ')
                 : 'None yet'}
@@ -2457,7 +2457,7 @@ export function ProfileTab({
               />
               <button
                 type="button"
-                className="apex-btn-primary min-h-11 px-6 text-[13px] font-semibold shrink-0 rounded-[14px]"
+                className="apex-btn-primary min-h-11 px-6 text-[13px] font-medium shrink-0 rounded-[14px]"
                 onClick={() => {
                   const v = Number(bwInput)
                   if (!Number.isFinite(v)) return
@@ -3016,7 +3016,7 @@ export function ProfileTab({
         <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
           <header className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between gap-2">
             <div>
-              <p className="text-[15px] font-bold text-[#f4f4f5]">{selectedClient.displayName}</p>
+              <p className="text-[15px] font-medium text-[#f4f4f5]">{selectedClient.displayName}</p>
               <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5">
                 Last active · {formatLastActive(selectedClient.lastActiveMs)}
               </p>
@@ -3095,7 +3095,7 @@ export function ProfileTab({
                 clientDetailState.bodyweightLogs.length > 0 ? (
                   <div className="apex-card p-5">
                     <p className="apex-section-label mb-2">Bodyweight</p>
-                    <p className="text-[15px] font-semibold text-[#ececee] tabular-nums">
+                    <p className="text-[15px] font-medium text-[#ececee] tabular-nums">
                       {(() => {
                         const latest = [...clientDetailState.bodyweightLogs].sort(
                           (a, b) => b.at - a.at,
@@ -3173,7 +3173,7 @@ export function ProfileTab({
             <button
               type="button"
               disabled={!clientNoteDraft.trim() || busy}
-              className="apex-btn-primary w-full min-h-11 text-[13px] font-semibold disabled:opacity-50"
+              className="apex-btn-primary w-full min-h-11 text-[13px] font-medium disabled:opacity-50"
               onClick={() => {
                 if (!selectedClient) return
                 setBusy(true)
@@ -3208,7 +3208,7 @@ export function ProfileTab({
             className="w-full max-w-md apex-card p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[15px] font-bold text-[#f4f4f5]">Gym Membership</h3>
+            <h3 className="text-[15px] font-medium text-[#f4f4f5]">Gym Membership</h3>
             <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
               Save your membership barcode for quick check-in from Today.
             </p>
@@ -3248,7 +3248,7 @@ export function ProfileTab({
             <div className="mt-6 flex flex-col gap-2">
               <button
                 type="button"
-                className="apex-btn-primary w-full min-h-12 text-[13px] font-semibold"
+                className="apex-btn-primary w-full min-h-12 text-[13px] font-medium"
                 onClick={() => {
                   const number = gymDraftNumber.trim()
                   if (!number) {
@@ -3274,7 +3274,7 @@ export function ProfileTab({
               {gymBarcode ? (
                 <button
                   type="button"
-                  className="apex-btn w-full min-h-11 text-[13px] font-semibold text-[#e85d5d] border-[#e85d5d]/35"
+                  className="apex-btn w-full min-h-11 text-[13px] font-medium text-[#e85d5d] border-[#e85d5d]/35"
                   onClick={() => {
                     writeGymBarcode(null)
                     setGymBarcode(null)
@@ -3289,7 +3289,7 @@ export function ProfileTab({
               ) : null}
               <button
                 type="button"
-                className="apex-btn w-full min-h-11 text-[13px] font-semibold"
+                className="apex-btn w-full min-h-11 text-[13px] font-medium"
                 onClick={() => setGymSettingsOpen(false)}
               >
                 Cancel

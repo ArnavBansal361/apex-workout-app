@@ -49,7 +49,7 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Training mode</p>
-        <h2 id="training-mode-title" className="mt-2 text-[15px] font-semibold text-[#ececee]">
+        <h2 id="training-mode-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
           How do you want to train today?
         </h2>
         <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
@@ -71,7 +71,7 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
                 }`}
                 onClick={() => setSelected(mode.id)}
               >
-                <p className="text-[14px] font-semibold text-[#ececee]">{mode.label}</p>
+                <p className="text-[14px] font-medium text-[#ececee]">{mode.label}</p>
                 <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
                   {mode.hint}
                 </p>

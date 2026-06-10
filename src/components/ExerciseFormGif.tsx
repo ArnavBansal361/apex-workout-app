@@ -101,7 +101,7 @@ export function ExerciseMuscleDiagram({ muscleGroup, exerciseName, className }: 
           ) : null}
         </div>
       ) : wger !== undefined && !useWger ? (
-        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-[#7d7d88]">
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-[#7d7d88]">
           {muscleGroup}
         </p>
       ) : null}

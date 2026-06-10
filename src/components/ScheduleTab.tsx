@@ -505,7 +505,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 text-right text-[13px] font-bold tabular-nums text-[#e4e4e8]">
+                  <span className="w-8 shrink-0 text-right text-[13px] font-medium tabular-nums text-[#e4e4e8]">
                     {days}
                   </span>
                 </li>
@@ -524,7 +524,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           <div className="inline-flex rounded-[14px] border border-white/[0.1] p-1">
             <button
               type="button"
-              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-bold transition-colors ${
+              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-medium transition-colors ${
                 viewMode === 'week' ? 'text-white' : 'text-white/35 hover:text-white/55'
               }`}
               onClick={() => setViewMode('week')}
@@ -533,7 +533,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             </button>
             <button
               type="button"
-              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-bold transition-colors ${
+              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-medium transition-colors ${
                 viewMode === 'month' ? 'text-white' : 'text-white/35 hover:text-white/55'
               }`}
               onClick={() => {
@@ -668,7 +668,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="flex items-center justify-between gap-3 mb-2">
               <button
                 type="button"
-                className="apex-btn min-h-10 px-3 text-[13px] font-semibold rounded-[12px]"
+                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[12px]"
                 onClick={() =>
                   setCalendarMonth(
                     new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
@@ -678,10 +678,10 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               >
                 ‹
               </button>
-              <h2 className="text-lg font-bold text-[#f4f4f5] tracking-tight text-center flex-1">{monthLabel}</h2>
+              <h2 className="text-lg font-medium text-[#f4f4f5] tracking-tight text-center flex-1">{monthLabel}</h2>
               <button
                 type="button"
-                className="apex-btn min-h-10 px-3 text-[13px] font-semibold rounded-[12px]"
+                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[12px]"
                 onClick={() =>
                   setCalendarMonth(
                     new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
@@ -700,7 +700,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               {WEEKDAY_LABELS.map((label, colIdx) => (
                 <div
                   key={label}
-                  className={`text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] py-1 rounded-t-md ${
+                  className={`text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.12em] py-1 rounded-t-md ${
                     colIdx === todayColIdx
                       ? 'text-[#f4f4f5] bg-white/[0.08]'
                       : 'text-[#9898a0]'
@@ -739,7 +739,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   >
                     <div className="flex items-start justify-between gap-0.5">
                       <span
-                        className={`text-[11px] sm:text-[12px] font-black tabular-nums leading-none ${
+                        className={`text-[11px] sm:text-[12px] font-medium tabular-nums leading-none ${
                           isToday ? 'text-[#f4f4f5]' : inMonth ? 'text-[#a8a8b0]' : 'text-[#9898a0]'
                         }`}
                       >
@@ -766,7 +766,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                           <>
                             <div className="mb-1">{renderMuscleDots(muscleTags)}</div>
                             {title ? (
-                              <p className="text-[10px] sm:text-[11px] font-bold text-[#f0f0f2] leading-tight line-clamp-3">
+                              <p className="text-[10px] sm:text-[11px] font-medium text-[#f0f0f2] leading-tight line-clamp-3">
                                 {title}
                               </p>
                             ) : null}
@@ -795,7 +795,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="apex-page-sub">Edit day</p>
-            <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-1">
+            <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-1">
               {formatShortWeekday(parseDateKey(editing))} · {editing}
             </h3>
             <label className="mt-5 block">
@@ -847,11 +847,11 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         setDraftExSearch('')
                       }}
                     >
-                      <p className="text-[14px] font-semibold text-[#f0f0f2] leading-snug">{p.title}</p>
+                      <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug">{p.title}</p>
                       <p className="mt-1 text-[11px] font-medium text-[#a0a0a8] leading-snug line-clamp-2">
                         {p.subtitle}
                       </p>
-                      <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#9898a0]">
+                      <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
                         {resolved.length} exercise{resolved.length === 1 ? '' : 's'}
                       </p>
                     </button>
@@ -883,7 +883,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                           setDraftExSearch('')
                         }}
                       >
-                        <p className="text-[14px] font-semibold text-[#f0f0f2] leading-snug line-clamp-2">
+                        <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug line-clamp-2">
                           {t.name}
                         </p>
                         <p className="mt-1 text-[11px] font-medium text-[#a0a0a8]">
@@ -920,7 +920,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         setDraftExSearch('')
                       }}
                     >
-                      <span className="text-[13px] font-semibold text-[#ececee]">{e.name}</span>
+                      <span className="text-[13px] font-medium text-[#ececee]">{e.name}</span>
                       <span className="ml-2 text-[11px] font-medium text-[#a0a0a8]">{e.muscleGroup}</span>
                     </button>
                   ))
@@ -940,7 +940,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     return (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-semibold text-[#e4e4e8]"
+                        className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-medium text-[#e4e4e8]"
                       >
                         {ex.name}
                         <button
@@ -972,14 +972,14 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                className="apex-btn min-h-12 flex-1 text-[14px] font-semibold"
+                className="apex-btn min-h-12 flex-1 text-[14px] font-medium"
                 onClick={() => setEditing(null)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-semibold"
+                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-medium"
                 onClick={save}
               >
                 Save
@@ -1001,7 +1001,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           >
             <div className="shrink-0 p-5 pb-3 border-b border-white/[0.06]">
               <p className="apex-page-sub">Bulk edit</p>
-              <h3 className="text-xl font-bold text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
+              <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
               <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
                 Set workout names and exercises for every day at once. Save applies all changes together.
               </p>
@@ -1148,7 +1148,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     </label>
                     <button
                       type="button"
-                      className="text-[12px] font-semibold text-white/70"
+                      className="text-[12px] font-medium text-white/70"
                       onClick={() => {
                         setBulkExercisesOpenIdx(exercisesExpanded ? null : i)
                         setBulkSearch('')
@@ -1195,7 +1195,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex items-center gap-0.5 rounded-full border border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-semibold text-[#e0e0e4]"
+                                  className="inline-flex items-center gap-0.5 rounded-full border border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-medium text-[#e0e0e4]"
                                 >
                                   {ex.name}
                                   <button
@@ -1245,14 +1245,14 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-white/[0.06]">
               <button
                 type="button"
-                className="apex-btn min-h-12 flex-1 text-[14px] font-semibold rounded-[14px]"
+                className="apex-btn min-h-12 flex-1 text-[14px] font-medium rounded-[14px]"
                 onClick={() => setPlanWeekOpen(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-semibold rounded-[14px]"
+                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-medium rounded-[14px]"
                 onClick={savePlanWeek}
               >
                 Save week

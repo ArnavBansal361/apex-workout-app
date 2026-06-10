@@ -114,7 +114,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
               className="w-full text-left p-4 touch-manipulation hover:bg-white/[0.04] active:bg-white/[0.06]"
               onClick={() => setExpandedId(open ? null : tpl.id)}
             >
-              <p className="text-[15px] font-semibold text-[#f0f0f2] leading-tight tracking-tight">
+              <p className="text-[15px] font-medium text-[#f0f0f2] leading-tight tracking-tight">
                 {tpl.name}
               </p>
               {tpl.subtitle ? (
@@ -135,7 +135,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                   const isRest = /^rest$/i.test(day.sessionName) || day.exercises.length === 0
                   return (
                     <div key={`${tpl.id}-${day.weekday}`}>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#a0a0a8]">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#a0a0a8]">
                         {label} · {isRest ? 'Rest' : day.sessionName}
                       </p>
                       {isRest ? (
@@ -165,7 +165,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                 })}
                 <button
                   type="button"
-                  className="apex-btn-primary w-full min-h-11 rounded-[12px] text-[13px] font-semibold touch-manipulation"
+                  className="apex-btn-primary w-full min-h-11 rounded-[12px] text-[13px] font-medium touch-manipulation"
                   onClick={() => applyAiWeeklyTemplate(tpl)}
                 >
                   Apply to this week

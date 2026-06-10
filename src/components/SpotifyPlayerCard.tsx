@@ -116,7 +116,7 @@ export function SpotifyPlayerCard() {
         <button
           type="button"
           disabled={loading}
-          className="apex-btn-primary w-full min-h-12 rounded-[14px] text-[14px] font-semibold disabled:opacity-50"
+          className="apex-btn-primary w-full min-h-12 rounded-[14px] text-[14px] font-medium disabled:opacity-50"
           onClick={() => void connect()}
         >
           {loading ? 'Redirecting…' : 'Connect Spotify'}
@@ -156,7 +156,7 @@ export function SpotifyPlayerCard() {
             />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="m-0 text-[15px] font-semibold text-[#f0f0f2] truncate leading-snug">
+            <p className="m-0 text-[15px] font-medium text-[#f0f0f2] truncate leading-snug">
               {nowPlaying.trackName}
             </p>
             <p className="m-0 mt-1 text-[13px] font-medium text-[#a0a0a8] truncate">

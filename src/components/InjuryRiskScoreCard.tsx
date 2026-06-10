@@ -73,7 +73,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
           <p className="text-[11px] font-medium text-[#9898a0]">Based on this week's volume</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-[36px] font-bold tabular-nums leading-none" style={{ color: cfg.color }}>
+          <p className="text-[36px] font-medium tabular-nums leading-none" style={{ color: cfg.color }}>
             {cfg.label}
           </p>
         </div>

@@ -329,10 +329,10 @@ function WaterLogSheet({
         </div>
         <h2 className="apex-log-set-sheet__title">Water</h2>
         <p className="text-center mt-3 mb-1">
-          <span className="text-[32px] font-black tabular-nums text-[#f4f4f5] leading-none">
+          <span className="text-[32px] font-medium tabular-nums text-[#f4f4f5] leading-none">
             {waterTodayOz}
           </span>
-          <span className="text-[14px] font-semibold text-[#a0a0a8] ml-1">oz today</span>
+          <span className="text-[14px] font-medium text-[#a0a0a8] ml-1">oz today</span>
         </p>
         <p className="text-[12px] font-medium text-[#a0a0a8] text-center mb-5 tabular-nums">
           Goal {waterGoalOz} oz
@@ -342,7 +342,7 @@ function WaterLogSheet({
             <button
               key={oz}
               type="button"
-              className="min-h-12 rounded-[14px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-semibold text-[#ececee] touch-manipulation active:scale-[0.98]"
+              className="min-h-12 rounded-[14px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
               onClick={() => onAddOz(oz)}
             >
               +{oz} oz
@@ -350,7 +350,7 @@ function WaterLogSheet({
           ))}
           <button
             type="button"
-            className={`min-h-12 rounded-[14px] border text-[15px] font-semibold touch-manipulation active:scale-[0.98] ${
+            className={`min-h-12 rounded-[14px] border text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
               customMode
                 ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
                 : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'
@@ -371,7 +371,7 @@ function WaterLogSheet({
             />
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-semibold rounded-[14px]"
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-medium rounded-[14px]"
               onClick={() => {
                 const oz = Math.round(Number(customOz))
                 if (!Number.isFinite(oz) || oz <= 0) return
@@ -1179,7 +1179,7 @@ export function TodayTab({
               <button
                 type="button"
                 disabled={!mealAiText.trim() || mealAiBusy}
-                className="apex-btn w-full min-h-10 text-[13px] font-semibold disabled:opacity-50"
+                className="apex-btn w-full min-h-10 text-[13px] font-medium disabled:opacity-50"
                 onClick={() => {
                   setMealAiBusy(true)
                   void claudeParseMeal(mealAiText)
@@ -1237,7 +1237,7 @@ export function TodayTab({
               </div>
               <button
                 type="button"
-                className="apex-btn-primary w-full min-h-11 text-[13px] font-semibold rounded-[14px]"
+                className="apex-btn-primary w-full min-h-11 text-[13px] font-medium rounded-[14px]"
                 onClick={submitMealDraft}
               >
                 Add meal
@@ -1276,7 +1276,7 @@ export function TodayTab({
         return (
           <section>
             <h2 className="apex-page-sub mb-1">Session</h2>
-            <p className="text-xl font-bold text-[#f4f4f5] tracking-tight mb-4">Today&apos;s log</p>
+            <p className="text-xl font-medium text-[#f4f4f5] tracking-tight mb-4">Today&apos;s log</p>
             <button type="button" className={`${btnNeutral} w-full min-h-12 mb-4`} onClick={onOpenHistory}>
               Full history
             </button>
@@ -1290,12 +1290,12 @@ export function TodayTab({
                 <li key={l.id} className="apex-card apex-card-interactive p-4">
                   <div className="flex justify-between gap-2 items-start">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-semibold text-[#f0f0f2] min-w-0 tracking-tight">
+                      <p className="text-[15px] font-medium text-[#f0f0f2] min-w-0 tracking-tight">
                         {l.exerciseName}
                       </p>
                     </div>
                     {l.isPr ? (
-                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-black">
+                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-black">
                         PR
                       </span>
                     ) : null}
@@ -1453,14 +1453,14 @@ export function TodayTab({
             💪
           </div>
           <div>
-            <p className="text-[18px] font-bold text-[#f4f4f5] tracking-tight">Start your first workout</p>
+            <p className="text-[18px] font-medium text-[#f4f4f5] tracking-tight">Start your first workout</p>
             <p className="text-[13px] font-medium text-[#a0a0a8] mt-1.5 leading-relaxed max-w-[260px] mx-auto">
               Log a set to unlock progress tracking, your AI coach, and streak.
             </p>
           </div>
           <button
             type="button"
-            className="apex-btn-primary w-full max-w-[240px] min-h-12 rounded-[14px] text-[14px] font-semibold touch-manipulation"
+            className="apex-btn-primary w-full max-w-[240px] min-h-12 rounded-[14px] text-[14px] font-medium touch-manipulation"
             onClick={beginWorkoutFlow}
           >
             Start workout →
@@ -1482,10 +1482,10 @@ export function TodayTab({
           aria-live="polite"
         >
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8]">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#a0a0a8]">
               Gym session
             </p>
-            <p className="text-[1.75rem] font-black tabular-nums text-[#f4f4f5] leading-none tracking-tight">
+            <p className="text-[1.75rem] font-medium tabular-nums text-[#f4f4f5] leading-none tracking-tight">
               {formatDuration(gymSec)}
             </p>
           </div>
@@ -1509,7 +1509,7 @@ export function TodayTab({
             )}
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 text-[13px] font-semibold touch-manipulation"
+              className="apex-btn-primary min-h-11 px-4 text-[13px] font-medium touch-manipulation"
               onClick={() => void endGym()}
             >
               End session
@@ -1564,7 +1564,7 @@ export function TodayTab({
       {showSundayRecap ? (
         <div className="apex-card px-5 py-5 ">
           <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-1">Sunday week recap</p>
-          <h2 className="text-lg font-bold text-[#f4f4f5] tracking-tight">This week · {weekRecap.weekLabel}</h2>
+          <h2 className="text-lg font-medium text-[#f4f4f5] tracking-tight">This week · {weekRecap.weekLabel}</h2>
           {weekRecapEmpty ? (
             <p className="mt-4 text-[14px] font-medium text-[#a0a0a8] leading-relaxed">
               Start logging to see your week take shape
@@ -1574,13 +1574,13 @@ export function TodayTab({
               {weekRecap.totalSets > 0 ? (
                 <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sets</p>
-                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
                 </div>
               ) : null}
               {weekRecap.totalVolumeLbs > 0 ? (
                 <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Volume</p>
-                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">
                     {weekRecap.totalVolumeLbs.toLocaleString()} lb
                   </p>
                 </div>
@@ -1592,7 +1592,7 @@ export function TodayTab({
                   }`}
                 >
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Muscle groups</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#c8c8ce] leading-snug">
+                  <p className="mt-1 text-[13px] font-medium text-[#c8c8ce] leading-snug">
                     {weekRecap.muscleGroups.join(', ')}
                   </p>
                 </div>
@@ -1600,7 +1600,7 @@ export function TodayTab({
               {weekRecap.prCount > 0 ? (
                 <div className="rounded-[12px] border border-white/[0.06] px-3 py-3 col-span-2">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">PRs hit</p>
-                  <p className="mt-1 text-xl font-black tabular-nums text-[#ececee]">{weekRecap.prCount}</p>
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.prCount}</p>
                 </div>
               ) : null}
             </div>
@@ -1629,7 +1629,7 @@ export function TodayTab({
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 text-[13px] font-semibold rounded-[12px]"
+              className="apex-btn-primary min-h-11 px-4 text-[13px] font-medium rounded-[12px]"
               onClick={() => applyDeloadWeek()}
             >
               Generate lighter workout
@@ -1651,7 +1651,7 @@ export function TodayTab({
       {deloadWeekActive ? (
         <div className="apex-card px-5 py-3 border border-white/[0.08]">
           <p className="text-[13px] font-medium text-[#c8c8ce] leading-relaxed">
-            <span className="font-semibold text-[#ececee]">Deload week active.</span> Same plan and
+            <span className="font-medium text-[#ececee]">Deload week active.</span> Same plan and
             reps — weights prefill at 60% of your last session.
           </p>
         </div>
@@ -1660,7 +1660,7 @@ export function TodayTab({
       {state.onboardingComplete && !state.notificationPromptDone ? (
         <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-white/[0.08]">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
             <p className="text-[14px] font-medium text-[#d4d4d8] leading-snug">
               Enable notifications for Sunday evening week summaries and when your rest timer finishes while Lift is in the background.
             </p>
@@ -1860,14 +1860,14 @@ export function TodayTab({
         >
           <button
             type="button"
-            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 min-h-10 px-4 rounded-full border border-black/15 text-[13px] font-semibold text-black touch-manipulation"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 min-h-10 px-4 rounded-full border border-black/15 text-[13px] font-medium text-black touch-manipulation"
             onClick={() => setGymCardOpen(false)}
           >
             Close
           </button>
           <div className="flex flex-col items-center justify-center flex-1 w-full max-w-md gap-6">
             {gymBarcode.gymName ? (
-              <p className="text-[15px] font-semibold text-black/70 text-center">{gymBarcode.gymName}</p>
+              <p className="text-[15px] font-medium text-black/70 text-center">{gymBarcode.gymName}</p>
             ) : null}
             {gymBarcodeRenderError ? (
               <p className="text-[13px] font-medium text-red-600 text-center">{gymBarcodeRenderError}</p>
@@ -1878,7 +1878,7 @@ export function TodayTab({
                 aria-label="Membership barcode"
               />
             )}
-            <p className="text-[22px] sm:text-[26px] font-bold tabular-nums text-black text-center tracking-wide break-all">
+            <p className="text-[22px] sm:text-[26px] font-medium tabular-nums text-black text-center tracking-wide break-all">
               {gymBarcode.number}
             </p>
           </div>

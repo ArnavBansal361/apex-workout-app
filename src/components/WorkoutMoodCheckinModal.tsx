@@ -40,7 +40,7 @@ function ScaleRow({
               type="button"
               aria-label={`${label} ${n} of 5`}
               aria-pressed={active}
-              className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-semibold tabular-nums touch-manipulation ${
+              className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-medium tabular-nums touch-manipulation ${
                 active
                   ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
                   : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
@@ -111,7 +111,7 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Post-workout</p>
-        <h2 id="mood-checkin-title" className="mt-2 text-[15px] font-semibold text-[#ececee]">
+        <h2 id="mood-checkin-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
           Quick check-in
         </h2>
 

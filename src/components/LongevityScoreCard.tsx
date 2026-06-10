@@ -36,9 +36,9 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
             Updated weekly · week of {result.weekLabel}
           </p>
         </div>
-        <p className="text-[36px] font-bold tabular-nums text-[#ececee] leading-none">
+        <p className="text-[36px] font-medium tabular-nums text-[#ececee] leading-none">
           {result.score}
-          <span className="text-[14px] font-semibold text-[#9898a0]">/100</span>
+          <span className="text-[14px] font-medium text-[#9898a0]">/100</span>
         </p>
       </div>
 
@@ -55,10 +55,10 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
             key={label}
             className="rounded-[10px] border border-white/[0.06] bg-white/[0.03] px-3 py-2"
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9898a0]">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
               {label}
             </p>
-            <p className="text-[15px] font-semibold tabular-nums text-[#ececee] mt-0.5">
+            <p className="text-[15px] font-medium tabular-nums text-[#ececee] mt-0.5">
               {pts}
               <span className="text-[11px] font-medium text-[#7d7d88]">/25</span>
             </p>

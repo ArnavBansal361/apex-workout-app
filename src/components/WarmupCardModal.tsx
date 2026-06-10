@@ -35,7 +35,7 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Warm-up</p>
-        <h2 id="warmup-title" className="mt-2 text-[15px] font-semibold text-[#ececee]">
+        <h2 id="warmup-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
           ~{plan.estimatedMinutes} min before you lift
         </h2>
         <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
@@ -49,7 +49,7 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
               key={`${m.name}-${i}`}
               className="rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3"
             >
-              <p className="text-[13px] font-semibold text-[#ececee]">
+              <p className="text-[13px] font-medium text-[#ececee]">
                 {i + 1}. {m.name}
               </p>
               <p className="mt-1 text-[12px] font-medium text-[#9898a0] tabular-nums">
@@ -62,7 +62,7 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
         <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"
-            className="apex-btn-primary min-h-12 w-full text-[13px] font-semibold touch-manipulation"
+            className="apex-btn-primary min-h-12 w-full text-[13px] font-medium touch-manipulation"
             onClick={onStart}
           >
             Done — start workout
