@@ -210,7 +210,7 @@ export function Onboarding({ onComplete }: Props) {
       >
         <div className="apex-onboarding__welcome">
           <img src={APEX_LOGO_URL} alt="" className="apex-onboarding__logo" width={48} height={48} />
-          <h1 className="apex-onboarding__title">Welcome to Apex</h1>
+          <h1 className="apex-onboarding__title">Welcome to Lift</h1>
           <p className="apex-onboarding__subtitle">Let&apos;s get you set up.</p>
         </div>
         <div className="apex-onboarding__fields">
@@ -335,7 +335,7 @@ export function Onboarding({ onComplete }: Props) {
                 className="apex-onboarding-input apex-onboarding-input--icon"
                 value={trainerCode}
                 onChange={(e) => setTrainerCode(e.target.value)}
-                placeholder="e.g. APX-7421"
+                placeholder="e.g. LFT-7421"
                 autoComplete="off"
               />
             </div>
