@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Apex</string>
+        <string>Lift</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -48,8 +48,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Apex reads your steps, activity, heart rate, and sleep to fill in Today and personalize coaching.</string>
+	<string>Lift reads your steps, activity, heart rate, and sleep to fill in Today and personalize coaching.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Apex saves completed gym workouts and active calories to Apple Health when you end a session.</string>
+	<string>Lift saves completed gym workouts and active calories to Apple Health when you end a session.</string>
 </dict>
 </plist>
