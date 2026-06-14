@@ -357,7 +357,7 @@ struct ApexWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             ApexWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Apex")
+        .configurationDisplayName("Lift")
         .description("Today's workout and streak.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
