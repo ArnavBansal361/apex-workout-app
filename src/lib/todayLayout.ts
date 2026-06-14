@@ -30,7 +30,7 @@ export const TODAY_SECTION_LABELS: Record<TodaySectionId, string> = {
 
 export const DEFAULT_TODAY_LAYOUT: TodayLayoutPersist = {
   order: [...ALL_TODAY_SECTION_IDS],
-  hidden: [],
+  hidden: ['cardio-tracker', 'water-tracker', 'sleep-tracker', 'nutrition-tracker'],
 }
 
 function isSectionId(x: string): x is TodaySectionId {
