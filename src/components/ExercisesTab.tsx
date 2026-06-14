@@ -367,9 +367,16 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <kbd className="apex-library-search__kbd" aria-hidden>
-          ⌘K
-        </kbd>
+        {q ? (
+          <button
+            type="button"
+            className="apex-library-search__clear"
+            aria-label="Clear search"
+            onClick={() => setQ('')}
+          >
+            ×
+          </button>
+        ) : null}
       </div>
 
       <div className="apex-library-filters" role="tablist" aria-label="Muscle group">

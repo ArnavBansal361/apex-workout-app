@@ -47,10 +47,10 @@ export function computeWeekSummary(state: AppPersisted, nowMs: number): WeekSumm
   }
   const muscleGroups = [...mg].sort()
 
-  const wk0 = dateKey(ws)
   const wk6 = new Date(ws)
   wk6.setDate(ws.getDate() + 6)
-  const weekLabel = `${wk0.slice(5)} → ${dateKey(wk6).slice(5)}`
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const weekLabel = `${fmt(ws)} – ${fmt(wk6)}`
 
   return {
     totalSets: sets.length,
