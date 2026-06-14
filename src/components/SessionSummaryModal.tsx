@@ -73,7 +73,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
     >
       <div className="w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
         <div ref={cardRef} className="apex-card p-6">
-          <p className="apex-section-label">Apex</p>
+          <p className="apex-section-label">Lift</p>
           <p className="mt-2 text-[13px] font-normal text-[#e0e0e0]">{data.headline}</p>
           {data.comebackMessage ? (
             <p className="mt-2 text-[13px] font-medium text-[#ececee] leading-relaxed">

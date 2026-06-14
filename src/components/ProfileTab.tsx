@@ -3007,7 +3007,7 @@ export function ProfileTab({
             >
               Sign out
             </button>
-            <p className="apex-settings-footer-version">Apex v3.2.0 · Build 11842</p>
+            <p className="apex-settings-footer-version">Lift v3.2.0 · Build 11842</p>
           </div>
         </div>
       ) : null}

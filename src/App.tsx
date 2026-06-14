@@ -81,7 +81,7 @@ function PwaInstallBanner() {
   return (
     <div className="apex-pwa-install-banner" role="region" aria-label="Install app">
       <div className="apex-pwa-install-banner__inner">
-        <p className="apex-pwa-install-banner__text">Add Apex to your home screen</p>
+        <p className="apex-pwa-install-banner__text">Add Lift to your home screen</p>
         <button type="button" className="apex-pwa-install-banner__install" onClick={() => void install()}>
           Install
         </button>
