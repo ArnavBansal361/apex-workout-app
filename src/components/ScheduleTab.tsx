@@ -1166,7 +1166,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                           value={bulkSearch}
                           onChange={(e) => setBulkSearch(e.target.value)}
                         />
-                        <div className="max-h-32 overflow-y-auto rounded-[10px] border border-white/[0.06] divide-y divide-white/[0.05]">
+                        <div className="max-h-32 overflow-y-auto rounded-[8px] border border-white/[0.06] divide-y divide-white/[0.05]">
                           {bulkPickList.map((e) => (
                             <button
                               key={e.id}

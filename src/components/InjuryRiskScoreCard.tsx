@@ -92,7 +92,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
 
       {warnings.length === 0 ? (
         <div
-          className="rounded-[10px] p-3"
+          className="rounded-[8px] p-3"
           style={{ background: cfg.bg, border: `0.5px solid ${cfg.border}` }}
         >
           <p className="text-[13px] font-medium leading-relaxed" style={{ color: cfg.color }}>
@@ -104,7 +104,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
           {warnings.map((w) => (
             <div
               key={`${w.kind}-${w.muscle ?? 'imbalance'}`}
-              className="rounded-[10px] p-3 flex gap-2"
+              className="rounded-[8px] p-3 flex gap-2"
               style={{ background: cfg.bg, border: `0.5px solid ${cfg.border}` }}
             >
               <i

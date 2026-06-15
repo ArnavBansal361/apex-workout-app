@@ -58,7 +58,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
               </div>
               <button
                 type="button"
-                className="shrink-0 min-h-9 px-2.5 rounded-[10px] border border-white/[0.1] text-[11px] font-medium text-[#ececee] hover:bg-white/[0.06]"
+                className="shrink-0 min-h-9 px-2.5 rounded-[8px] border border-white/[0.1] text-[11px] font-medium text-[#ececee] hover:bg-white/[0.06]"
                 onClick={() => {
                   addPlanExercise(s.id)
                   notify(`Added ${s.name} to today’s plan`)

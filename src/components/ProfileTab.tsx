@@ -274,7 +274,7 @@ export function TopLiftsProgressCard({
           <button
             key={lift.id}
             type="button"
-            className="w-full flex items-center gap-3 rounded-[10px] p-3 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left touch-manipulation"
+            className="w-full flex items-center gap-3 rounded-[8px] p-3 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left touch-manipulation"
             onClick={() => onOpenLibrary?.(lift.id)}
           >
             <div className="flex-1 min-w-0">
@@ -540,7 +540,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
                       <img
                         src={coachImageDataUrl(m.image)}
                         alt={isUser ? 'Photo you sent' : 'Attached'}
-                        className="apex-coach-bubble__image mb-2 max-h-48 w-full rounded-[10px] object-contain bg-black/20"
+                        className="apex-coach-bubble__image mb-2 max-h-48 w-full rounded-[8px] object-contain bg-black/20"
                       />
                     ) : null}
                     {display ? <p className="apex-coach-bubble__text m-0">{display}</p> : null}

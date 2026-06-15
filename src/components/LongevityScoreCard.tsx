@@ -53,7 +53,7 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
         ).map(([label, pts]) => (
           <div
             key={label}
-            className="rounded-[10px] border border-white/[0.06] bg-white/[0.03] px-3 py-2"
+            className="rounded-[8px] border border-white/[0.06] bg-white/[0.03] px-3 py-2"
           >
             <p className="text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
               {label}
