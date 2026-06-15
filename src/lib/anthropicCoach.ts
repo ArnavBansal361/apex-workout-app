@@ -660,7 +660,7 @@ export async function claudeParseImport(
   const hasApiKey = Boolean(
     import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim(),
   )
-  console.log('[Apex Parser] preparing Anthropic parse request', { hasApiKey })
+  if (import.meta.env.DEV) console.log('[Apex Parser] preparing Anthropic parse request', { hasApiKey })
   const apiKey = getAnthropicApiKey()
   const atMs = Date.now()
   const unit = state.settings.unit
@@ -682,7 +682,7 @@ ${rawText.slice(0, 12000)}`
     system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${coachContext}`,
     messages: [{ role: 'user', content: user }],
   }
-  console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_MODEL })
+  if (import.meta.env.DEV) console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_MODEL })
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -694,7 +694,7 @@ ${rawText.slice(0, 12000)}`
     body: JSON.stringify(requestBody),
     signal: options?.signal,
   })
-  console.log('[Apex Parser] Anthropic fetch finished', { status: res.status, ok: res.ok })
+  if (import.meta.env.DEV) console.log('[Apex Parser] Anthropic fetch finished', { status: res.status, ok: res.ok })
   const importRaw = await res.text()
   let data: unknown = {}
   try {
