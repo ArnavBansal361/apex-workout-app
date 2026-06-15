@@ -416,7 +416,13 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
           )
         })
       ) : filter !== 'All' ? (
-        <div className="apex-library-list">{sortedFiltered.map((e) => renderExerciseRow(e))}</div>
+        sortedFiltered.length === 0 ? (
+          <p className="py-8 text-center text-[13px] font-medium text-[#6a6a72]">No exercises found.</p>
+        ) : (
+          <div className="apex-library-list">{sortedFiltered.map((e) => renderExerciseRow(e))}</div>
+        )
+      ) : sortedFiltered.length === 0 && q ? (
+        <p className="py-8 text-center text-[13px] font-medium text-[#6a6a72]">No exercises found.</p>
       ) : (
         GROUP_ORDER.map((mg) => {
           const list = grouped.get(mg)
