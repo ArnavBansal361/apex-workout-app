@@ -64,7 +64,7 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
                 key={mode.id}
                 type="button"
                 aria-pressed={active}
-                className={`w-full rounded-[12px] border px-4 py-3 text-left touch-manipulation transition-colors ${
+                className={`w-full rounded-[8px] border px-4 py-3 text-left touch-manipulation transition-colors ${
                   active
                     ? 'border-white/25 bg-white/[0.1]'
                     : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.14]'
