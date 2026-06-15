@@ -1703,9 +1703,9 @@ function MeTabProfileView({
         <div className="apex-me-friend-code-row">
           <span className="apex-me-friend-code-label">
             Your code:{' '}
-            <strong className="tabular-nums tracking-wide">
+            <span className="tabular-nums tracking-wide font-medium">
               {friendCodeLoading ? '…' : friendCode}
-            </strong>
+            </span>
           </span>
           <button
             type="button"
