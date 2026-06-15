@@ -189,7 +189,7 @@ struct ApexWidgetMediumView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 ApexMountainMark(size: 14)
-                Text("APEX")
+                Text("LIFT")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.55))
             }
@@ -240,7 +240,7 @@ struct ApexWidgetLargeView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 ApexMountainMark(size: 14)
-                Text("APEX")
+                Text("LIFT")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.55))
             }
