@@ -107,7 +107,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
         return (
           <div
             key={tpl.id}
-            className="rounded-[18px] border border-white/[0.07] bg-white/[0.03] overflow-hidden"
+            className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] overflow-hidden"
           >
             <button
               type="button"

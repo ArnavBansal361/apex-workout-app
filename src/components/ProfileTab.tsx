@@ -3049,14 +3049,14 @@ export function ProfileTab({
               <>
                 {clientDetailShare?.workoutLogs ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-[18px] border border-white/[0.055] p-4">
+                    <div className="rounded-[12px] border border-white/[0.055] p-4">
                       <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sessions</p>
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {sessionsThisWeek(clientDetailState)}
                       </p>
                       <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
                     </div>
-                    <div className="rounded-[18px] border border-white/[0.055] p-4">
+                    <div className="rounded-[12px] border border-white/[0.055] p-4">
                       <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {streakCurrent(clientDetailState)}d
