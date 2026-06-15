@@ -116,7 +116,7 @@ export function SpotifyPlayerCard() {
         <button
           type="button"
           disabled={loading}
-          className="apex-btn-primary w-full min-h-12 rounded-[14px] text-[14px] font-medium disabled:opacity-50"
+          className="apex-btn-primary w-full min-h-12 rounded-[8px]  text-[14px] font-medium disabled:opacity-50"
           onClick={() => void connect()}
         >
           {loading ? 'Redirecting…' : 'Connect Spotify'}

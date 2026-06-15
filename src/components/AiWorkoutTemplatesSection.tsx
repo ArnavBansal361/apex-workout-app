@@ -83,7 +83,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
       </p>
 
       {error ? (
-        <div className="rounded-[14px] border border-red-900/40 bg-red-950/20 px-4 py-3">
+        <div className="rounded-[12px] border border-red-900/40 bg-red-950/20 px-4 py-3">
           <p className="text-[13px] font-medium text-red-300/90">{error}</p>
           <button
             type="button"

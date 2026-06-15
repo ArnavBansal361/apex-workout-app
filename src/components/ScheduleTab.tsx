@@ -521,7 +521,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
 
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="inline-flex rounded-[14px] border border-white/[0.1] p-1">
+          <div className="inline-flex rounded-[8px] border border-white/[0.1] p-1">
             <button
               type="button"
               className={`min-h-10 px-4 rounded-[11px] text-[12px] font-medium transition-colors ${
@@ -726,7 +726,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     key={dk}
                     onDragOver={(e) => inWeek && onDragOverDay(e, dk)}
                     onDrop={(e) => inWeek && onDropDay(e, dk)}
-                    className={`min-h-[5.5rem] sm:min-h-[6.5rem] rounded-[14px] p-1.5 sm:p-2 flex flex-col transition-all ${
+                    className={`min-h-[5.5rem] sm:min-h-[6.5rem] rounded-[8px] p-1.5 sm:p-2 flex flex-col transition-all ${
                       !inMonth ? 'opacity-40' : ''
                     } ${isTodayCol && inMonth ? 'bg-white/[0.04]' : ''}`}
                     style={{
@@ -1245,14 +1245,14 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-white/[0.06]">
               <button
                 type="button"
-                className="apex-btn min-h-12 flex-1 text-[14px] font-medium rounded-[14px]"
+                className="apex-btn min-h-12 flex-1 text-[14px] font-medium rounded-[8px]"
                 onClick={() => setPlanWeekOpen(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-medium rounded-[14px]"
+                className="apex-btn-primary min-h-12 flex-1 text-[14px] font-medium rounded-[8px]"
                 onClick={savePlanWeek}
               >
                 Save week

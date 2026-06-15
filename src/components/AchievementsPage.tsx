@@ -144,7 +144,7 @@ export function AchievementsPage({ onClose }: Props) {
           return (
             <div
               key={a.id}
-              className={`rounded-[14px] border p-4 ${
+              className={`rounded-[12px] border p-4 ${
                 ok
                   ? 'bg-[#161616] border-white/[0.1]'
                   : 'bg-[#101012] border-[#252528] opacity-90'
@@ -152,7 +152,7 @@ export function AchievementsPage({ onClose }: Props) {
             >
               <div className="flex gap-4">
                 <div
-                  className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border ${
+                  className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border ${
                     ok ? '' : 'border-[#2a2a2e] bg-[#0d0d0f]'
                   }`}
                   style={ok ? { color: '#ffffff', background: '#1a1a1a' } : { color: '#909098' }}

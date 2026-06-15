@@ -477,7 +477,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             </div>
             <button
               type="button"
-              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[14px] text-[13px] font-medium touch-manipulation"
+              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[8px]  text-[13px] font-medium touch-manipulation"
               onClick={() => {
                 const ex = active
                 if (activeStretch) {
@@ -693,7 +693,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                className="apex-btn flex-1 min-h-12 rounded-[14px] border-white/[0.1]"
+                className="apex-btn flex-1 min-h-12 rounded-[8px] border-white/[0.1]"
                 onClick={() => {
                   setCreateOpen(false)
                   resetCreateForm()
@@ -703,7 +703,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </button>
               <button
                 type="button"
-                className="apex-btn-primary flex-1 min-h-12 rounded-[14px] text-[13px] font-medium"
+                className="apex-btn-primary flex-1 min-h-12 rounded-[8px]  text-[13px] font-medium"
                 onClick={() => {
                   const n = createName.trim()
                   if (!n) {

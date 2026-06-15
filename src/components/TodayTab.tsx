@@ -342,7 +342,7 @@ function WaterLogSheet({
             <button
               key={oz}
               type="button"
-              className="min-h-12 rounded-[14px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
+              className="min-h-12 rounded-[8px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
               onClick={() => onAddOz(oz)}
             >
               +{oz} oz
@@ -350,7 +350,7 @@ function WaterLogSheet({
           ))}
           <button
             type="button"
-            className={`min-h-12 rounded-[14px] border text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
+            className={`min-h-12 rounded-[8px] border text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
               customMode
                 ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
                 : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'
@@ -371,7 +371,7 @@ function WaterLogSheet({
             />
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-medium rounded-[14px]"
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] font-medium rounded-[8px]"
               onClick={() => {
                 const oz = Math.round(Number(customOz))
                 if (!Number.isFinite(oz) || oz <= 0) return
@@ -1084,7 +1084,7 @@ export function TodayTab({
                 />
                 <button
                   type="button"
-                  className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[14px]"
+                  className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[8px]"
                   onClick={() => {
                     const name = cardioName.trim() || 'Cardio'
                     const raw = cardioManualMin.trim()
@@ -1105,7 +1105,7 @@ export function TodayTab({
                   .map((c) => (
                     <li
                       key={c.id}
-                      className="flex items-center justify-between gap-2 rounded-[14px] border border-white/[0.07] px-4 py-3 apex-card-interactive"
+                      className="flex items-center justify-between gap-2 rounded-[8px] border border-white/[0.07] px-4 py-3 apex-card-interactive"
                     >
                       <div>
                         <p className="text-[13px] font-normal text-[#e0e0e0]">{c.name}</p>
@@ -1237,7 +1237,7 @@ export function TodayTab({
               </div>
               <button
                 type="button"
-                className="apex-btn-primary w-full min-h-11 text-[13px] font-medium rounded-[14px]"
+                className="apex-btn-primary w-full min-h-11 text-[13px] font-medium rounded-[8px]"
                 onClick={submitMealDraft}
               >
                 Add meal
@@ -1248,7 +1248,7 @@ export function TodayTab({
                 {mealsToday.map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-start justify-between gap-2 rounded-[14px] border border-white/[0.07] px-4 py-3"
+                    className="flex items-start justify-between gap-2 rounded-[8px] border border-white/[0.07] px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium text-[#ececee] truncate">{m.name}</p>
@@ -1460,7 +1460,7 @@ export function TodayTab({
           </div>
           <button
             type="button"
-            className="apex-btn-primary w-full max-w-[240px] min-h-12 rounded-[14px] text-[14px] font-medium touch-manipulation"
+            className="apex-btn-primary w-full max-w-[240px] min-h-12 rounded-[8px] text-[14px] font-medium touch-manipulation"
             onClick={beginWorkoutFlow}
           >
             Start workout →
@@ -1668,7 +1668,7 @@ export function TodayTab({
           <div className="flex flex-wrap gap-2 shrink-0">
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[14px]"
+              className="apex-btn-primary min-h-11 px-4 shrink-0 text-[13px] rounded-[8px]"
               onClick={async () => {
                 await requestNotificationPermission()
                 completeNotificationPrompt()

@@ -1188,7 +1188,7 @@ export function AiHub({
               </li>
             </ul>
             {importPreview.setLogs?.length ? (
-              <div className="mt-4 max-h-40 overflow-y-auto rounded-[14px] border border-white/[0.08] p-3">
+              <div className="mt-4 max-h-40 overflow-y-auto rounded-[8px] border border-white/[0.08] p-3">
                 <p className="apex-section-label mb-2">Sample sets</p>
                 <ul className="space-y-1 text-[12px] text-[#a8a8b0]">
                   {importPreview.setLogs.slice(0, 8).map((l) => (
@@ -2457,7 +2457,7 @@ export function ProfileTab({
               />
               <button
                 type="button"
-                className="apex-btn-primary min-h-11 px-6 text-[13px] font-medium shrink-0 rounded-[14px]"
+                className="apex-btn-primary min-h-11 px-6 text-[13px] font-medium shrink-0 rounded-[8px] "
                 onClick={() => {
                   const v = Number(bwInput)
                   if (!Number.isFinite(v)) return

@@ -159,7 +159,7 @@ export function BodyMeasurementsSection({
 
       <button
         type="button"
-        className="apex-btn-primary w-full min-h-11 text-[13px] font-medium rounded-[14px] disabled:opacity-50"
+        className="apex-btn-primary w-full min-h-11 text-[13px] font-medium rounded-[8px]  disabled:opacity-50"
         disabled={saving}
         onClick={() => void handleSave()}
       >
