@@ -887,6 +887,15 @@ const COACH_SUGGESTION_SEEDS = [
   'What should I work on today?',
   'Review my progress this week',
   'Design me a workout plan',
+  'How should I fix a plateau?',
+  'Am I recovering well enough?',
+  'What muscles am I neglecting?',
+  'How do I improve my bench press?',
+  'When should I take a deload week?',
+  'What does my weekly volume look like?',
+  'Give me advice on my training balance',
+  'How can I add more intensity this week?',
+  'What should I do on rest days?',
 ] as const
 
 function hashDateKey(todayKey: string): number {
