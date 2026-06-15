@@ -219,7 +219,7 @@ export function Onboarding({ onComplete }: Props) {
               className="apex-onboarding-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Arnav"
+              placeholder="Your name"
               autoComplete="name"
             />
           </OnboardingField>
