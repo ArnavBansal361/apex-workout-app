@@ -3964,7 +3964,7 @@ html[data-apex-theme='light'] html {
   width: 100%;
   min-height: 52px;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #13181f;
   font-size: 16px;
@@ -4028,7 +4028,7 @@ html[data-apex-theme='light'] html {
   min-height: 56px !important;
   height: 56px;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #3d7ab5;
   color: #ffffff;
   font-size: 16px;
@@ -4050,7 +4050,7 @@ html[data-apex-theme='light'] html {
   min-height: 48px !important;
   height: 48px;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #ffffff;
   color: #090d14;
   font-size: 15px;
@@ -4062,7 +4062,7 @@ html[data-apex-theme='light'] html {
   min-height: 48px !important;
   height: 48px;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #3d7ab5;
   color: #ffffff;
   font-size: 15px;
