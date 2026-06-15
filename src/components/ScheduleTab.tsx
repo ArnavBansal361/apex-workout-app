@@ -996,7 +996,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           onClick={() => setPlanWeekOpen(false)}
         >
           <div
-            className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[20px] sm:rounded-[20px] apex-card sm:max-h-[85vh]"
+            className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="shrink-0 p-5 pb-3 border-b border-white/[0.06]">

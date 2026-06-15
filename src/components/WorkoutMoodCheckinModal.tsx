@@ -162,7 +162,6 @@ function RatingSliderCard({
   emojis: readonly string[]
   onChange: (n: number) => void
 }) {
-  const pct = ((value - 1) / 4) * 100
   return (
     <div className="apex-post-workout-card">
       <p className="apex-post-workout-card__label">{label}</p>
@@ -173,9 +172,6 @@ function RatingSliderCard({
         step={1}
         value={value}
         className="apex-post-workout-slider"
-        style={{
-          background: `linear-gradient(to right, #3d7ab5 0%, #3d7ab5 ${pct}%, rgba(255,255,255,0.12) ${pct}%, rgba(255,255,255,0.12) 100%)`,
-        }}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value))}
       />

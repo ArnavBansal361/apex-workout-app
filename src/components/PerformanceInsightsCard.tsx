@@ -18,7 +18,7 @@ export function PerformanceInsightsCard({ className = '' }: { className?: string
           <p className="text-[12px] font-medium text-[#a0a0a8] mb-3 leading-relaxed">
             Patterns from your sleep, nutrition, and logged strength work.
           </p>
-          <div className="rounded-[10px] p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="rounded-[8px] p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.07)' }}>
             <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
               Log sleep, meals, and workouts consistently for 2+ weeks — your performance patterns will appear here.
             </p>

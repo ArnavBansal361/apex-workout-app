@@ -13,7 +13,7 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 ## Supabase
 - Project ID: pmhrdgfwujmusveebswj
 - URL: https://pmhrdgfwujmusveebswj.supabase.co
-- Tables: user_workout_data, leaderboard, trainer_codes, trainer_connections, trainer_notes, body_measurements
+- Tables: user_workout_data, leaderboard, trainer_codes, trainer_connections, trainer_notes, body_measurements, deload_weeks, tended_user_state, friendships
 - Auth: email/password + Google OAuth — RLS on all tables
 
 ## Environment variables (all set in Vercel + .env)

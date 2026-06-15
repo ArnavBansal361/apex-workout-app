@@ -510,7 +510,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           >
             <i className="ti ti-trash" aria-hidden />
           </button>
-          <div className="apex-coach-chat-scroll flex-1 min-h-0 min-w-0 space-y-3 rounded-[16px] p-4 pt-10">
+          <div className="apex-coach-chat-scroll flex-1 min-h-0 min-w-0 space-y-3 rounded-[12px] p-4 pt-10">
             {state.chatMessages.length === 0 ? (
               <p className="apex-coach-empty-hint m-0 font-normal text-[#a8a8b0] leading-relaxed">
                 Ask for form cues, programming ideas, or recovery tips — or attach a photo (form check, meal, etc.).
@@ -950,7 +950,7 @@ function AiInsightsPanel() {
                 cursor={{ stroke: chart.grid }}
                 contentStyle={{
                   background: chart.tooltipBg,
-                  border: `1px solid ${chart.tooltipBorder}`,
+                  border: `0.5px solid ${chart.tooltipBorder}`,
                   borderRadius: 10,
                   color: chart.tooltipText,
                 }}
@@ -2490,7 +2490,7 @@ export function ProfileTab({
                   axisLine={false}
                 />
                 <Tooltip
-                  contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}` }}
+                  contentStyle={{ background: chart.tooltipBg, border: `0.5px solid ${chart.tooltipBorder}` }}
                   labelStyle={{ color: chart.tooltipText }}
                   itemStyle={{ color: chart.tooltipText }}
                 />
@@ -2525,7 +2525,7 @@ export function ProfileTab({
                     axisLine={false}
                   />
                   <Tooltip
-                    contentStyle={{ background: chart.tooltipBg, border: `1px solid ${chart.tooltipBorder}` }}
+                    contentStyle={{ background: chart.tooltipBg, border: `0.5px solid ${chart.tooltipBorder}` }}
                     labelStyle={{ color: chart.tooltipText }}
                     itemStyle={{ color: chart.tooltipText }}
                   />

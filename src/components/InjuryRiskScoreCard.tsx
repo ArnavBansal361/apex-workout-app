@@ -93,7 +93,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
       {warnings.length === 0 ? (
         <div
           className="rounded-[10px] p-3"
-          style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+          style={{ background: cfg.bg, border: `0.5px solid ${cfg.border}` }}
         >
           <p className="text-[13px] font-medium leading-relaxed" style={{ color: cfg.color }}>
             Your training load looks balanced. Keep up the gradual progression.
@@ -105,7 +105,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
             <div
               key={`${w.kind}-${w.muscle ?? 'imbalance'}`}
               className="rounded-[10px] p-3 flex gap-2"
-              style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+              style={{ background: cfg.bg, border: `0.5px solid ${cfg.border}` }}
             >
               <i
                 className="ti ti-alert-triangle shrink-0 mt-0.5 text-[14px]"

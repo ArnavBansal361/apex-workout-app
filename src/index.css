@@ -5042,6 +5042,7 @@ html[data-apex-theme='light'] .apex-settings-segment__btn.is-active {
   appearance: none;
   border-radius: 99px;
   outline: none;
+  background: rgba(255,255,255,0.12);
 }
 
 .apex-post-workout-slider::-webkit-slider-thumb {

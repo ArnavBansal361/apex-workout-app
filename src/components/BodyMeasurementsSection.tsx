@@ -224,7 +224,7 @@ export function BodyMeasurementsSection({
                   <Tooltip
                     contentStyle={{
                       background: chart.tooltipBg,
-                      border: `1px solid ${chart.tooltipBorder}`,
+                      border: `0.5px solid ${chart.tooltipBorder}`,
                     }}
                     labelStyle={{ color: chart.tooltipText }}
                     itemStyle={{ color: chart.tooltipText }}

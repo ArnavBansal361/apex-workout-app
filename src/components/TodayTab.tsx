@@ -1446,7 +1446,7 @@ export function TodayTab({
       {state.setLogs.length === 0 && !state.gymSession.active ? (
         <div className="apex-card p-6 flex flex-col items-center text-center gap-4">
           <div
-            className="w-14 h-14 rounded-[16px] flex items-center justify-center text-[28px]"
+            className="w-14 h-14 rounded-[12px] flex items-center justify-center text-[28px]"
             style={{ background: 'rgba(109,184,122,0.12)' }}
             aria-hidden
           >
