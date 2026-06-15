@@ -44,7 +44,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
       const url = canvas.toDataURL('image/png')
       const a = document.createElement('a')
       a.href = url
-      a.download = `apex-workout-${new Date().toISOString().slice(0, 10)}.png`
+      a.download = `lift-workout-${new Date().toISOString().slice(0, 10)}.png`
       a.click()
     } catch {
       /* ignore */
@@ -152,14 +152,14 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="min-h-12 w-full rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
             onClick={downloadImage}
           >
             Download as image
           </button>
           <button
             type="button"
-            className="min-h-12 w-full rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
             onClick={() => void shareOut()}
           >
             Share text summary
