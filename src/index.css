@@ -4379,7 +4379,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-workout-progress__footer {
-  background: linear-gradient(to top, var(--apex-surface-page) 70%, transparent);
+  background: var(--apex-surface-page);
 }
 
 .apex-workout-log-btn {
