@@ -118,6 +118,7 @@ import {
 } from '../lib/gymBarcode'
 import { coachImageDataUrl, prepareCoachChatImage } from '../lib/coachChatImage'
 import type { AppPersisted, ChatMessage, CoachChatImage } from '../types'
+import { ConfirmDialog } from './ConfirmDialog'
 type Sub = 'stats' | 'ai'
 export type AiSub = 'coach' | 'parser' | 'form' | 'insights'
 
@@ -1904,6 +1905,7 @@ export function ProfileTab({
   const [appearanceFontSize, setAppearanceFontSize] = useState<ApexFontSizeMode>(readFontSizeMode)
   const [bwInput, setBwInput] = useState('')
   const [clearDataBusy, setClearDataBusy] = useState(false)
+  const [confirmClearData, setConfirmClearData] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
   const [gymSettingsOpen, setGymSettingsOpen] = useState(false)
   const [gymDraftNumber, setGymDraftNumber] = useState('')
@@ -2972,31 +2974,7 @@ export function ProfileTab({
               type="button"
               className="w-full min-h-11 mt-6 text-[13px] font-medium text-[#a0a0a8] bg-transparent"
               disabled={clearDataBusy}
-              onClick={() => {
-                const confirmed = window.confirm(
-                  'This will permanently delete all your workout history, PRs, and settings. This cannot be undone.',
-                )
-                if (!confirmed) return
-                setClearDataBusy(true)
-                void (async () => {
-                  try {
-                    await clearUserSupabaseData(userId)
-                  } catch {
-                    /* ignore cloud deletion errors */
-                  }
-                  try {
-                    await supabase.auth.signOut()
-                  } catch {
-                    /* ignore sign-out errors */
-                  }
-                  try {
-                    localStorage.clear()
-                  } catch {
-                    /* ignore */
-                  }
-                  window.location.assign('/')
-                })()
-              }}
+              onClick={() => setConfirmClearData(true)}
             >
               {clearDataBusy ? 'Clearing…' : 'Clear all data'}
             </button>
@@ -3023,7 +3001,7 @@ export function ProfileTab({
             </div>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
               onClick={() => {
                 setSelectedClient(null)
                 setClientDetailState(null)
@@ -3300,6 +3278,25 @@ export function ProfileTab({
       ) : null}
 
     </div>
+
+    <ConfirmDialog
+      open={confirmClearData}
+      title="Clear all data?"
+      message="This permanently deletes your entire workout history, PRs, and settings. This cannot be undone."
+      confirmLabel="Clear all data"
+      destructive
+      onCancel={() => setConfirmClearData(false)}
+      onConfirm={() => {
+        setConfirmClearData(false)
+        setClearDataBusy(true)
+        void (async () => {
+          try { await clearUserSupabaseData(userId) } catch { /* ignore */ }
+          try { await supabase.auth.signOut() } catch { /* ignore */ }
+          try { localStorage.clear() } catch { /* ignore */ }
+          window.location.assign('/')
+        })()
+      }}
+    />
     </>
   )
 }

@@ -130,7 +130,7 @@ export function AchievementsPage({ onClose }: Props) {
           <ApexLogo />
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
             onClick={onClose}
           >
             ✕
@@ -159,7 +159,7 @@ export function AchievementsPage({ onClose }: Props) {
                 >
                   <AchievementGlyph id={a.id} />
                   {!ok ? (
-                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#2a2a2e] bg-[#141416] text-[#a0a0a8]">
+                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[#2a2a2e] bg-[#141416] text-[#a0a0a8]">
                       <LockIcon className="text-[#a0a0a8]" />
                     </span>
                   ) : null}
@@ -171,7 +171,7 @@ export function AchievementsPage({ onClose }: Props) {
                     </p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
-                        ok ? 'text-[#0c0c0c]' : 'text-[#9898a0] bg-[#1a1a1e] border border-[#2a2a2e]'
+                        ok ? 'text-[#0c0c0c]' : 'text-[#9898a0] bg-[#1a1a1e] border-[0.5px] border-[#2a2a2e]'
                       }`}
                       style={ok ? { backgroundColor: '#ffffff' } : undefined}
                     >

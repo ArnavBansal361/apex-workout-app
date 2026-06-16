@@ -37,6 +37,7 @@ export function FullHistory({ onClose }: Props) {
     useWorkout()
   const [exerciseId, setExerciseId] = useState<string>('')
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [confirmClearAll, setConfirmClearAll] = useState(false)
   const [editLog, setEditLog] = useState<SetLog | null>(null)
 
   const filtered = useMemo(
@@ -57,10 +58,6 @@ export function FullHistory({ onClose }: Props) {
   }, [filtered])
 
   function clearAllHistory() {
-    const confirmed = window.confirm(
-      'This will permanently delete your entire workout history. This cannot be undone.',
-    )
-    if (!confirmed) return
     const setIds = state.setLogs.map((l) => l.id)
     const cardioIds = state.cardioEntries.map((c) => c.id)
     const bodyweightIds = state.bodyweightLogs.map((b) => b.id)
@@ -80,7 +77,7 @@ export function FullHistory({ onClose }: Props) {
             <button
               type="button"
               className={`${historyGhostBtn} min-h-11 px-3 text-[12px] font-medium`}
-              onClick={clearAllHistory}
+              onClick={() => setConfirmClearAll(true)}
             >
               Clear all history
             </button>
@@ -192,11 +189,24 @@ export function FullHistory({ onClose }: Props) {
         title="Delete set?"
         message="This removes the log permanently."
         confirmLabel="Delete"
-        destructive={false}
+        destructive
         onCancel={() => setConfirmId(null)}
         onConfirm={() => {
           if (confirmId) deleteSetLog(confirmId)
           setConfirmId(null)
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmClearAll}
+        title="Clear all history?"
+        message="This permanently deletes your entire workout history and cannot be undone."
+        confirmLabel="Clear all"
+        destructive
+        onCancel={() => setConfirmClearAll(false)}
+        onConfirm={() => {
+          setConfirmClearAll(false)
+          clearAllHistory()
         }}
       />
     </div>

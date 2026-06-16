@@ -524,7 +524,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           <div className="inline-flex rounded-[8px] border border-white/[0.1] p-1">
             <button
               type="button"
-              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-medium transition-colors ${
+              className={`min-h-10 px-4 rounded-full text-[12px] font-medium transition-colors ${
                 viewMode === 'week' ? 'text-white' : 'text-white/35 hover:text-white/55'
               }`}
               onClick={() => setViewMode('week')}
@@ -533,7 +533,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             </button>
             <button
               type="button"
-              className={`min-h-10 px-4 rounded-[11px] text-[12px] font-medium transition-colors ${
+              className={`min-h-10 px-4 rounded-full text-[12px] font-medium transition-colors ${
                 viewMode === 'month' ? 'text-white' : 'text-white/35 hover:text-white/55'
               }`}
               onClick={() => {
