@@ -52,6 +52,7 @@ import {
   writeDailyMotivationForDay,
 } from '../lib/dailyMotivation'
 import { buildDailyMotivationInput, claudeParseMeal, fetchDailyMotivation } from '../lib/anthropicCoach'
+import { fetchWeeklyInsight, type WeeklyInsight } from '../lib/weeklyInsight'
 import {
   readGymBarcode,
   renderGymBarcodeToCanvas,
@@ -443,6 +444,7 @@ export function TodayTab({
   const [motivationText, setMotivationText] = useState<string | null>(null)
   const [motivationReady, setMotivationReady] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
+  const [weeklyInsight, setWeeklyInsight] = useState<WeeklyInsight | null>(null)
 
   const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
   const showSundayRecap = isSundayLocal(clock) && !isMondayMorningLocal(clock)
@@ -497,6 +499,12 @@ export function TodayTab({
   useEffect(() => {
     void refreshCoachNote()
   }, [refreshCoachNote])
+
+  useEffect(() => {
+    void fetchWeeklyInsight().then((data) => {
+      if (data) setWeeklyInsight(data)
+    })
+  }, [])
 
   const [logTarget, setLogTarget] = useState<Exercise | null>(null)
   const [gymModeEnabled, setGymModeEnabled] = useState(() => readGymModeEnabled())
@@ -1540,6 +1548,34 @@ export function TodayTab({
           </div>
         </div>
       ) : null}
+
+      {weeklyInsight && (
+        <div className="apex-card p-4 flex flex-col gap-2">
+          <p className="apex-section-label">This week</p>
+          <p style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.5, opacity: 0.85 }}>
+            {weeklyInsight.insight}
+          </p>
+          {weeklyInsight.stats && (
+            <div className="flex gap-4 mt-1">
+              {weeklyInsight.stats.sessions > 0 && (
+                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                  {weeklyInsight.stats.sessions} sessions
+                </span>
+              )}
+              {weeklyInsight.stats.sets > 0 && (
+                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                  {weeklyInsight.stats.sets} sets
+                </span>
+              )}
+              {weeklyInsight.stats.prs > 0 && (
+                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                  {weeklyInsight.stats.prs} PR{weeklyInsight.stats.prs !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {sectionBody('daily-motivation')}
 

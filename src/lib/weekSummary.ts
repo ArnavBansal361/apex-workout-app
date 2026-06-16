@@ -1,5 +1,5 @@
 import type { AppPersisted, MuscleGroup } from '../types'
-import { dateKey, weekStartMonday } from './dates'
+import { weekStartMonday } from './dates'
 import { weeklyVolumeLoadByMuscleLbs } from './volumeStats'
 
 function inWeek(at: number, weekStart: Date, weekEnd: Date): boolean {
