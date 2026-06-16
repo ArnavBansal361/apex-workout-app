@@ -620,10 +620,9 @@ html[data-apex-theme='light'] .apex-modal-overlay {
 
 .apex-daily-motivation-card {
   border-radius: 12px;
-  border: none;
+  border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
   padding: 20px 16px;
-  box-shadow: none;
 }
 
 .apex-daily-motivation-card__label {
@@ -785,7 +784,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   align-items: center;
   gap: 0.75rem;
   padding: 14px 14px 14px 12px;
-  border: none;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   background: var(--apex-surface-card);
   text-align: left;
@@ -1766,7 +1765,7 @@ html[data-apex-theme='light'] .apex-coach-dots span {
   border-radius: 12px;
   background: var(--apex-surface-card);
   padding: 0.5rem 0.875rem;
-  border: none;
+  border: 0.5px solid var(--apex-border);
 }
 
 /* —— Custom checkboxes —— */

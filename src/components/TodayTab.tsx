@@ -1860,7 +1860,7 @@ export function TodayTab({
         >
           <button
             type="button"
-            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 min-h-10 px-4 rounded-full border border-black/15 text-[13px] font-medium text-black touch-manipulation"
+            className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 min-h-10 px-4 rounded-full border-[0.5px] border-black/15 text-[13px] font-medium text-black touch-manipulation"
             onClick={() => setGymCardOpen(false)}
           >
             Close

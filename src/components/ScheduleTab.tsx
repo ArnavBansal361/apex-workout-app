@@ -749,7 +749,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         <div
                           draggable
                           onDragStart={(e) => onDragStartDay(e, dk)}
-                          className="cursor-grab rounded-md p-0.5 text-[10px] text-[#a0a0a8] hover:bg-white/10 active:cursor-grabbing"
+                          className="cursor-grab rounded-[4px] p-0.5 text-[10px] text-[#a0a0a8] hover:bg-white/10 active:cursor-grabbing"
                           title="Drag"
                         >
                           ⣿
@@ -759,7 +759,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     {inWeek ? (
                       <button
                         type="button"
-                        className="mt-1 flex-1 min-h-0 w-full text-left rounded-lg px-0.5"
+                        className="mt-1 flex-1 min-h-0 w-full text-left rounded-[8px] px-0.5"
                         onClick={() => open(dk)}
                       >
                         {hasPlannedWork(sched!) ? (
