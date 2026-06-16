@@ -696,7 +696,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
                 value={createMuscle}
                 onChange={(e) => setCreateMuscle(e.target.value as MuscleGroup)}
               >
-                {(FILTERS.filter((f) => f !== 'All') as MuscleGroup[]).map((mg) => (
+                {(FILTERS.filter((f) => f !== 'All' && f !== 'Favorites') as MuscleGroup[]).map((mg) => (
                   <option key={mg} value={mg}>
                     {mg}
                   </option>
@@ -716,7 +716,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </button>
               <button
                 type="button"
-                className="apex-btn-primary flex-1 min-h-12 rounded-[8px]  text-[13px] font-medium"
+                className="apex-btn-primary flex-1 min-h-12 rounded-[8px] text-[13px] font-medium"
                 onClick={() => {
                   const n = createName.trim()
                   if (!n) {
