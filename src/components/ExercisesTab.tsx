@@ -16,8 +16,9 @@ import { ExerciseMuscleDiagram } from './ExerciseFormGif'
 import { MuscleGroupTargetingCard } from './MuscleGroupTargetingCard'
 import { QuickLogModal } from './QuickLogModal'
 
-const FILTERS: (MuscleGroup | 'All')[] = [
+const FILTERS: (MuscleGroup | 'All' | 'Favorites')[] = [
   'All',
+  'Favorites',
   'Chest',
   'Back',
   'Legs',
@@ -202,7 +203,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
     useWorkout()
   const searchRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
-  const [filter, setFilter] = useState<MuscleGroup | 'All'>('All')
+  const [filter, setFilter] = useState<MuscleGroup | 'All' | 'Favorites'>('All')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -247,7 +248,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     return visibleExercises
-      .filter((e) => filter === 'All' || e.muscleGroup === filter)
+      .filter((e) => filter === 'All' || (filter === 'Favorites' && favoriteSet.has(e.id)) || e.muscleGroup === filter)
       .filter(
         (e) =>
           !s ||
@@ -288,7 +289,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
     return m
   }, [filtered, filter])
 
-  const showTargetingCard = filter !== 'All'
+  const showTargetingCard = filter !== 'All' && filter !== 'Favorites'
   const active = activeId ? visibleExercises.find((e) => e.id === activeId) : null
   const help = active ? getExerciseHelp(active) : null
   const activeStretch = active ? getStretchDefinition(active.id) : null
@@ -397,7 +398,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
         })}
       </div>
 
-      {showTargetingCard ? <MuscleGroupTargetingCard muscleGroup={filter} /> : null}
+      {showTargetingCard ? <MuscleGroupTargetingCard muscleGroup={filter as import('../types').MuscleGroup} /> : null}
 
       {filter === 'Stretches' && stretchSections ? (
         STRETCH_SECTION_ORDER.map((sec) => {
@@ -415,6 +416,12 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             </section>
           )
         })
+      ) : filter === 'Favorites' ? (
+        sortedFiltered.length === 0 ? (
+          <p className="py-8 text-center text-[13px] font-medium text-[#6a6a72]">Star an exercise to save it here.</p>
+        ) : (
+          <div className="apex-library-list">{sortedFiltered.map((e) => renderExerciseRow(e))}</div>
+        )
       ) : filter !== 'All' ? (
         sortedFiltered.length === 0 ? (
           <p className="py-8 text-center text-[13px] font-medium text-[#6a6a72]">No exercises found.</p>
