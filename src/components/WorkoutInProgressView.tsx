@@ -219,7 +219,7 @@ function SessionSetRow({ log, unit, onEdit, onDelete }: SessionSetRowProps) {
       </button>
       <button
         type="button"
-        className="flex shrink-0 items-center justify-center w-11 border-l border-white/[0.08] text-[#7d7d88] touch-manipulation active:bg-red-950/30 active:text-red-400"
+        className="flex shrink-0 items-center justify-center w-11 border-l border-[0.5px] border-white/[0.08] text-[#7d7d88] touch-manipulation active:bg-red-950/30 active:text-red-400"
         aria-label={`Delete ${log.exerciseName} set`}
         onClick={(e) => {
           e.stopPropagation()
@@ -278,7 +278,7 @@ function WorkoutExercisePicker({
         className="w-full max-w-lg max-h-[min(92dvh,40rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-white/[0.08]">
+        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-white/[0.08]">
           <div>
             <p className="apex-section-label">Add exercise</p>
             <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
@@ -518,7 +518,7 @@ export function WorkoutInProgressView({
         )}
 
         {sessionLogs.length > 0 ? (
-          <section className="mt-6 pt-5 border-t border-white/[0.08]" aria-label="Session log">
+          <section className="mt-6 pt-5 border-t border-[0.5px] border-white/[0.08]" aria-label="Session log">
             <h2 className="apex-section-label mb-3">Session log</h2>
             <ul className="space-y-2">
               {sessionLogs.map((log) => (

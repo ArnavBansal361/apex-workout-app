@@ -148,7 +148,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
         
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[#1e1e1e]">
+        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-[#1e1e1e]">
           <div>
             <p className="apex-section-label">Quick log</p>
             <p className="mt-1 text-[12px] font-normal text-[#a0a0a8] leading-relaxed">
@@ -278,7 +278,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
           ) : null}
         </div>
 
-        <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[#1e1e1e]">
+        <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[0.5px] border-[#1e1e1e]">
           <button
             type="button"
             className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"

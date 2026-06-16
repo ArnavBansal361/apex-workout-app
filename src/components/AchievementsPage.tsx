@@ -126,7 +126,7 @@ export function AchievementsPage({ onClose }: Props) {
         className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] bg-[var(--apex-surface-page)] border-[0.5px] border-white/[0.08] overflow-hidden apex-theme-shell"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-4 py-4 border-b border-[#1e1e1e] shrink-0">
+        <header className="flex items-center justify-between px-4 py-4 border-b border-[0.5px] border-[#1e1e1e] shrink-0">
           <ApexLogo />
           <button
             type="button"

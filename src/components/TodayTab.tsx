@@ -1168,7 +1168,7 @@ export function TodayTab({
                 )
               })}
             </div>
-            <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+            <div className="space-y-2 pt-2 border-t border-[0.5px] border-white/[0.06]">
               <p className="text-[11px] font-medium text-[#7d7d88] uppercase tracking-wide">AI meal parser</p>
               <textarea
                 className={`w-full min-h-16 px-3 py-2.5 resize-y ${inp}`}
@@ -1244,7 +1244,7 @@ export function TodayTab({
               </button>
             </div>
             {mealsToday.length > 0 ? (
-              <ul className="space-y-2 pt-2 border-t border-white/[0.06]">
+              <ul className="space-y-2 pt-2 border-t border-[0.5px] border-white/[0.06]">
                 {mealsToday.map((m) => (
                   <li
                     key={m.id}
@@ -1306,7 +1306,7 @@ export function TodayTab({
                       : `${l.durationSec}s timed`}
                   </p>
                   {l.note ? <p className="text-[12px] text-[#a0a0a8] mt-2 leading-relaxed">{l.note}</p> : null}
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[0.5px] border-white/[0.06] pt-3">
                     <p className="apex-section-label opacity-80">
                       {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -1477,7 +1477,7 @@ export function TodayTab({
 
       {state.gymSession.active ? (
         <div
-          className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-white/[0.1] bg-[var(--apex-surface-page)]/95 backdrop-blur-md px-4 py-3 -mt-px"
+          className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-[0.5px] border-white/[0.1] bg-[var(--apex-surface-page)]/95 backdrop-blur-md px-4 py-3 -mt-px"
           role="status"
           aria-live="polite"
         >

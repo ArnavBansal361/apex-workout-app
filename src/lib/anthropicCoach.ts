@@ -771,7 +771,7 @@ Each field: 2–4 short plain sentences. No markdown, bullets, or emoji. Be spec
   }
 }
 
-const CALENDAR_PLAN_MODEL = 'claude-sonnet-4-20250514'
+const CALENDAR_PLAN_MODEL = 'claude-sonnet-4-6'
 
 export type CalendarPlanSuggestion = {
   day: string

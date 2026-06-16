@@ -70,7 +70,7 @@ export function FullHistory({ onClose }: Props) {
 
   return (
     <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)]">
-      <header className="px-4 py-3 border-b border-[rgba(255,255,255,0.08)] shrink-0">
+      <header className="px-4 py-3 border-b border-[0.5px] border-[rgba(255,255,255,0.08)] shrink-0">
         <div className="flex items-center justify-between gap-2 mb-3">
           <ApexLogo size={48} />
           <div className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export function FullHistory({ onClose }: Props) {
                   {l.note ? (
                     <p className="text-[12px] font-normal text-[#a0a0a8] mt-1">{l.note}</p>
                   ) : null}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(255,255,255,0.08)] pt-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[0.5px] border-[rgba(255,255,255,0.08)] pt-3">
                     <p className="apex-section-label">
                       {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>

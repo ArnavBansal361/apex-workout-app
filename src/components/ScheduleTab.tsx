@@ -914,7 +914,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     <button
                       key={e.id}
                       type="button"
-                      className="w-full border-b border-white/[0.05] last:border-b-0 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
+                      className="w-full border-b border-[0.5px] border-white/[0.05] last:border-b-0 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]"
                       onClick={() => {
                         setDraftPlannedIds((ids) => (ids.includes(e.id) ? ids : [...ids, e.id]))
                         setDraftExSearch('')
@@ -999,7 +999,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="shrink-0 p-5 pb-3 border-b border-white/[0.06]">
+            <div className="shrink-0 p-5 pb-3 border-b border-[0.5px] border-white/[0.06]">
               <p className="apex-page-sub">Bulk edit</p>
               <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
               <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
@@ -1052,7 +1052,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       </div>
                     </button>
                     {dayExpanded ? (
-                      <div className="border-t border-white/[0.06] p-4 space-y-3">
+                      <div className="border-t border-[0.5px] border-white/[0.06] p-4 space-y-3">
                     <label className="block">
                       <span className="apex-section-label block mb-1.5">Day plan</span>
                       <select
@@ -1242,7 +1242,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 )
               })}
             </div>
-            <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-white/[0.06]">
+            <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[0.5px] border-white/[0.06]">
               <button
                 type="button"
                 className="apex-btn min-h-12 flex-1 text-[14px] font-medium rounded-[8px]"

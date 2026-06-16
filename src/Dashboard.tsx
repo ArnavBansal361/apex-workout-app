@@ -95,7 +95,7 @@ export function DashboardShell() {
       <PrCelebrationOverlay />
       <GymSpotifyPrompt />
 
-      <aside className="apex-dashboard-nav shrink-0 w-[240px] border-r border-white/[0.08] flex flex-col px-4 py-5">
+      <aside className="apex-dashboard-nav shrink-0 w-[240px] border-r border-[0.5px] border-white/[0.08] flex flex-col px-4 py-5">
         <ApexLogo />
         <nav className="mt-8 flex flex-col gap-1" aria-label="Dashboard">
           {NAV_ITEMS.map((item) => (
@@ -144,7 +144,7 @@ export function DashboardShell() {
         ) : null}
       </main>
 
-      <aside className="apex-dashboard-coach shrink-0 border-l border-white/[0.08] flex flex-col px-4 py-5 min-h-0 min-w-0 overflow-hidden">
+      <aside className="apex-dashboard-coach shrink-0 border-l border-[0.5px] border-white/[0.08] flex flex-col px-4 py-5 min-h-0 min-w-0 overflow-hidden">
         <p className="apex-section-label shrink-0 mb-3">AI</p>
         <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col overflow-hidden">
           <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="sidebar" />

@@ -603,7 +603,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             </button>
           </div>
         ) : null}
-        <div className="flex min-w-0 items-center gap-2 pt-3 border-t border-white/[0.08] mt-2">
+        <div className="flex min-w-0 items-center gap-2 pt-3 border-t border-[0.5px] border-white/[0.08] mt-2">
           <input
             ref={imageInputRef}
             type="file"
@@ -1742,7 +1742,7 @@ function GlobalLeaderboardOverlay({
   if (!open) return null
   return (
     <div className="apex-me-overlay fixed inset-0 z-[92] flex flex-col bg-[#090d14] text-white">
-      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-[0.5px] border-white/[0.06]">
         <button type="button" className="apex-me-back" onClick={onClose}>
           ‹ Back
         </button>
@@ -1788,7 +1788,7 @@ function PrListOverlay({
   if (!open) return null
   return (
     <div className="apex-me-overlay fixed inset-0 z-[92] flex flex-col bg-[#090d14] text-white">
-      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+      <header className="apex-safe-top flex items-center gap-3 px-4 py-3 border-b border-[0.5px] border-white/[0.06]">
         <button type="button" className="apex-me-back" onClick={onClose}>
           ‹ Back
         </button>
@@ -2992,7 +2992,7 @@ export function ProfileTab({
 
       {selectedClient ? (
         <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
-          <header className="px-4 py-3 border-b border-[#1e1e1e] flex items-center justify-between gap-2">
+          <header className="px-4 py-3 border-b border-[0.5px] border-[#1e1e1e] flex items-center justify-between gap-2">
             <div>
               <p className="text-[15px] font-medium text-[#f4f4f5]">{selectedClient.displayName}</p>
               <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5">
@@ -3140,7 +3140,7 @@ export function ProfileTab({
               </>
             )}
           </div>
-          <div className="shrink-0 border-t border-[#1e1e1e] p-4 bg-[var(--apex-surface-page)] space-y-2">
+          <div className="shrink-0 border-t border-[0.5px] border-[#1e1e1e] p-4 bg-[var(--apex-surface-page)] space-y-2">
             <p className="apex-section-label">Coach note</p>
             <textarea
               className="apex-input w-full min-h-20 px-3 py-3 resize-y"

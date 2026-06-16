@@ -129,7 +129,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
             </button>
 
             {open ? (
-              <div className="px-4 pb-4 space-y-3 border-t border-white/[0.06]">
+              <div className="px-4 pb-4 space-y-3 border-t border-[0.5px] border-white/[0.06]">
                 {tpl.days.map((day) => {
                   const label = day.weekday.charAt(0).toUpperCase() + day.weekday.slice(1, 3)
                   const isRest = /^rest$/i.test(day.sessionName) || day.exercises.length === 0

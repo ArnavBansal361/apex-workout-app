@@ -166,7 +166,7 @@ export function BodyMeasurementsSection({
         {saving ? 'Saving…' : 'Save measurements'}
       </button>
 
-      <div className="pt-1 border-t border-white/[0.06]">
+      <div className="pt-1 border-t border-[0.5px] border-white/[0.06]">
         <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-2">History</p>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {BODY_MEASUREMENT_FIELDS.map((field) => {

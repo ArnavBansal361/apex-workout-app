@@ -20,7 +20,7 @@ export function HelpPage({ onClose }: Props) {
 
   return (
     <div className="apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
-      <header className="px-4 pt-3 pb-2 border-b border-[#1e1e1e] space-y-2">
+      <header className="px-4 pt-3 pb-2 border-b border-[0.5px] border-[#1e1e1e] space-y-2">
         <div className="flex items-center justify-between gap-2">
           <ApexLogo />
           <button
@@ -50,7 +50,7 @@ export function HelpPage({ onClose }: Props) {
                 </div>
                 <span className="text-[#a8a8b0] text-lg leading-none">▼</span>
               </summary>
-              <div className="mt-4 border-t border-[#1e1e1e] pt-4 space-y-4">
+              <div className="mt-4 border-t border-[0.5px] border-[#1e1e1e] pt-4 space-y-4">
                 <HelpExerciseAnimation exerciseId={e.id} />
                 <div>
                   <p className="apex-section-label mb-2">Form tips</p>
