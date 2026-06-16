@@ -619,7 +619,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           <button
             type="button"
             disabled={busy}
-            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
+            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
             aria-label="Attach photo"
             onClick={() => imageInputRef.current?.click()}
           >
@@ -629,7 +629,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           <button
             type="button"
             disabled={busy}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border touch-manipulation disabled:opacity-45 transition-colors ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border touch-manipulation disabled:opacity-45 transition-colors ${
               listening
                 ? 'border-[#e07070] bg-[rgba(224,112,112,0.12)] text-[#e07070]'
                 : 'border-white/[0.12] bg-[#121212] text-[#ececee]'
@@ -651,7 +651,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           {/* TTS toggle */}
           <button
             type="button"
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] border touch-manipulation transition-colors ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border touch-manipulation transition-colors ${
               ttsEnabled
                 ? 'border-[var(--apex-accent)] bg-[rgba(var(--apex-accent-rgb,109,184,122),0.12)] text-[var(--apex-accent)]'
                 : 'border-white/[0.12] bg-[#121212] text-[#9898a0]'
@@ -3023,7 +3023,7 @@ export function ProfileTab({
             </div>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
               onClick={() => {
                 setSelectedClient(null)
                 setClientDetailState(null)

@@ -193,7 +193,7 @@ export function ApexStepper({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[20px] leading-none text-[#e0e0e0]"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border border-[#1e1e1e] bg-[#121212] text-[20px] leading-none text-[#e0e0e0]"
           aria-label={`Decrease ${label}`}
           onClick={() => onChange(Math.max(min, value - 1))}
         >
@@ -204,7 +204,7 @@ export function ApexStepper({
         </span>
         <button
           type="button"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] border border-[#1e1e1e] bg-[#121212] text-[20px] leading-none text-[#e0e0e0]"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border border-[#1e1e1e] bg-[#121212] text-[20px] leading-none text-[#e0e0e0]"
           aria-label={`Increase ${label}`}
           onClick={() => onChange(value + 1)}
         >

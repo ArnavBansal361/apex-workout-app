@@ -467,7 +467,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </div>
               <button
                 type="button"
-                className="apex-btn min-h-10 min-w-10 rounded-[12px] text-[#ececee] text-lg leading-none"
+                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[#ececee] text-lg leading-none"
                 onClick={() => setActiveId(null)}
               >
                 ✕
@@ -590,7 +590,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </div>
               <button
                 type="button"
-                className="apex-btn min-h-10 min-w-10 rounded-[12px] text-[#ececee] text-lg leading-none"
+                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[#ececee] text-lg leading-none"
                 onClick={() => {
                   setCreateOpen(false)
                   resetCreateForm()

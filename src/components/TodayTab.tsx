@@ -1117,7 +1117,7 @@ export function TodayTab({
                         </button>
                         <button
                           type="button"
-                          className="rounded-[12px] border border-red-900/50 bg-[#161616] min-h-10 px-3 text-[12px] text-red-500"
+                          className="rounded-[8px] border border-red-900/50 bg-[#161616] min-h-10 px-3 text-[12px] text-red-500"
                           onClick={() => setConfirmCardioId(c.id)}
                         >
                           Delete
@@ -1258,7 +1258,7 @@ export function TodayTab({
                     </div>
                     <button
                       type="button"
-                      className="rounded-[12px] border border-red-900/50 bg-[#161616] min-h-9 px-3 text-[12px] text-red-500 shrink-0"
+                      className="rounded-[8px] border border-red-900/50 bg-[#161616] min-h-9 px-3 text-[12px] text-red-500 shrink-0"
                       onClick={() => setConfirmMealDeleteId(m.id)}
                     >
                       Delete
@@ -1313,7 +1313,7 @@ export function TodayTab({
                     <div className="flex gap-2 shrink-0">
                       <button
                         type="button"
-                        className="apex-btn-primary min-h-9 rounded-[12px] px-3 text-[12px]"
+                        className="apex-btn-primary min-h-9 rounded-[8px] px-3 text-[12px]"
                         onClick={() => {
                           setEditLog(l)
                           setLogTarget(null)
@@ -1323,7 +1323,7 @@ export function TodayTab({
                       </button>
                       <button
                         type="button"
-                        className="apex-btn min-h-9 rounded-[12px] border-red-500/35 bg-red-950/20 px-3 text-[12px] font-medium text-red-400"
+                        className="apex-btn min-h-9 rounded-[8px] border-red-500/35 bg-red-950/20 px-3 text-[12px] font-medium text-red-400"
                         onClick={() => setConfirmDeleteSetId(l.id)}
                       >
                         Delete
@@ -1629,14 +1629,14 @@ export function TodayTab({
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
-              className="apex-btn-primary min-h-11 px-4 text-[13px] font-medium rounded-[12px]"
+              className="apex-btn-primary min-h-11 px-4 text-[13px] font-medium rounded-[8px]"
               onClick={() => applyDeloadWeek()}
             >
               Generate lighter workout
             </button>
             <button
               type="button"
-              className="apex-btn min-h-11 px-4 text-[13px] rounded-[12px]"
+              className="apex-btn min-h-11 px-4 text-[13px] rounded-[8px]"
               onClick={() => dismissDeloadSuggestion()}
             >
               Not this week

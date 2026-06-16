@@ -180,7 +180,7 @@ function WorkoutExerciseRow({
 }
 
 const pickerInputClass =
-  'w-full min-h-12 rounded-[12px] border border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
+  'w-full min-h-12 rounded-[8px] border border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
 
 function formatSessionSetLine(log: SetLog, unit: 'lbs' | 'kg'): string {
   if (log.kind === 'timed') return `${log.durationSec}s timed`
@@ -287,7 +287,7 @@ function WorkoutExercisePicker({
           </div>
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[12px] border border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
+            className="min-h-11 min-w-11 rounded-[8px] border border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
             onClick={onClose}
             aria-label="Close"
           >

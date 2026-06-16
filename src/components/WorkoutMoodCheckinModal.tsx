@@ -40,7 +40,7 @@ function ScaleRow({
               type="button"
               aria-label={`${label} ${n} of 5`}
               aria-pressed={active}
-              className={`flex-1 min-h-10 rounded-[12px] border text-[13px] font-medium tabular-nums touch-manipulation ${
+              className={`flex-1 min-h-10 rounded-[8px] border text-[13px] font-medium tabular-nums touch-manipulation ${
                 active
                   ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
                   : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
