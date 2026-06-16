@@ -24,9 +24,10 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 - VITE_SPOTIFY_CLIENT_ID=99afc76107af4e3abb632efd8833ddeb
 
 ## AI
-- Coach model: claude-opus-4-5 (most capable)
+- Coach chat: claude-opus-4-5 (reasoning, conversational)
+- Everything else (parser, meal parse, summaries, form tips, motivation): claude-sonnet-4-6 (fast, cheap)
+- Templates + calendar planning: claude-sonnet-4-6 (already was)
 - AI Coach: data-first, answers as long as needed, no markdown, passes full athlete context
-- All other AI (parser, templates, summaries): same model
 
 ## Structure
 - 5 tabs (desktop sidebar): Today · Exercises · Schedule · Profile · Settings

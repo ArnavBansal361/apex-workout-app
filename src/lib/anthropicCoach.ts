@@ -12,6 +12,7 @@ import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
 const CLAUDE_MODEL = 'claude-opus-4-5'
+const CLAUDE_FAST_MODEL = 'claude-sonnet-4-6'
 
 function getAnthropicApiKey(): string {
   const k =
@@ -524,7 +525,7 @@ export async function fetchDailyMotivation(input: DailyMotivationInput): Promise
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_FAST_MODEL,
       max_tokens: 120,
       system: `${coachTodaySystemPrefix(Date.now())}\n\n${DAILY_MOTIVATION_SYSTEM}`,
       messages: [{ role: 'user', content: user }],
@@ -590,7 +591,7 @@ ${text}`
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_FAST_MODEL,
       max_tokens: 512,
       system: 'You return only valid JSON, no markdown fences. Estimate macros realistically.',
       messages: [{ role: 'user', content: user }],
@@ -628,7 +629,7 @@ export async function claudeOneSentenceWorkoutSummary(
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_FAST_MODEL,
       max_tokens: 256,
       system: `${coachTodaySystemPrefix(Date.now())}\n\nYou output a single calendar-friendly sentence only. No quotes.\n\n--- Athlete context ---\n${await resolveCoachContextBlock(state, { nowMs: Date.now() })}`,
       messages: [{ role: 'user', content: user }],
@@ -677,12 +678,12 @@ Raw notes:
 ${rawText.slice(0, 12000)}`
   const coachContext = await resolveCoachContextBlock(state, { nowMs: Date.now() })
   const requestBody = {
-    model: CLAUDE_MODEL,
+    model: CLAUDE_FAST_MODEL,
     max_tokens: 8192,
     system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${coachContext}`,
     messages: [{ role: 'user', content: user }],
   }
-  if (import.meta.env.DEV) console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_MODEL })
+  if (import.meta.env.DEV) console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_FAST_MODEL })
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -736,7 +737,7 @@ Each field: 2–4 short plain sentences. No markdown, bullets, or emoji. Be spec
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_FAST_MODEL,
       max_tokens: 720,
       system: `${coachTodaySystemPrefix(Date.now())}\n\nYou write concise strength-training form guidance. Return only valid JSON with the three requested keys.`,
       messages: [{ role: 'user', content: user }],

@@ -678,7 +678,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
 .apex-today-quick-card {
   height: 80px;
   padding: 10px 12px;
-  border: none;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   background: #13181f;
   display: flex;
@@ -915,7 +915,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
 .apex-today-more__quick-card {
   height: 80px;
   padding: 10px 12px;
-  border: none;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   background: #13181f;
   display: flex;
