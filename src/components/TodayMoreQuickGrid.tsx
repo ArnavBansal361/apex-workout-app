@@ -113,7 +113,8 @@ function formatVolumeShort(lbs: number, unit: 'lbs' | 'kg'): string {
   return `${Math.round(display)} ${unit}`
 }
 
-function ozToLiters(oz: number): string {
+function formatWater(oz: number, unit: 'lbs' | 'kg'): string {
+  if (unit === 'lbs') return `${Math.round(oz)} oz`
   return `${(oz * 0.0295735).toFixed(1)} L`
 }
 
@@ -182,7 +183,7 @@ export function TodayMoreQuickGrid({ activeId, onSelect }: Props) {
       visual: <MiniSparkline values={cardioSpark} stroke="#3d7ab5" />,
     },
     'water-tracker': {
-      stat: ozToLiters(waterTodayOz),
+      stat: formatWater(waterTodayOz, unit),
       visual: <WaterRing progress={waterProgress} />,
     },
     'sleep-tracker': {
