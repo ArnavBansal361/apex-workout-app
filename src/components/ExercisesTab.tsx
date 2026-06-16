@@ -490,7 +490,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             </div>
             <button
               type="button"
-              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[8px]  text-[13px] font-medium touch-manipulation"
+              className="apex-btn-primary mt-4 w-full min-h-12 rounded-[8px] text-[13px] font-medium touch-manipulation"
               onClick={() => {
                 const ex = active
                 if (activeStretch) {

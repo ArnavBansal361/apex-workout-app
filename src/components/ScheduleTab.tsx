@@ -700,7 +700,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               {WEEKDAY_LABELS.map((label, colIdx) => (
                 <div
                   key={label}
-                  className={`text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.12em] py-1 rounded-t-md ${
+                  className={`text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.12em] py-1 rounded-t-[4px] ${
                     colIdx === todayColIdx
                       ? 'text-[#f4f4f5] bg-white/[0.08]'
                       : 'text-[#9898a0]'
