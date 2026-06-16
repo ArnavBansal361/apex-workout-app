@@ -137,7 +137,7 @@ function EditSetLogModalInner({ log, unit, onClose, onSave }: InnerProps) {
       <div className="mt-5 flex gap-3">
         <button
           type="button"
-          className="min-h-12 flex-1 rounded-[12px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+          className="min-h-12 flex-1 rounded-[8px] border border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
           onClick={onClose}
         >
           Cancel

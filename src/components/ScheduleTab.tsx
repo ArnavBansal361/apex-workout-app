@@ -668,7 +668,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="flex items-center justify-between gap-3 mb-2">
               <button
                 type="button"
-                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[12px]"
+                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[8px]"
                 onClick={() =>
                   setCalendarMonth(
                     new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
@@ -681,7 +681,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               <h2 className="text-lg font-medium text-[#f4f4f5] tracking-tight text-center flex-1">{monthLabel}</h2>
               <button
                 type="button"
-                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[12px]"
+                className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[8px]"
                 onClick={() =>
                   setCalendarMonth(
                     new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),

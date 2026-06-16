@@ -165,7 +165,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                 })}
                 <button
                   type="button"
-                  className="apex-btn-primary w-full min-h-11 rounded-[12px] text-[13px] font-medium touch-manipulation"
+                  className="apex-btn-primary w-full min-h-11 rounded-[8px] text-[13px] font-medium touch-manipulation"
                   onClick={() => applyAiWeeklyTemplate(tpl)}
                 >
                   Apply to this week
