@@ -1552,23 +1552,23 @@ export function TodayTab({
       {weeklyInsight && (
         <div className="apex-card p-4 flex flex-col gap-2">
           <p className="apex-section-label">This week</p>
-          <p style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.5, opacity: 0.85 }}>
+          <p className="text-[14px] font-normal text-[#e0e0e0] leading-relaxed">
             {weeklyInsight.insight}
           </p>
           {weeklyInsight.stats && (
             <div className="flex gap-4 mt-1">
               {weeklyInsight.stats.sessions > 0 && (
-                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                <span className="text-[11px] font-normal text-[#a0a0a8]">
                   {weeklyInsight.stats.sessions} sessions
                 </span>
               )}
               {weeklyInsight.stats.sets > 0 && (
-                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                <span className="text-[11px] font-normal text-[#a0a0a8]">
                   {weeklyInsight.stats.sets} sets
                 </span>
               )}
               {weeklyInsight.stats.prs > 0 && (
-                <span style={{ fontSize: 11, opacity: 0.4, fontWeight: 400 }}>
+                <span className="text-[11px] font-normal text-[#a0a0a8]">
                   {weeklyInsight.stats.prs} PR{weeklyInsight.stats.prs !== 1 ? 's' : ''}
                 </span>
               )}

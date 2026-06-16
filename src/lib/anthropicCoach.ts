@@ -922,7 +922,57 @@ function seededShuffle<T>(arr: readonly T[], seed: number): T[] {
   return a
 }
 
-/** Same three prompts, order shuffled by calendar day. */
-export function dailyCoachSuggestions(todayDateKey: string): string[] {
-  return seededShuffle(COACH_SUGGESTION_SEEDS, hashDateKey(todayDateKey))
+/** Context-aware suggestions: prioritize prompts most relevant to the user's current state. */
+export function dailyCoachSuggestions(todayDateKey: string, state?: AppPersisted): string[] {
+  if (!state) return seededShuffle(COACH_SUGGESTION_SEEDS, hashDateKey(todayDateKey))
+
+  const seed = hashDateKey(todayDateKey)
+  const priority: string[] = []
+
+  // Deload: suggest talking about it if active or due
+  const weekStartStr = weekStartMonday(new Date()).toISOString().split('T')[0]
+  const isDeloadActive = state.deloadActiveWeekStart === weekStartStr
+  if (isDeloadActive) {
+    priority.push('How do I make the most of a deload week?')
+  }
+
+  // Streak: if they have a streak going, surface recovery awareness
+  const workoutDays = workoutDaysFromLogs(state.setLogs)
+  const streakDays = workoutDays.size
+  if (streakDays >= 5) {
+    priority.push('Am I recovering well enough?')
+  }
+
+  // If nothing logged today, push "what should I work on today"
+  const todayLogs = state.setLogs.filter((l) => dateKey(new Date(l.at)) === todayDateKey)
+  if (todayLogs.length === 0) {
+    priority.push('What should I work on today?')
+  }
+
+  // Check muscle balance: if setLogs show heavy push/pull imbalance, surface it
+  const muscleCounts: Record<string, number> = {}
+  const recentCutoff = Date.now() - 14 * 24 * 60 * 60 * 1000
+  for (const l of state.setLogs) {
+    if (l.at >= recentCutoff) {
+      muscleCounts[l.muscleGroup] = (muscleCounts[l.muscleGroup] ?? 0) + 1
+    }
+  }
+  const back = muscleCounts['Back'] ?? 0
+  const chest = muscleCounts['Chest'] ?? 0
+  const legs = muscleCounts['Legs'] ?? 0
+  const shoulders = muscleCounts['Shoulders'] ?? 0
+  if (Math.abs(back - chest) > 6 || legs < 2 || shoulders < 2) {
+    priority.push('What muscles am I neglecting?')
+  }
+
+  // Weekly progress review — push mid/late week
+  const dayOfWeek = new Date().getDay() // 0=Sun
+  if (dayOfWeek >= 4) {
+    priority.push('Review my progress this week')
+  }
+
+  // Fill remaining slots from shuffled seeds (deduplicate)
+  const seen = new Set(priority)
+  const filler = seededShuffle(COACH_SUGGESTION_SEEDS, seed).filter((s) => !seen.has(s))
+  return [...priority, ...filler].slice(0, COACH_SUGGESTION_SEEDS.length)
 }

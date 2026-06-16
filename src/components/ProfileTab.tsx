@@ -385,7 +385,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
     recognitionRef.current = rec
     setListening(true)
   }
-  const coachSuggestions = useMemo(() => dailyCoachSuggestions(todayKey), [todayKey])
+  const coachSuggestions = useMemo(() => dailyCoachSuggestions(todayKey, state), [todayKey, state])
 
   async function onAttachImage(file: File) {
     try {
