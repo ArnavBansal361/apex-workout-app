@@ -146,7 +146,7 @@ export function SpotifyPlayerCard() {
           <button
             type="button"
             disabled={controlBusy}
-            className="apex-spotify-player__play flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[#f0f0f2] touch-manipulation disabled:opacity-45 active:scale-95"
+            className="apex-spotify-player__play flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[0.5px] border-white/[0.12] bg-white/[0.06] text-[#f0f0f2] touch-manipulation disabled:opacity-45 active:scale-95"
             aria-label={nowPlaying.isPlaying ? 'Pause' : 'Play'}
             onClick={() => void togglePlay()}
           >

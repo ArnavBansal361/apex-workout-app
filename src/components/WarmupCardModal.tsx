@@ -47,7 +47,7 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
           {plan.movements.map((m, i) => (
             <li
               key={`${m.name}-${i}`}
-              className="rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3"
+              className="rounded-[12px] border-[0.5px] border-white/[0.08] bg-white/[0.03] px-3.5 py-3"
             >
               <p className="text-[13px] font-medium text-[#ececee]">
                 {i + 1}. {m.name}

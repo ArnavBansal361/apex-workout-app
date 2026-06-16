@@ -590,11 +590,11 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             <img
               src={coachImageDataUrl(pendingImage)}
               alt="Photo to send"
-              className="max-h-24 max-w-full rounded-[12px] border border-white/[0.12] object-contain bg-black/30"
+              className="max-h-24 max-w-full rounded-[12px] border-[0.5px] border-white/[0.12] object-contain bg-black/30"
             />
             <button
               type="button"
-              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.15] bg-[#1a1a1a] text-[#ececee] text-[14px] touch-manipulation"
+              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-white/[0.15] bg-[#1a1a1a] text-[#ececee] text-[14px] touch-manipulation"
               aria-label="Remove photo"
               disabled={busy}
               onClick={() => setPendingImage(null)}
@@ -620,7 +620,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           <button
             type="button"
             disabled={busy}
-            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
+            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
             aria-label="Attach photo"
             onClick={() => imageInputRef.current?.click()}
           >
@@ -1189,7 +1189,7 @@ export function AiHub({
               </li>
             </ul>
             {importPreview.setLogs?.length ? (
-              <div className="mt-4 max-h-40 overflow-y-auto rounded-[8px] border border-white/[0.08] p-3">
+              <div className="mt-4 max-h-40 overflow-y-auto rounded-[8px] border-[0.5px] border-white/[0.08] p-3">
                 <p className="apex-section-label mb-2">Sample sets</p>
                 <ul className="space-y-1 text-[12px] text-[#a8a8b0]">
                   {importPreview.setLogs.slice(0, 8).map((l) => (
@@ -3027,14 +3027,14 @@ export function ProfileTab({
               <>
                 {clientDetailShare?.workoutLogs ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-[12px] border border-white/[0.055] p-4">
+                    <div className="rounded-[12px] border-[0.5px] border-white/[0.055] p-4">
                       <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sessions</p>
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {sessionsThisWeek(clientDetailState)}
                       </p>
                       <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
                     </div>
-                    <div className="rounded-[12px] border border-white/[0.055] p-4">
+                    <div className="rounded-[12px] border-[0.5px] border-white/[0.055] p-4">
                       <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {streakCurrent(clientDetailState)}d

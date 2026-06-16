@@ -342,7 +342,7 @@ function WaterLogSheet({
             <button
               key={oz}
               type="button"
-              className="min-h-12 rounded-[8px] border border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
+              className="min-h-12 rounded-[8px] border-[0.5px] border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
               onClick={() => onAddOz(oz)}
             >
               +{oz} oz
@@ -1105,7 +1105,7 @@ export function TodayTab({
                   .map((c) => (
                     <li
                       key={c.id}
-                      className="flex items-center justify-between gap-2 rounded-[8px] border border-white/[0.07] px-4 py-3 apex-card-interactive"
+                      className="flex items-center justify-between gap-2 rounded-[8px] border-[0.5px] border-white/[0.07] px-4 py-3 apex-card-interactive"
                     >
                       <div>
                         <p className="text-[13px] font-normal text-[#e0e0e0]">{c.name}</p>
@@ -1158,7 +1158,7 @@ export function TodayTab({
                         {row.unit}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.05]">
+                    <div className="h-1.5 rounded-full bg-[#1a1a1e] overflow-hidden border-[0.5px] border-white/[0.05]">
                       <div
                         className="h-full rounded-full bg-[#ececee] transition-all duration-300"
                         style={{ width: `${Math.round(pct * 100)}%` }}
@@ -1248,7 +1248,7 @@ export function TodayTab({
                 {mealsToday.map((m) => (
                   <li
                     key={m.id}
-                    className="flex items-start justify-between gap-2 rounded-[8px] border border-white/[0.07] px-4 py-3"
+                    className="flex items-start justify-between gap-2 rounded-[8px] border-[0.5px] border-white/[0.07] px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium text-[#ececee] truncate">{m.name}</p>
@@ -1572,13 +1572,13 @@ export function TodayTab({
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-3">
               {weekRecap.totalSets > 0 ? (
-                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
+                <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sets</p>
                   <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
                 </div>
               ) : null}
               {weekRecap.totalVolumeLbs > 0 ? (
-                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3">
+                <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Volume</p>
                   <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">
                     {weekRecap.totalVolumeLbs.toLocaleString()} lb
@@ -1587,7 +1587,7 @@ export function TodayTab({
               ) : null}
               {weekRecap.muscleGroups.length > 0 ? (
                 <div
-                  className={`rounded-[12px] border border-white/[0.06] px-3 py-3 ${
+                  className={`rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3 ${
                     weekRecap.totalSets > 0 && weekRecap.totalVolumeLbs > 0 ? 'col-span-2' : ''
                   }`}
                 >
@@ -1598,7 +1598,7 @@ export function TodayTab({
                 </div>
               ) : null}
               {weekRecap.prCount > 0 ? (
-                <div className="rounded-[12px] border border-white/[0.06] px-3 py-3 col-span-2">
+                <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3 col-span-2">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">PRs hit</p>
                   <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.prCount}</p>
                 </div>
@@ -1649,7 +1649,7 @@ export function TodayTab({
       ) : null}
 
       {deloadWeekActive ? (
-        <div className="apex-card px-5 py-3 border border-white/[0.08]">
+        <div className="apex-card px-5 py-3 border-[0.5px] border-white/[0.08]">
           <p className="text-[13px] font-medium text-[#c8c8ce] leading-relaxed">
             <span className="font-medium text-[#ececee]">Deload week active.</span> Same plan and
             reps — weights prefill at 60% of your last session.
@@ -1658,7 +1658,7 @@ export function TodayTab({
       ) : null}
 
       {state.onboardingComplete && !state.notificationPromptDone ? (
-        <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-white/[0.08]">
+        <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-[0.5px] border-white/[0.08]">
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
             <p className="text-[14px] font-medium text-[#d4d4d8] leading-snug">

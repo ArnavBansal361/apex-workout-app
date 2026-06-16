@@ -496,7 +496,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   <span className="w-24 shrink-0 text-[11px] font-medium text-[#a0a0a8]">
                     {group}
                   </span>
-                  <div className="flex-1 min-w-0 h-2.5 rounded-full bg-white/[0.06] border border-white/[0.06] overflow-hidden">
+                  <div className="flex-1 min-w-0 h-2.5 rounded-full bg-white/[0.06] border-[0.5px] border-white/[0.06] overflow-hidden">
                     <div
                       className="h-full rounded-full transition-[width] duration-300"
                       style={{
@@ -521,7 +521,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
 
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="inline-flex rounded-[8px] border border-white/[0.1] p-1">
+          <div className="inline-flex rounded-[8px] border-[0.5px] border-white/[0.1] p-1">
             <button
               type="button"
               className={`min-h-10 px-4 rounded-full text-[12px] font-medium transition-colors ${
@@ -841,7 +841,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     <button
                       key={p.id}
                       type="button"
-                      className="rounded-[12px] border border-white/[0.08] px-3 py-3 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04] active:scale-[0.99]"
+                      className="rounded-[12px] border-[0.5px] border-white/[0.08] px-3 py-3 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04] active:scale-[0.99]"
                       onClick={() => {
                         setDraftPlannedIds(resolved)
                         setDraftExSearch('')
@@ -877,7 +877,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       <button
                         key={t.id}
                         type="button"
-                        className="rounded-[12px] border border-white/[0.08] px-3 py-3 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04] active:scale-[0.99]"
+                        className="rounded-[12px] border-[0.5px] border-white/[0.08] px-3 py-3 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04] active:scale-[0.99]"
                         onClick={() => {
                           setDraftPlannedIds(resolved)
                           setDraftExSearch('')
@@ -908,7 +908,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 onChange={(e) => setDraftExSearch(e.target.value)}
                 placeholder="Search your library…"
               />
-              <div className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border border-white/[0.08]">
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-white/[0.08]">
                 {pickList.length ? (
                   pickList.map((e) => (
                     <button
@@ -940,7 +940,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     return (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-medium text-[#e4e4e8]"
+                        className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-medium text-[#e4e4e8]"
                       >
                         {ex.name}
                         <button
@@ -1159,14 +1159,14 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         : `Exercises (${row.plannedExerciseIds.length}) — tap to edit`}
                     </button>
                     {exercisesExpanded ? (
-                      <div className="rounded-[12px] border border-white/[0.06] p-3 space-y-2">
+                      <div className="rounded-[12px] border-[0.5px] border-white/[0.06] p-3 space-y-2">
                         <input
                           className="apex-input w-full min-h-10 px-3 text-[13px]"
                           placeholder="Search library…"
                           value={bulkSearch}
                           onChange={(e) => setBulkSearch(e.target.value)}
                         />
-                        <div className="max-h-32 overflow-y-auto rounded-[8px] border border-white/[0.06] divide-y divide-white/[0.05]">
+                        <div className="max-h-32 overflow-y-auto rounded-[8px] border-[0.5px] border-white/[0.06] divide-y divide-white/[0.05]">
                           {bulkPickList.map((e) => (
                             <button
                               key={e.id}
@@ -1195,7 +1195,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex items-center gap-0.5 rounded-full border border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-medium text-[#e0e0e4]"
+                                  className="inline-flex items-center gap-0.5 rounded-full border-[0.5px] border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-medium text-[#e0e0e4]"
                                 >
                                   {ex.name}
                                   <button

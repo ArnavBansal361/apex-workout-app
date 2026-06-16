@@ -210,7 +210,7 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
           </>
         ) : (
           <>
-            <div className="mt-5 rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-4 py-4">
+            <div className="mt-5 rounded-[12px] border-[0.5px] border-white/[0.08] bg-white/[0.03] px-4 py-4">
               <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#a0a0a8]">
                 Recommendation
               </p>

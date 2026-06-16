@@ -180,7 +180,7 @@ function WorkoutExerciseRow({
 }
 
 const pickerInputClass =
-  'w-full min-h-12 rounded-[8px] border border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
+  'w-full min-h-12 rounded-[8px] border-[0.5px] border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
 
 function formatSessionSetLine(log: SetLog, unit: 'lbs' | 'kg'): string {
   if (log.kind === 'timed') return `${log.durationSec}s timed`
@@ -201,7 +201,7 @@ type SessionSetRowProps = {
 
 function SessionSetRow({ log, unit, onEdit, onDelete }: SessionSetRowProps) {
   return (
-    <li className="flex items-stretch gap-0 rounded-[12px] border border-white/[0.08] bg-[var(--apex-surface-card)] overflow-hidden">
+    <li className="flex items-stretch gap-0 rounded-[12px] border-[0.5px] border-white/[0.08] bg-[var(--apex-surface-card)] overflow-hidden">
       <button
         type="button"
         className="flex flex-1 min-w-0 items-center justify-between gap-3 px-3 py-2.5 text-left touch-manipulation active:bg-white/[0.04]"
@@ -287,7 +287,7 @@ function WorkoutExercisePicker({
           </div>
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
             onClick={onClose}
             aria-label="Close"
           >
@@ -306,7 +306,7 @@ function WorkoutExercisePicker({
               autoFocus
             />
           </label>
-          <ul className="mt-2 max-h-[min(50vh,20rem)] overflow-y-auto rounded-[12px] border border-white/[0.08] bg-[var(--apex-surface-card)] divide-y divide-white/[0.06]">
+          <ul className="mt-2 max-h-[min(50vh,20rem)] overflow-y-auto rounded-[12px] border-[0.5px] border-white/[0.08] bg-[var(--apex-surface-card)] divide-y divide-white/[0.06]">
             {filtered.length === 0 ? (
               <li className="px-3 py-3 text-[13px] font-medium text-[#a0a0a8]">
                 {planExerciseIds.length >= visibleExercises.length

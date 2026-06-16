@@ -42,7 +42,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
         {suggestions.map((s) => (
           <li
             key={s.id}
-            className="rounded-[12px] border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+            className="rounded-[12px] border-[0.5px] border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -58,7 +58,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
               </div>
               <button
                 type="button"
-                className="shrink-0 min-h-9 px-2.5 rounded-[8px] border border-white/[0.1] text-[11px] font-medium text-[#ececee] hover:bg-white/[0.06]"
+                className="shrink-0 min-h-9 px-2.5 rounded-[8px] border-[0.5px] border-white/[0.1] text-[11px] font-medium text-[#ececee] hover:bg-white/[0.06]"
                 onClick={() => {
                   addPlanExercise(s.id)
                   notify(`Added ${s.name} to today’s plan`)

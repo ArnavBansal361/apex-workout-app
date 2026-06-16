@@ -177,7 +177,7 @@ export function BodyMeasurementsSection({
                 key={field}
                 type="button"
                 className={`min-h-9 px-3 rounded-full text-[11px] font-medium transition-colors touch-manipulation ${
-                  on ? 'apex-accent-pill-active' : 'border border-white/[0.12] text-[#a0a0a8]'
+                  on ? 'apex-accent-pill-active' : 'border-[0.5px] border-white/[0.12] text-[#a0a0a8]'
                 }`}
                 onClick={() => setChartField(field)}
               >

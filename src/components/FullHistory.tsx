@@ -14,9 +14,9 @@ const historyCard =
   'rounded-[12px] border-[0.5px] bg-[var(--apex-surface-card)] [border-color:var(--apex-border)]'
 const historyField = `${historyCard} w-full min-h-12 px-3 py-2.5 text-[13px] font-normal text-[color:var(--apex-text-primary)] [color-scheme:light]`
 const historyGhostBtn =
-  'rounded-[8px] border border-[rgba(255,255,255,0.15)] bg-transparent text-[#e0e0e0]'
+  'rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.15)] bg-transparent text-[#e0e0e0]'
 const historyEditBtn =
-  'min-h-9 px-3 text-[12px] font-medium rounded-[8px] border border-[rgba(255,255,255,0.12)] bg-transparent text-[#e0e0e0]'
+  'min-h-9 px-3 text-[12px] font-medium rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.12)] bg-transparent text-[#e0e0e0]'
 
 function formatHistoryDayLabel(dayKey: string): string {
   return parseDateKey(dayKey).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })

@@ -123,7 +123,7 @@ export function AchievementsPage({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] bg-[var(--apex-surface-page)] border border-white/[0.08] overflow-hidden apex-theme-shell"
+        className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] bg-[var(--apex-surface-page)] border-[0.5px] border-white/[0.08] overflow-hidden apex-theme-shell"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-4 py-4 border-b border-[#1e1e1e] shrink-0">
@@ -192,7 +192,7 @@ export function AchievementsPage({ onClose }: Props) {
                         {prog.current} / {prog.target}
                       </span>
                     </div>
-                    <div className="mt-1.5 h-2 w-full rounded-full bg-[#1a1a1e] overflow-hidden border border-white/[0.04]">
+                    <div className="mt-1.5 h-2 w-full rounded-full bg-[#1a1a1e] overflow-hidden border-[0.5px] border-white/[0.04]">
                       <div
                         className="h-full rounded-full transition-[width] duration-300"
                         style={{
