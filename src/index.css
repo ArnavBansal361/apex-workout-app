@@ -1377,6 +1377,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
 
 .apex-library-target-card {
   border-radius: 12px;
+  border: 0.5px solid var(--apex-border);
   background: #13181f;
   padding: 14px 14px 12px;
 }
@@ -1658,6 +1659,8 @@ html[data-apex-theme='light'] .apex-coach-dots span {
   margin: 0 auto;
   max-width: 480px;
   background: #13181f;
+  border: 0.5px solid var(--apex-border);
+  border-bottom: none;
   border-radius: 12px 12px 0 0;
   overflow: hidden;
   transform: translateY(100%);
@@ -3156,6 +3159,8 @@ html[data-apex-theme='light'] html {
 
 .apex-log-set-sheet {
   background: #13181f;
+  border: 0.5px solid var(--apex-border);
+  border-bottom: none;
   border-radius: 12px 12px 0 0;
   padding: 0 16px;
   touch-action: pan-y;
@@ -3210,6 +3215,7 @@ html[data-apex-theme='light'] html {
 
 .apex-log-set-sheet__stepper-card {
   background: #1a2028;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   padding: 16px 10px;
   min-width: 0;
@@ -3299,6 +3305,7 @@ html[data-apex-theme='light'] html {
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: 12px;
+  border: 0.5px solid var(--apex-border);
   background: #1a2028;
   text-align: left;
 }
@@ -3475,6 +3482,7 @@ html[data-apex-theme='light'] html {
 
 .apex-me-stat-card {
   background: #13181f;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   padding: 16px;
 }
@@ -3533,6 +3541,7 @@ html[data-apex-theme='light'] html {
 
 .apex-me-card {
   background: #13181f;
+  border: 0.5px solid var(--apex-border);
   border-radius: 12px;
   padding: 4px 16px 8px;
 }
@@ -4093,6 +4102,7 @@ html[data-apex-theme='light'] html {
   gap: 12px;
   padding: 16px;
   border-radius: 12px;
+  border: 0.5px solid var(--apex-border);
   background: #13181f;
 }
 
@@ -4653,6 +4663,7 @@ html[data-apex-theme='light'] html {
 
 .apex-settings-v2-card {
   border-radius: 12px;
+  border: 0.5px solid var(--apex-border);
   background: #13181f;
   overflow: hidden;
 }
@@ -5021,6 +5032,7 @@ html[data-apex-theme='light'] .apex-settings-segment__btn.is-active {
 .apex-post-workout-card {
   padding: 20px;
   border-radius: 12px;
+  border: 0.5px solid var(--apex-border);
   background: #13181f;
 }
 
