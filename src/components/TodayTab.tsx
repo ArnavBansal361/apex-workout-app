@@ -350,7 +350,7 @@ function WaterLogSheet({
           ))}
           <button
             type="button"
-            className={`min-h-12 rounded-[8px] border text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
+            className={`min-h-12 rounded-[8px] border-[0.5px] text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
               customMode
                 ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
                 : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'

@@ -530,7 +530,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
                   }`}
                 >
                   <div
-                    className={`apex-coach-bubble w-full min-w-0 max-w-full rounded-[12px] font-normal border ${
+                    className={`apex-coach-bubble w-full min-w-0 max-w-full rounded-[12px] font-normal border-[0.5px] ${
                       isUser
                         ? 'apex-coach-bubble--user text-white border-transparent'
                         : 'apex-coach-bubble--model apex-coach-bubble-ai border-white/[0.08] text-white'
@@ -630,7 +630,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           <button
             type="button"
             disabled={busy}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border touch-manipulation disabled:opacity-45 transition-colors ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] touch-manipulation disabled:opacity-45 transition-colors ${
               listening
                 ? 'border-[#e07070] bg-[rgba(224,112,112,0.12)] text-[#e07070]'
                 : 'border-white/[0.12] bg-[#121212] text-[#ececee]'
@@ -652,7 +652,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           {/* TTS toggle */}
           <button
             type="button"
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border touch-manipulation transition-colors ${
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] touch-manipulation transition-colors ${
               ttsEnabled
                 ? 'border-[var(--apex-accent)] bg-[rgba(var(--apex-accent-rgb,109,184,122),0.12)] text-[var(--apex-accent)]'
                 : 'border-white/[0.12] bg-[#121212] text-[#9898a0]'

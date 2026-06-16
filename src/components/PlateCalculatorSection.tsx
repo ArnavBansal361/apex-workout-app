@@ -73,7 +73,7 @@ export function PlateCalculatorSection({ totalWeight, unit, barPrefs, onBarPrefs
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className={`min-h-9 rounded-[8px] border px-3 text-[12px] font-medium touch-manipulation ${
+          className={`min-h-9 rounded-[8px] border-[0.5px] px-3 text-[12px] font-medium touch-manipulation ${
             barPrefs.mode === 'standard'
               ? 'border-white/25 bg-white/[0.1] text-[#ececee]'
               : 'border-white/[0.08] text-[#a0a0a8]'
@@ -84,7 +84,7 @@ export function PlateCalculatorSection({ totalWeight, unit, barPrefs, onBarPrefs
         </button>
         <button
           type="button"
-          className={`min-h-9 rounded-[8px] border px-3 text-[12px] font-medium touch-manipulation ${
+          className={`min-h-9 rounded-[8px] border-[0.5px] px-3 text-[12px] font-medium touch-manipulation ${
             barPrefs.mode === 'custom'
               ? 'border-white/25 bg-white/[0.1] text-[#ececee]'
               : 'border-white/[0.08] text-[#a0a0a8]'
