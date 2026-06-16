@@ -547,8 +547,8 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   width: 2.25rem;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.3);
   color: #ececee;
   touch-action: manipulation;
@@ -579,7 +579,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   height: 48px;
   min-height: 48px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
   background: transparent;
   color: rgba(255, 255, 255, 0.88);
   font-size: 14px;
@@ -800,7 +800,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #1a2028;
   display: flex;
   align-items: center;
@@ -1229,7 +1229,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
 }
 
 .apex-muscle-diagram-split__pane {
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   padding: 8px 6px 6px;
 }
@@ -1301,7 +1301,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #13181f;
   border: none;
 }
@@ -1362,7 +1362,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
   min-height: 36px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
@@ -1911,7 +1911,7 @@ details summary::-webkit-details-marker {
   flex-shrink: 0;
   min-height: 2rem;
   padding: 0 0.75rem;
-  border-radius: 10px;
+  border-radius: 8px;
   border: none;
   background: var(--apex-accent);
   color: #ffffff;
@@ -2050,7 +2050,7 @@ html[data-apex-theme='light'] .apex-stats-achievements-divider {
   display: flex;
   gap: 0;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   border: 0.5px solid rgba(255, 255, 255, 0.1);
 }
@@ -2274,7 +2274,7 @@ html[data-apex-theme='light'] .apex-week-chart-dot--active {
   gap: 14px;
   align-items: flex-start;
   padding: 16px 18px;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
   box-shadow: none;
@@ -2287,7 +2287,7 @@ html[data-apex-theme='light'] .apex-week-chart-dot--active {
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-nested, rgba(255, 255, 255, 0.04));
   color: var(--apex-text-secondary);
@@ -2325,7 +2325,7 @@ html[data-apex-theme='light'] .apex-coach-note-card {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 0.5px solid var(--apex-border);
   background: var(--apex-surface-card);
 }
@@ -2836,8 +2836,8 @@ html[data-apex-theme='light'] .apex-fab {
   gap: 0.15rem;
   min-height: 56px;
   padding: 8px 4px 6px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
   background: transparent;
   color: #7d7d88;
   touch-action: manipulation;
@@ -2902,7 +2902,7 @@ html[data-apex-theme='light'] .apex-fab {
 }
 
 .apex-schedule-week-actions__month {
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
   background: transparent;
   color: #7d7d88;
 }
@@ -2972,7 +2972,7 @@ html[data-apex-theme='light'] .apex-fab {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   vertical-align: middle;
 }
@@ -3157,7 +3157,7 @@ html[data-apex-theme='light'] html {
 
 .apex-log-set-sheet {
   background: #13181f;
-  border-radius: 20px 20px 0 0;
+  border-radius: 12px 12px 0 0;
   padding: 0 16px;
   touch-action: pan-y;
 }
@@ -3433,7 +3433,7 @@ html[data-apex-theme='light'] html {
   min-height: 40px !important;
   padding: 0;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(255, 255, 255, 0.55);
   touch-action: manipulation;
@@ -3785,7 +3785,7 @@ html[data-apex-theme='light'] html {
   min-height: 48px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
   background: #1a2028;
   font-size: 20px;
   font-weight: 500;
@@ -3965,7 +3965,7 @@ html[data-apex-theme='light'] html {
   min-height: 52px;
   padding: 16px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   background: #13181f;
   font-size: 16px;
   font-weight: 400;
@@ -3998,9 +3998,9 @@ html[data-apex-theme='light'] html {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #13181f;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 
 .apex-onboarding-units__btn {
@@ -4189,7 +4189,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-workout-progress__header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .apex-workout-progress__exit {
@@ -4251,8 +4251,8 @@ html[data-apex-theme='light'] html {
 .apex-workout-exercise-card {
   position: relative;
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   background: var(--apex-surface-card, #141414);
 }
 
@@ -4390,7 +4390,7 @@ html[data-apex-theme='light'] html {
   min-height: 56px;
   height: 56px;
   border: none;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #3d7ab5;
   color: #ffffff;
   font-size: 16px;
@@ -4429,7 +4429,7 @@ html[data-apex-theme='light'] html {
   min-height: 48px;
   margin-top: 0.25rem;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
   background: transparent;
   font-size: 14px;
   font-weight: 500;
@@ -4489,7 +4489,7 @@ html[data-apex-theme='light'] html {
   justify-content: center;
   width: 80px;
   height: 80px;
-  border-radius: 20px;
+  border-radius: 12px;
   background: #13181f;
 }
 
@@ -4608,7 +4608,7 @@ html[data-apex-theme='light'] html {
   align-items: center;
   padding: 12px 16px 8px;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .apex-settings-screen__back {
@@ -4667,7 +4667,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-settings-v2-row + .apex-settings-v2-row {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .apex-settings-v2-row--tap {
@@ -4856,7 +4856,7 @@ html[data-apex-theme='light'] html {
 
 .apex-settings-v2-trainer-code {
   padding: 0 14px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .apex-settings-v2-trainer-code__value {
@@ -4870,7 +4870,7 @@ html[data-apex-theme='light'] html {
 
 .apex-settings-text-size {
   padding: 4px 14px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
 .apex-settings-text-size__label {

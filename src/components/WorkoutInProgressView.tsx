@@ -275,7 +275,7 @@ function WorkoutExercisePicker({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg max-h-[min(92dvh,40rem)] flex flex-col rounded-t-[14px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
+        className="w-full max-w-lg max-h-[min(92dvh,40rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] apex-card sm:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-white/[0.08]">
