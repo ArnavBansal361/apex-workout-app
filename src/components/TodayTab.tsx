@@ -1117,7 +1117,7 @@ export function TodayTab({
                         </button>
                         <button
                           type="button"
-                          className="rounded-[8px] border border-red-900/50 bg-[#161616] min-h-10 px-3 text-[12px] text-red-500"
+                          className="rounded-[8px] border-[0.5px] border-red-900/50 bg-[#161616] min-h-10 px-3 text-[12px] text-red-500"
                           onClick={() => setConfirmCardioId(c.id)}
                         >
                           Delete
@@ -1258,7 +1258,7 @@ export function TodayTab({
                     </div>
                     <button
                       type="button"
-                      className="rounded-[8px] border border-red-900/50 bg-[#161616] min-h-9 px-3 text-[12px] text-red-500 shrink-0"
+                      className="rounded-[8px] border-[0.5px] border-red-900/50 bg-[#161616] min-h-9 px-3 text-[12px] text-red-500 shrink-0"
                       onClick={() => setConfirmMealDeleteId(m.id)}
                     >
                       Delete
@@ -1620,7 +1620,7 @@ export function TodayTab({
       ) : null}
 
       {showDeloadBanner ? (
-        <div className="apex-card px-5 py-4 border border-amber-500/20 bg-amber-950/15">
+        <div className="apex-card px-5 py-4 border-[0.5px] border-amber-500/20 bg-amber-950/15">
           <p className="apex-section-label mb-2">Recovery</p>
           <p className="apex-lead text-[14px] leading-relaxed">
             Your body may benefit from a deload this week — volume has climbed for several weeks in

@@ -245,7 +245,7 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
         group this week.
       </p>
       {injuryWarnings.length > 0 ? (
-        <div className="mb-3 rounded-[12px] border border-[#c47a3a]/35 bg-[#c47a3a]/[0.08] p-3 space-y-2">
+        <div className="mb-3 rounded-[12px] border-[0.5px] border-[#c47a3a]/35 bg-[#c47a3a]/[0.08] p-3 space-y-2">
           <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[#d4956a]">
             Injury risk
           </p>
