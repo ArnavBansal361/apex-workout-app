@@ -475,11 +475,6 @@ export function TodayTab({
     return `${dow}, ${md}`
   }, [clock])
 
-  const headerStreakLabel = useMemo(
-    () => `${streakDays} DAY${streakDays === 1 ? '' : 'S'} STREAK`,
-    [streakDays],
-  )
-
   const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
 
   const weeklyVolLabel = useMemo(() => {

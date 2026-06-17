@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
 import {
@@ -111,7 +111,7 @@ function DesktopTopbar() {
   )
 }
 
-const NAV_ICONS: Record<DashboardNavId, JSX.Element> = {
+const NAV_ICONS: Record<DashboardNavId, ReactElement> = {
   today: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
