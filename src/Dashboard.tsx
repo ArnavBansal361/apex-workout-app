@@ -23,12 +23,45 @@ const DESKTOP_MIN_WIDTH = 768
 
 type DashboardNavId = 'today' | 'exercises' | 'schedule' | 'profile' | 'settings'
 
+const NAV_ICONS: Record<DashboardNavId, JSX.Element> = {
+  today: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  ),
+  exercises: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="4" width="6.5" height="6.5" rx="1.6" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  ),
+  schedule: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3.6 6l1 1 2-2.2M3.6 12l1 1 2-2.2M3.6 18l1 1 2-2.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  profile: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 3c.45 4 1.55 5.1 5.5 5.5-3.95.4-5.05 1.5-5.5 5.5-.45-4-1.55-5.1-5.5-5.5 3.95-.4 5.05-1.5 5.5-5.5z" fill="currentColor" />
+    </svg>
+  ),
+  settings: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 19V5M4 19h16M8 16l4-5 3 3 4-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+}
+
 const NAV_ITEMS: { id: DashboardNavId; label: string }[] = [
   { id: 'today', label: 'Today' },
-  { id: 'exercises', label: 'Exercises' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'profile', label: 'Profile' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'exercises', label: 'Library' },
+  { id: 'schedule', label: 'Plan' },
+  { id: 'profile', label: 'Coach' },
+  { id: 'settings', label: 'Insights' },
 ]
 
 function useViewportDesktop(): boolean {
@@ -102,11 +135,12 @@ export function DashboardShell() {
             <button
               key={item.id}
               type="button"
-              className={`apex-dashboard-nav-btn ${
+              className={`apex-dashboard-nav-btn flex items-center gap-3 ${
                 nav === item.id ? 'apex-dashboard-nav-btn--active' : ''
               }`}
               onClick={() => setNav(item.id)}
             >
+              <span className="shrink-0 opacity-70">{NAV_ICONS[item.id]}</span>
               {item.label}
             </button>
           ))}

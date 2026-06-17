@@ -6,7 +6,7 @@ type Props = {
   onChange: (t: TabId) => void
 }
 
-const navStroke = (active: boolean) => (active ? '#ffffff' : '#7d7d88')
+const ink = (active: boolean) => (active ? '#ffffff' : '#7d7d88')
 
 const ITEMS: {
   id: TabId
@@ -18,13 +18,8 @@ const ITEMS: {
     label: 'Today',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="12" r="9" stroke={navStroke(active)} strokeWidth="1.75" />
-        <path
-          d="M12 7v5l3 2"
-          stroke={navStroke(active)}
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
+        <rect x="3.5" y="5" width="17" height="15" rx="2.5" stroke={ink(active)} strokeWidth="1.6" />
+        <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke={ink(active)} strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -33,13 +28,10 @@ const ITEMS: {
     label: 'Library',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M7 6h4v12H7zM13 6h4v12h-4zM11 6h2v12h-2z"
-          stroke={navStroke(active)}
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <rect x="4" y="4" width="6.5" height="6.5" rx="1.6" stroke={ink(active)} strokeWidth="1.6" />
+        <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" stroke={ink(active)} strokeWidth="1.6" />
+        <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" stroke={ink(active)} strokeWidth="1.6" />
+        <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6" stroke={ink(active)} strokeWidth="1.6" />
       </svg>
     ),
   },
@@ -48,8 +40,8 @@ const ITEMS: {
     label: 'Plan',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <rect x="4" y="5" width="16" height="15" rx="2" stroke={navStroke(active)} strokeWidth="1.75" />
-        <path d="M8 3v4M16 3v4M4 11h16" stroke={navStroke(active)} strokeWidth="1.75" />
+        <path d="M9 6h11M9 12h11M9 18h11" stroke={ink(active)} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M3.6 6l1 1 2-2.2M3.6 12l1 1 2-2.2M3.6 18l1 1 2-2.2" stroke={ink(active)} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -59,12 +51,10 @@ const ITEMS: {
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="M12 3l1.2 3.6h3.8l-3.1 2.2 1.2 3.6L12 9.2 8.9 12.4l1.2-3.6-3.1-2.2h3.8L12 3z"
-          stroke={navStroke(active)}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
+          d="M12 3c.45 4 1.55 5.1 5.5 5.5-3.95.4-5.05 1.5-5.5 5.5-.45-4-1.55-5.1-5.5-5.5 3.95-.4 5.05-1.5 5.5-5.5z"
+          fill={ink(active)}
         />
-        <circle cx="12" cy="17" r="2.5" stroke={navStroke(active)} strokeWidth="1.5" />
+        <circle cx="18.5" cy="17" r="2" fill={ink(active)} />
       </svg>
     ),
   },
@@ -73,11 +63,11 @@ const ITEMS: {
     label: 'Me',
     Icon: ({ active }) => (
       <svg className="apex-bottom-nav-icon" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="12" cy="9" r="3.5" stroke={navStroke(active)} strokeWidth="1.75" />
+        <circle cx="12" cy="9" r="3.5" stroke={ink(active)} strokeWidth="1.6" />
         <path
           d="M6 19c1.2-2.5 3.5-4 6-4s4.8 1.5 6 4"
-          stroke={navStroke(active)}
-          strokeWidth="1.75"
+          stroke={ink(active)}
+          strokeWidth="1.6"
           strokeLinecap="round"
         />
       </svg>
@@ -102,6 +92,15 @@ export function BottomNav({ tab, onChange }: Props) {
                 }`}
                 onClick={() => onChange(it.id)}
               >
+                <span
+                  className="block mx-auto mb-1.5"
+                  style={{
+                    width: 18,
+                    height: 2,
+                    borderRadius: 2,
+                    background: on ? 'var(--apex-accent)' : 'transparent',
+                  }}
+                />
                 <span className="flex items-center justify-center">
                   <Icon active={on} />
                 </span>

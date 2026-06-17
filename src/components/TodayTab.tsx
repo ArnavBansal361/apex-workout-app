@@ -11,6 +11,7 @@ import {
 } from '../lib/deload'
 import { formatLastSessionLine, type LastWeightedSetDefaults } from '../lib/lastSession'
 import { computeWeekSummary, isMondayMorningLocal, isSundayLocal } from '../lib/weekSummary'
+import { computeLongevityScore } from '../lib/longevityScore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EditSetLogModal } from './EditSetLogModal'
 import { GymModeView } from './GymModeView'
@@ -455,16 +456,37 @@ export function TodayTab({
   const planName = sched?.workoutName?.trim() ?? ''
   const isRestDay = !planName
   const dayStatusLabel = isRestDay ? 'Rest day' : planName || 'Workout day'
+
+  const firstName = useMemo(() => {
+    const full = state.settings.displayName?.trim() ?? ''
+    return full.split(' ')[0] || null
+  }, [state.settings.displayName])
+
+  const headerGreeting = useMemo(() => {
+    const hour = new Date(clock).getHours()
+    const salutation = hour >= 5 && hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
+    return firstName ? `${salutation}, ${firstName}.` : `${salutation}.`
+  }, [clock, firstName])
+
   const headerDateLabel = useMemo(() => {
     const d = new Date(clock)
-    const dow = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
-    const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()
+    const dow = d.toLocaleDateString('en-US', { weekday: 'short' })
+    const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     return `${dow}, ${md}`
   }, [clock])
+
   const headerStreakLabel = useMemo(
     () => `${streakDays} DAY${streakDays === 1 ? '' : 'S'} STREAK`,
     [streakDays],
   )
+
+  const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
+
+  const weeklyVolLabel = useMemo(() => {
+    const v = weekRecap.totalVolumeLbs
+    if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K`
+    return v > 0 ? `${v}` : '—'
+  }, [weekRecap.totalVolumeLbs])
 
   useEffect(() => {
     let cancelled = false
@@ -1413,12 +1435,14 @@ export function TodayTab({
         </button>
         <div className="apex-today-header-meta pr-12" aria-label="Today">
           <span>{headerDateLabel}</span>
-          <span className="apex-today-header-meta__sep" aria-hidden>
-            ·
-          </span>
-          <span className="tabular-nums">{headerStreakLabel}</span>
+          {!isRestDay && (
+            <>
+              <span className="apex-today-header-meta__sep" aria-hidden>·</span>
+              <span style={{ color: 'var(--apex-accent)' }}>{dayStatusLabel}</span>
+            </>
+          )}
         </div>
-        <h1 className="apex-today-header-title">{dayStatusLabel}</h1>
+        <h1 className="apex-today-header-title">{headerGreeting}</h1>
         <div className="apex-today-header-actions">
           <button
             type="button"
@@ -1449,6 +1473,22 @@ export function TodayTab({
           </button>
         </div>
       </header>
+
+      {/* ── Stats strip ─────────────────────────────────────────────────── */}
+      <div className="apex-card flex divide-x divide-white/[0.08]" style={{ borderRadius: 12 }}>
+        <div className="flex-1 px-5 py-4">
+          <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{streakDays}</div>
+          <div className="apex-section-label mt-1.5">Day streak</div>
+        </div>
+        <div className="flex-1 px-5 py-4">
+          <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{weeklyVolLabel}</div>
+          <div className="apex-section-label mt-1.5">Weekly lb</div>
+        </div>
+        <div className="flex-1 px-5 py-4">
+          <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{longevityScore}</div>
+          <div className="apex-section-label mt-1.5">Longevity</div>
+        </div>
+      </div>
 
       {/* ── New-user empty state ─────────────────────────────────────────── */}
       {state.setLogs.length === 0 && !state.gymSession.active ? (
