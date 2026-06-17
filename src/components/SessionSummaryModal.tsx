@@ -94,25 +94,25 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
             </div>
           ) : null}
           <div className="mt-6 grid grid-cols-2 gap-3">
-            <div className="rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-4 py-3">
+            <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">Duration</p>
               <p className="apex-stat-num tabular-nums">{formatDuration(data.durationSec)}</p>
             </div>
-            <div className="rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-4 py-3">
+            <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">Total sets</p>
               <p className="apex-stat-num tabular-nums">{data.totalSets}</p>
             </div>
-            <div className="rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-4 py-3">
+            <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">PRs</p>
               <p className="apex-stat-num tabular-nums">{data.prCount}</p>
             </div>
-            <div className="rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-4 py-3">
+            <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-4 py-3">
               <p className="apex-section-label mb-2">Exercises</p>
               <p className="apex-stat-num">{data.exerciseNames.length}</p>
             </div>
           </div>
           {data.exerciseNames.length > 0 ? (
-            <div className="mt-5 rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] p-3">
+            <div className="mt-5 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] p-3">
               <p className="apex-section-label mb-2">Exercises</p>
               <ul className="text-[13px] font-normal text-[#bbb] space-y-1 max-h-32 overflow-y-auto">
                 {data.exerciseNames.map((n) => (
@@ -122,7 +122,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
             </div>
           ) : null}
           {data.stretchSuggestions && data.stretchSuggestions.length > 0 ? (
-            <div className="mt-5 rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] p-3">
+            <div className="mt-5 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] p-3">
               <p className="apex-section-label mb-2">Cooldown stretches</p>
               <ul className="space-y-2.5 max-h-48 overflow-y-auto">
                 {data.stretchSuggestions.map((s) => (
@@ -152,14 +152,14 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
             onClick={downloadImage}
           >
             Download as image
           </button>
           <button
             type="button"
-            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
             onClick={() => void shareOut()}
           >
             Share text summary

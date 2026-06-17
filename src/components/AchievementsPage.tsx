@@ -126,11 +126,11 @@ export function AchievementsPage({ onClose }: Props) {
         className="w-full max-w-lg max-h-[min(92dvh,44rem)] flex flex-col rounded-t-[12px] sm:rounded-[12px] bg-[var(--apex-surface-page)] border-[0.5px] border-white/[0.08] overflow-hidden apex-theme-shell"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-4 py-4 border-b border-[0.5px] border-[#1e1e1e] shrink-0">
+        <header className="flex items-center justify-between px-4 py-4 border-b border-[0.5px] border-[var(--apex-border)] shrink-0">
           <ApexLogo />
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
             onClick={onClose}
           >
             ✕
@@ -146,7 +146,7 @@ export function AchievementsPage({ onClose }: Props) {
               key={a.id}
               className={`rounded-[12px] border-[0.5px] p-4 ${
                 ok
-                  ? 'bg-[#161616] border-white/[0.1]'
+                  ? 'bg-[var(--apex-surface-card)] border-white/[0.1]'
                   : 'bg-[#101012] border-[#252528] opacity-90'
               }`}
             >

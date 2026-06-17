@@ -20,19 +20,19 @@ export function HelpPage({ onClose }: Props) {
 
   return (
     <div className="apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
-      <header className="px-4 pt-3 pb-2 border-b border-[0.5px] border-[#1e1e1e] space-y-2">
+      <header className="px-4 pt-3 pb-2 border-b border-[0.5px] border-[var(--apex-border)] space-y-2">
         <div className="flex items-center justify-between gap-2">
           <ApexLogo />
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
             onClick={onClose}
           >
             ✕
           </button>
         </div>
         <input
-          className="w-full min-h-12 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]"
+          className="w-full min-h-12 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]"
           placeholder="Search exercises"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -50,7 +50,7 @@ export function HelpPage({ onClose }: Props) {
                 </div>
                 <span className="text-[#a8a8b0] text-lg leading-none">▼</span>
               </summary>
-              <div className="mt-4 border-t border-[0.5px] border-[#1e1e1e] pt-4 space-y-4">
+              <div className="mt-4 border-t border-[0.5px] border-[var(--apex-border)] pt-4 space-y-4">
                 <HelpExerciseAnimation exerciseId={e.id} />
                 <div>
                   <p className="apex-section-label mb-2">Form tips</p>

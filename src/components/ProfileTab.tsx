@@ -934,7 +934,7 @@ function AiInsightsPanel() {
         <p className="mt-2 text-[14px] font-medium text-[#a0a0a8]">Updated weekly based on your sessions.</p>
       </header>
 
-      <section className="rounded-[12px] p-4 bg-[#13181f]">
+      <section className="apex-card p-4">
         <p className="apex-section-label">WEEKLY VOLUME</p>
         <div className="mt-3 h-24">
           <ResponsiveContainer width="100%" height="100%">
@@ -966,7 +966,7 @@ function AiInsightsPanel() {
         </p>
       </section>
 
-      <section className="rounded-[12px] p-4 bg-[#13181f]">
+      <section className="apex-card p-4">
         <p className="apex-section-label">MUSCLE FOCUS</p>
         <div className="mt-3 space-y-3">
           {muscleFocusRows.length ? (
@@ -987,7 +987,7 @@ function AiInsightsPanel() {
         </div>
       </section>
 
-      <section className="rounded-[12px] p-4 bg-[#13181f]">
+      <section className="apex-card p-4">
         <p className="apex-section-label">CONSISTENCY</p>
         <p className="mt-2 text-[38px] leading-none font-medium text-[#f4f4f5] tabular-nums">
           {consistency.score}
@@ -996,7 +996,7 @@ function AiInsightsPanel() {
         <p className="mt-2 text-[13px] font-medium text-[#c8c8ce]">{consistency.explanation}</p>
       </section>
 
-      <section className="rounded-[12px] p-4 bg-[#13181f]">
+      <section className="apex-card p-4">
         <p className="apex-section-label">RECOVERY</p>
         {recovery ? (
           <>
@@ -2992,7 +2992,7 @@ export function ProfileTab({
 
       {selectedClient ? (
         <div className="apex-safe-top apex-theme-shell fixed inset-0 z-[90] flex flex-col bg-[var(--apex-surface-page)] text-[var(--apex-text-primary)]">
-          <header className="px-4 py-3 border-b border-[0.5px] border-[#1e1e1e] flex items-center justify-between gap-2">
+          <header className="px-4 py-3 border-b border-[0.5px] border-[var(--apex-border)] flex items-center justify-between gap-2">
             <div>
               <p className="text-[15px] font-medium text-[#f4f4f5]">{selectedClient.displayName}</p>
               <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5">
@@ -3001,7 +3001,7 @@ export function ProfileTab({
             </div>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
               onClick={() => {
                 setSelectedClient(null)
                 setClientDetailState(null)
@@ -3140,7 +3140,7 @@ export function ProfileTab({
               </>
             )}
           </div>
-          <div className="shrink-0 border-t border-[0.5px] border-[#1e1e1e] p-4 bg-[var(--apex-surface-page)] space-y-2">
+          <div className="shrink-0 border-t border-[0.5px] border-[var(--apex-border)] p-4 bg-[var(--apex-surface-page)] space-y-2">
             <p className="apex-section-label">Coach note</p>
             <textarea
               className="apex-input w-full min-h-20 px-3 py-3 resize-y"

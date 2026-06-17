@@ -12,7 +12,7 @@ type Props = {
 }
 
 const inp =
-  'rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
 export function QuickLogModal({ onClose, initialExercise = null }: Props) {
   const { visibleExercises, addSetLog, notify, state } = useWorkout()
@@ -148,7 +148,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
         
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-[#1e1e1e]">
+        <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-[var(--apex-border)]">
           <div>
             <p className="apex-section-label">Quick log</p>
             <p className="mt-1 text-[12px] font-normal text-[#a0a0a8] leading-relaxed">
@@ -159,7 +159,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             <button
               type="button"
               aria-label="Voice input"
-              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[#1e1e1e] bg-[#121212] text-[#e0e0e0] flex items-center justify-center ${
+              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[var(--apex-border)] bg-[#121212] text-[#e0e0e0] flex items-center justify-center ${
                 listening ? 'apex-mic-listening' : ''
               }`}
               style={
@@ -176,7 +176,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             </button>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#121212] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] text-[13px] text-[#e0e0e0]"
               onClick={onClose}
               aria-label="Close"
             >
@@ -198,7 +198,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                 autoFocus
               />
             </label>
-            <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#121212] divide-y divide-[#1e1e1e]">
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] divide-y divide-[#1e1e1e]">
               {filtered.length === 0 ? (
                 <li className="px-3 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
               ) : (
@@ -230,7 +230,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
           </div>
 
           {selected ? (
-            <div className="space-y-3 rounded-[12px] border-[0.5px] border-[#1e1e1e] bg-[#161616] p-4">
+            <div className="space-y-3 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] p-4">
               <div>
                 <p className="text-[13px] font-normal text-[#e0e0e0]">
                   <span className="text-[#a0a0a8]">Selected · </span>
@@ -278,10 +278,10 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
           ) : null}
         </div>
 
-        <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[0.5px] border-[#1e1e1e]">
+        <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[0.5px] border-[var(--apex-border)]">
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#161616] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
             onClick={onClose}
           >
             Cancel
