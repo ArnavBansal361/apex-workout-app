@@ -1414,7 +1414,7 @@ export function TodayTab({
       ) : null}
 
     <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}${state.gymSession.active ? ' hidden' : ''}`}>
-      <header className="apex-card apex-today-header-card px-6 py-6">
+      {!isDesktop ? <header className="apex-card apex-today-header-card px-6 py-6">
         <button
           type="button"
           className="apex-today-header-barcode"
@@ -1472,10 +1472,10 @@ export function TodayTab({
             </span>
           </button>
         </div>
-      </header>
+      </header> : null}
 
       {/* ── Stats strip ─────────────────────────────────────────────────── */}
-      <div className="apex-card flex divide-x divide-white/[0.08]" style={{ borderRadius: 12 }}>
+      {!isDesktop ? <div className="apex-card flex divide-x divide-white/[0.08]" style={{ borderRadius: 12 }}>
         <div className="flex-1 px-5 py-4">
           <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{streakDays}</div>
           <div className="apex-section-label mt-1.5">Day streak</div>
@@ -1488,7 +1488,7 @@ export function TodayTab({
           <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{longevityScore}</div>
           <div className="apex-section-label mt-1.5">Longevity</div>
         </div>
-      </div>
+      </div> : null}
 
       {/* ── New-user empty state ─────────────────────────────────────────── */}
       {state.setLogs.length === 0 && !state.gymSession.active ? (
