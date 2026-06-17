@@ -1188,7 +1188,7 @@ export function TodayTab({
                         {row.unit}
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-[#1a1a1e] overflow-hidden border-[0.5px] border-white/[0.05]">
+                    <div className="h-1.5 rounded-full bg-[var(--apex-surface-nested)] overflow-hidden border-[0.5px] border-white/[0.05]">
                       <div
                         className="h-full rounded-full bg-[#ececee] transition-all duration-300"
                         style={{ width: `${Math.round(pct * 100)}%` }}

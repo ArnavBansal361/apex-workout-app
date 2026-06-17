@@ -692,7 +692,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             <label className="block">
               <span className="apex-section-label block mb-2">Muscle group</span>
               <select
-                className="apex-input w-full min-h-12 px-3 bg-[#141418]"
+                className="apex-input w-full min-h-12 px-3 bg-[var(--apex-surface-card)]"
                 value={createMuscle}
                 onChange={(e) => setCreateMuscle(e.target.value as MuscleGroup)}
               >

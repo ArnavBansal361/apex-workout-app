@@ -12,7 +12,7 @@ type Props = {
 }
 
 const inp =
-  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
 export function QuickLogModal({ onClose, initialExercise = null }: Props) {
   const { visibleExercises, addSetLog, notify, state } = useWorkout()
@@ -159,7 +159,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             <button
               type="button"
               aria-label="Voice input"
-              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[var(--apex-border)] bg-[#121212] text-[#e0e0e0] flex items-center justify-center ${
+              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[#e0e0e0] flex items-center justify-center ${
                 listening ? 'apex-mic-listening' : ''
               }`}
               style={
@@ -176,7 +176,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             </button>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[13px] text-[#e0e0e0]"
               onClick={onClose}
               aria-label="Close"
             >
@@ -198,7 +198,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                 autoFocus
               />
             </label>
-            <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] divide-y divide-[#1e1e1e]">
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] divide-y divide-[#1e1e1e]">
               {filtered.length === 0 ? (
                 <li className="px-3 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
               ) : (

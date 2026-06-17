@@ -11,7 +11,7 @@ type Props = {
 }
 
 const inp =
-  'rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
 type InnerProps = {
   log: SetLog
@@ -77,7 +77,7 @@ function EditSetLogModalInner({ log, unit, onClose, onSave }: InnerProps) {
         </div>
         <button
           type="button"
-          className="min-h-11 min-w-11 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] text-[13px] text-[#e0e0e0]"
+          className="min-h-11 min-w-11 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[13px] text-[#e0e0e0]"
           onClick={onClose}
           aria-label="Close"
         >
@@ -128,7 +128,7 @@ function EditSetLogModalInner({ log, unit, onClose, onSave }: InnerProps) {
       <label className="mt-4 block">
         <span className="apex-section-label block mb-2">Note</span>
         <textarea
-          className={`mt-1 w-full min-h-[4.5rem] rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[#121212] px-3 py-2 text-[16px] font-normal text-[#e0e0e0]`}
+          className={`mt-1 w-full min-h-[4.5rem] rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 py-2 text-[16px] font-normal text-[#e0e0e0]`}
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />

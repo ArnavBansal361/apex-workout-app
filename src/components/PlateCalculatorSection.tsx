@@ -9,7 +9,7 @@ import {
 import { platesPerSide } from '../lib/stats'
 
 const inp =
-  'rounded-[8px] border-[0.5px] border-[#1e1e1e] bg-[#121212] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
 
 type Props = {
   totalWeight: number
