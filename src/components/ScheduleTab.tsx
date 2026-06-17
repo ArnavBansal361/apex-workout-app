@@ -737,7 +737,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     style={{
                       ...(primaryMuscle && inWeek
                         ? {
-                            background: '#1a1a1a',
+                            background: 'var(--apex-surface-nested)',
                           }
                         : {}),
                     }}

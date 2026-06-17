@@ -594,7 +594,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             />
             <button
               type="button"
-              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-white/[0.15] bg-[#1a1a1a] text-[#ececee] text-[14px] touch-manipulation"
+              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-white/[0.15] bg-[var(--apex-surface-nested)] text-[#ececee] text-[14px] touch-manipulation"
               aria-label="Remove photo"
               disabled={busy}
               onClick={() => setPendingImage(null)}

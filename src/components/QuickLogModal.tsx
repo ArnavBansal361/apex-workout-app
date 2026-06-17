@@ -208,8 +208,8 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                       type="button"
                       className={`w-full min-h-11 border-l-2 text-left px-3 py-2.5 text-[13px] font-normal transition-colors ${
                         selected?.id === e.id
-                          ? 'bg-[#1a1a1a] text-[#e0e0e0]'
-                          : 'border-transparent text-[#e0e0e0] hover:bg-[#1e1e1e]'
+                          ? 'bg-[var(--apex-surface-nested)] text-[#e0e0e0]'
+                          : 'border-transparent text-[#e0e0e0] hover:bg-[var(--apex-surface-nested)]'
                       }`}
                       style={{ borderLeftColor: selected?.id === e.id ? 'var(--apex-accent)' : 'transparent' }}
                       onClick={() => setSelected(e)}

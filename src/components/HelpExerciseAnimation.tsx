@@ -37,7 +37,7 @@ export function HelpExerciseAnimation({ exerciseId }: { exerciseId: string }) {
 
   return (
     <div
-      className={`apex-help-motion apex-help-motion--${kind} w-full rounded-[12px] bg-[#1e1e1e] overflow-hidden`}
+      className={`apex-help-motion apex-help-motion--${kind} w-full rounded-[12px] bg-[var(--apex-surface-nested)] overflow-hidden`}
       style={{ minHeight: 160 }}
     >
       <svg viewBox="0 0 240 150" className="w-full h-auto block" aria-hidden>
