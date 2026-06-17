@@ -599,6 +599,11 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
 
             <section className="apex-schedule-this-week">
               <h2 className="apex-schedule-this-week__title">This week</h2>
+              {state.schedule.every((d) => !hasPlannedWork(d)) ? (
+                <p className="text-[13px] text-white/30 mb-3">
+                  Tap any day to add a workout, or use "Plan this week" to build the whole week at once.
+                </p>
+              ) : null}
               <div className="apex-schedule-day-list">
                 {state.schedule.map((d, idx) => {
                   const isToday = d.dateKey === liveTodayKey
@@ -774,7 +779,14 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         ) : null}
                       </button>
                     ) : (
-                      <div className="mt-1 flex-1 min-h-[2rem]" />
+                      <button
+                        type="button"
+                        className="mt-1 flex-1 min-h-[2rem] w-full flex items-center justify-center rounded-[6px] opacity-0 hover:opacity-100 transition-opacity duration-150 hover:bg-white/[0.05]"
+                        aria-label={`Add workout on ${dk}`}
+                        onClick={() => open(dk)}
+                      >
+                        <span className="text-[14px] text-white/30 leading-none">+</span>
+                      </button>
                     )}
                   </div>
                 )
