@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useWorkout } from './context/WorkoutContext'
+import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
 import {
   APEX_TODAY_MORE_OPEN_KEY,
   APEX_TODAY_PLAN_OPEN_KEY,
@@ -18,10 +18,98 @@ import { ScheduleTab } from './components/ScheduleTab'
 import { TodayTab } from './components/TodayTab'
 import { ApexLogo } from './components/ApexLogo'
 import { useSwipeBackLayer } from './lib/swipeBackNavigation'
+import { streakCurrent } from './lib/achievements'
+import { computeWeekSummary } from './lib/weekSummary'
+import { computeLongevityScore } from './lib/longevityScore'
 
 const DESKTOP_MIN_WIDTH = 768
 
 type DashboardNavId = 'today' | 'exercises' | 'schedule' | 'profile' | 'settings'
+
+function DesktopTopbar() {
+  const { state, todayKey } = useWorkout()
+  const { clock } = useWorkoutTick()
+
+  const firstName = useMemo(() => {
+    const full = state.settings.displayName?.trim() ?? ''
+    return full.split(' ')[0] || null
+  }, [state.settings.displayName])
+
+  const greeting = useMemo(() => {
+    const hour = new Date(clock).getHours()
+    const sal = hour >= 5 && hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
+    return firstName ? `${sal}, ${firstName}.` : `${sal}.`
+  }, [clock, firstName])
+
+  const dateLine = useMemo(() => {
+    const d = new Date(clock)
+    const sched = state.schedule.find((s) => s.dateKey === todayKey)
+    const planName = sched?.workoutName?.trim() ?? ''
+    const dow = d.toLocaleDateString('en-US', { weekday: 'long' })
+    const md = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    return planName ? `${dow}, ${md} · ${planName}` : `${dow}, ${md}`
+  }, [clock, state.schedule, todayKey])
+
+  const streakDays = useMemo(
+    () => streakCurrent(state, clock),
+    [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock],
+  )
+
+  const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
+
+  const weeklyVolLabel = useMemo(() => {
+    const v = weekRecap.totalVolumeLbs
+    if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K lbs`
+    return v > 0 ? `${v} lbs` : '—'
+  }, [weekRecap.totalVolumeLbs])
+
+  const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
+
+  const weekSessions = useMemo(() => {
+    const ws = new Date(clock)
+    const day = ws.getDay()
+    const diff = (day === 0 ? -6 : 1 - day)
+    ws.setDate(ws.getDate() + diff)
+    ws.setHours(0, 0, 0, 0)
+    const we = new Date(ws)
+    we.setDate(ws.getDate() + 7)
+    const days = new Set(
+      state.setLogs
+        .filter((l) => l.at >= ws.getTime() && l.at < we.getTime())
+        .map((l) => new Date(l.at).toDateString()),
+    )
+    return days.size
+  }, [state.setLogs, clock])
+
+  const kpis = [
+    { label: 'Streak', value: `${streakDays}d` },
+    { label: 'Weekly vol', value: weeklyVolLabel },
+    { label: 'Sessions', value: `${weekSessions}` },
+    { label: 'Longevity', value: `${longevityScore}` },
+  ]
+
+  return (
+    <div className="shrink-0 px-6 pt-6 pb-5 border-b border-white/[0.08]">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-medium leading-none tracking-[-0.02em]">{greeting}</h1>
+          <p className="mt-1.5 text-[13px] text-white/40">{dateLine}</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          {kpis.map((kpi) => (
+            <div
+              key={kpi.label}
+              className="apex-card px-4 py-3 flex flex-col gap-1 min-w-[80px]"
+            >
+              <span className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{kpi.value}</span>
+              <span className="apex-section-label">{kpi.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const NAV_ICONS: Record<DashboardNavId, JSX.Element> = {
   today: (
@@ -147,43 +235,48 @@ export function DashboardShell() {
         </nav>
       </aside>
 
-      <main className="apex-dashboard-main flex-1 min-w-0 overflow-y-auto px-6 py-5">
-        {nav === 'today' ? (
-          <TodayTab
-            screenLayout="desktop"
-            onOpenHistory={() => setHistoryOpen(true)}
-            onOpenGymMembershipSetup={openGymMembershipSetup}
-            moreOpen={todayMoreOpen}
-            onMoreOpenChange={setTodayMoreOpen}
-            planOpen={todayPlanOpen}
-            onPlanOpenChange={setTodayPlanOpen}
-          />
-        ) : null}
-        {nav === 'exercises' ? <ExercisesTab gridCols={4} /> : null}
-        {nav === 'schedule' ? <ScheduleTab defaultViewMode="month" /> : null}
-        {nav === 'profile' ? (
-          <ProfileTab
-            layout="desktop"
-            desktopSection="profile"
-            onOpenAchievements={() => setAchievementsOpen(true)}
-          />
-        ) : null}
-        {nav === 'settings' ? (
-          <ProfileTab
-            layout="desktop"
-            desktopSection="settings"
-            onOpenAchievements={() => setAchievementsOpen(true)}
-            openGymSettingsToken={gymSettingsToken}
-          />
-        ) : null}
-      </main>
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        <DesktopTopbar />
+        <div className="flex flex-1 min-h-0 min-w-0">
+          <main className="apex-dashboard-main flex-1 min-w-0 overflow-y-auto px-6 py-5">
+            {nav === 'today' ? (
+              <TodayTab
+                screenLayout="desktop"
+                onOpenHistory={() => setHistoryOpen(true)}
+                onOpenGymMembershipSetup={openGymMembershipSetup}
+                moreOpen={todayMoreOpen}
+                onMoreOpenChange={setTodayMoreOpen}
+                planOpen={todayPlanOpen}
+                onPlanOpenChange={setTodayPlanOpen}
+              />
+            ) : null}
+            {nav === 'exercises' ? <ExercisesTab gridCols={4} /> : null}
+            {nav === 'schedule' ? <ScheduleTab defaultViewMode="month" /> : null}
+            {nav === 'profile' ? (
+              <ProfileTab
+                layout="desktop"
+                desktopSection="profile"
+                onOpenAchievements={() => setAchievementsOpen(true)}
+              />
+            ) : null}
+            {nav === 'settings' ? (
+              <ProfileTab
+                layout="desktop"
+                desktopSection="settings"
+                onOpenAchievements={() => setAchievementsOpen(true)}
+                openGymSettingsToken={gymSettingsToken}
+              />
+            ) : null}
+          </main>
 
-      <aside className="apex-dashboard-coach shrink-0 border-l border-[0.5px] border-white/[0.08] flex flex-col px-4 py-5 min-h-0 min-w-0 overflow-hidden">
-        <p className="apex-section-label shrink-0 mb-3">AI</p>
-        <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col overflow-hidden">
-          <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="sidebar" />
+          <aside className="apex-dashboard-coach shrink-0 border-l border-[0.5px] border-white/[0.08] flex flex-col px-4 py-5 min-h-0 min-w-0 overflow-hidden">
+            <p className="apex-section-label shrink-0 mb-3">AI</p>
+            <div className="flex flex-1 min-h-0 min-w-0 w-full flex-col overflow-hidden">
+              <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="sidebar" />
+            </div>
+          </aside>
         </div>
-      </aside>
+      </div>
     </div>
   )
 }
