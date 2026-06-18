@@ -115,7 +115,7 @@ export async function fetchWeeklyInsight(state?: AppPersisted): Promise<WeeklyIn
         we.setDate(ws.getDate() + 7)
         return l.at >= ws.getTime() && l.at < we.getTime()
       })
-      .reduce((acc, l) => acc + (l.reps ?? 0), 0),
+      .reduce((acc, l) => acc + (('reps' in l ? l.reps : null) ?? 0), 0),
     prs: summary.prCount,
   }
 
