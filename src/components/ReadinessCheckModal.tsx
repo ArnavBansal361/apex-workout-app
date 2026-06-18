@@ -84,7 +84,7 @@ function ScaleRow({
           )
         })}
       </div>
-      <div className="flex justify-between text-[10px] font-medium text-[#7d7d88] uppercase tracking-wide">
+      <div className="flex justify-between text-[10px] font-medium text-[var(--apex-text-tertiary)] uppercase tracking-wide">
         <span>{low}</span>
         <span>{high}</span>
       </div>

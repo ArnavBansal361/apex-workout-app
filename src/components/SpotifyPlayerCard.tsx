@@ -96,7 +96,7 @@ export function SpotifyPlayerCard() {
       <div className="apex-card px-5 py-4">
         <p className="apex-section-label mb-2">Spotify</p>
         <p className="m-0 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
-          Set <span className="text-[#c8c8ce]">VITE_SPOTIFY_CLIENT_ID</span> in your environment to connect
+          Set <span className="text-[var(--apex-text-secondary)]">VITE_SPOTIFY_CLIENT_ID</span> in your environment to connect
           Spotify.
         </p>
       </div>
@@ -134,7 +134,7 @@ export function SpotifyPlayerCard() {
         </div>
         <button
           type="button"
-          className="shrink-0 text-[11px] font-medium text-[#7d7d88] underline-offset-2 hover:underline touch-manipulation"
+          className="shrink-0 text-[11px] font-medium text-[var(--apex-text-tertiary)] underline-offset-2 hover:underline touch-manipulation"
           onClick={disconnect}
         >
           Disconnect
@@ -146,7 +146,7 @@ export function SpotifyPlayerCard() {
           <button
             type="button"
             disabled={controlBusy}
-            className="apex-spotify-player__play flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[0.5px] border-white/[0.12] bg-white/[0.06] text-[#f0f0f2] touch-manipulation disabled:opacity-45 active:scale-95"
+            className="apex-spotify-player__play flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[0.5px] border-white/[0.12] bg-white/[0.06] text-[var(--apex-text-primary)] touch-manipulation disabled:opacity-45 active:scale-95"
             aria-label={nowPlaying.isPlaying ? 'Pause' : 'Play'}
             onClick={() => void togglePlay()}
           >
@@ -156,7 +156,7 @@ export function SpotifyPlayerCard() {
             />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="m-0 text-[15px] font-medium text-[#f0f0f2] truncate leading-snug">
+            <p className="m-0 text-[15px] font-medium text-[var(--apex-text-primary)] truncate leading-snug">
               {nowPlaying.trackName}
             </p>
             <p className="m-0 mt-1 text-[13px] font-medium text-[var(--apex-text-secondary)] truncate">

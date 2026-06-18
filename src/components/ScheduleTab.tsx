@@ -683,7 +683,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               >
                 ‹
               </button>
-              <h2 className="text-lg font-medium text-[#f4f4f5] tracking-tight text-center flex-1">{monthLabel}</h2>
+              <h2 className="text-lg font-medium text-[var(--apex-text-primary)] tracking-tight text-center flex-1">{monthLabel}</h2>
               <button
                 type="button"
                 className="apex-btn min-h-10 px-3 text-[13px] font-medium rounded-[8px]"
@@ -707,7 +707,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   key={label}
                   className={`text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.12em] py-1 rounded-t-[4px] ${
                     colIdx === todayColIdx
-                      ? 'text-[#f4f4f5] bg-white/[0.08]'
+                      ? 'text-[var(--apex-text-primary)] bg-white/[0.08]'
                       : 'text-[var(--apex-text-tertiary)]'
                   }`}
                 >
@@ -745,7 +745,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     <div className="flex items-start justify-between gap-0.5">
                       <span
                         className={`text-[11px] sm:text-[12px] font-medium tabular-nums leading-none ${
-                          isToday ? 'text-[#f4f4f5]' : inMonth ? 'text-[#a8a8b0]' : 'text-[var(--apex-text-tertiary)]'
+                          isToday ? 'text-[var(--apex-text-primary)]' : inMonth ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'
                         }`}
                       >
                         {dt.getDate()}
@@ -771,7 +771,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                           <>
                             <div className="mb-1">{renderMuscleDots(muscleTags)}</div>
                             {title ? (
-                              <p className="text-[10px] sm:text-[11px] font-medium text-[#f0f0f2] leading-tight line-clamp-3">
+                              <p className="text-[10px] sm:text-[11px] font-medium text-[var(--apex-text-primary)] leading-tight line-clamp-3">
                                 {title}
                               </p>
                             ) : null}
@@ -807,7 +807,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="apex-page-sub">Edit day</p>
-            <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-1">
+            <h3 className="text-xl font-medium text-[var(--apex-text-primary)] tracking-tight mt-1">
               {formatShortWeekday(parseDateKey(editing))} · {editing}
             </h3>
             <label className="mt-5 block">
@@ -859,7 +859,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         setDraftExSearch('')
                       }}
                     >
-                      <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug">{p.title}</p>
+                      <p className="text-[14px] font-medium text-[var(--apex-text-primary)] leading-snug">{p.title}</p>
                       <p className="mt-1 text-[11px] font-medium text-[var(--apex-text-secondary)] leading-snug line-clamp-2">
                         {p.subtitle}
                       </p>
@@ -895,7 +895,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                           setDraftExSearch('')
                         }}
                       >
-                        <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug line-clamp-2">
+                        <p className="text-[14px] font-medium text-[var(--apex-text-primary)] leading-snug line-clamp-2">
                           {t.name}
                         </p>
                         <p className="mt-1 text-[11px] font-medium text-[var(--apex-text-secondary)]">
@@ -1013,7 +1013,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           >
             <div className="shrink-0 p-5 pb-3 border-b border-[0.5px] border-white/[0.06]">
               <p className="apex-page-sub">Bulk edit</p>
-              <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
+              <h3 className="text-xl font-medium text-[var(--apex-text-primary)] tracking-tight mt-0.5">Plan this week</h3>
               <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                 Set workout names and exercises for every day at once. Save applies all changes together.
               </p>

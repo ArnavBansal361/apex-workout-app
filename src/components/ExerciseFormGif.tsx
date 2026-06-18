@@ -89,19 +89,19 @@ export function ExerciseMuscleDiagram({ muscleGroup, exerciseName, className }: 
         <div className="mt-3 space-y-1.5">
           {muscleLabels.primary.length ? (
             <p className="text-[11px] font-medium leading-relaxed">
-              <span className="text-[#7d7d88]">Primary · </span>
+              <span className="text-[var(--apex-text-tertiary)]">Primary · </span>
               <span className="text-[#c8d0dc]">{muscleLabels.primary.join(', ')}</span>
             </p>
           ) : null}
           {muscleLabels.secondary.length ? (
             <p className="text-[11px] font-medium leading-relaxed">
-              <span className="text-[#7d7d88]">Secondary · </span>
+              <span className="text-[var(--apex-text-tertiary)]">Secondary · </span>
               <span className="text-[var(--apex-text-tertiary)]">{muscleLabels.secondary.join(', ')}</span>
             </p>
           ) : null}
         </div>
       ) : wger !== undefined && !useWger ? (
-        <p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-[#7d7d88]">
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-[var(--apex-text-tertiary)]">
           {muscleGroup}
         </p>
       ) : null}

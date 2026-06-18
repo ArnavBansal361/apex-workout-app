@@ -60,7 +60,7 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
             </p>
             <p className="text-[15px] font-medium tabular-nums text-[var(--apex-text-primary)] mt-0.5">
               {pts}
-              <span className="text-[11px] font-medium text-[#7d7d88]">/25</span>
+              <span className="text-[11px] font-medium text-[var(--apex-text-tertiary)]">/25</span>
             </p>
           </div>
         ))}

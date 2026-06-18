@@ -39,7 +39,7 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
           ~{plan.estimatedMinutes} min before you lift
         </h2>
         <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
-          Built for <span className="text-[#c8c8ce]">{focusLabel}</span> work based on{' '}
+          Built for <span className="text-[var(--apex-text-secondary)]">{focusLabel}</span> work based on{' '}
           {basedOnLabel}.
         </p>
 

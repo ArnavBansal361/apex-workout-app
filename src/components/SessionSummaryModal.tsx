@@ -131,7 +131,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
                     <p className="text-[var(--apex-text-tertiary)] mt-0.5">
                       {s.targets} · {s.hold}
                     </p>
-                    <p className="text-[#a8a8b0] mt-1">{s.instructions}</p>
+                    <p className="text-[var(--apex-text-secondary)] mt-1">{s.instructions}</p>
                   </li>
                 ))}
               </ul>

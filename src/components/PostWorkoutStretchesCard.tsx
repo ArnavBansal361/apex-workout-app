@@ -31,7 +31,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
     <div className="apex-card p-4 space-y-3">
       <div>
         <p className="apex-section-label">Cooldown</p>
-        <h3 className="text-[15px] font-medium text-[#f0f0f2] tracking-tight mt-1">
+        <h3 className="text-[15px] font-medium text-[var(--apex-text-primary)] tracking-tight mt-1">
           Suggested stretches
         </h3>
         <p className="mt-1.5 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
@@ -51,7 +51,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
                   {s.targets.join(' · ')} · {s.hold}
                 </p>
                 {!compact ? (
-                  <p className="text-[12px] text-[#a8a8b0] mt-1.5 leading-relaxed line-clamp-3">
+                  <p className="text-[12px] text-[var(--apex-text-secondary)] mt-1.5 leading-relaxed line-clamp-3">
                     {s.instructions}
                   </p>
                 ) : null}
@@ -70,7 +70,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
           </li>
         ))}
       </ul>
-      <p className="text-[11px] text-[#7d7d88] leading-relaxed">
+      <p className="text-[11px] text-[var(--apex-text-tertiary)] leading-relaxed">
         Browse the full library under Exercises → Stretches.
       </p>
     </div>

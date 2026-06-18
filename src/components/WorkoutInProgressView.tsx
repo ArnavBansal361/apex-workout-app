@@ -208,18 +208,18 @@ function SessionSetRow({ log, unit, onEdit, onDelete }: SessionSetRowProps) {
         onClick={onEdit}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-medium text-[#f0f0f2] truncate">{log.exerciseName}</p>
+          <p className="text-[14px] font-medium text-[var(--apex-text-primary)] truncate">{log.exerciseName}</p>
           <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-0.5 tabular-nums">
             {formatSessionSetLine(log, unit)}
           </p>
         </div>
-        <span className="shrink-0 text-[11px] font-medium text-[#7d7d88] tabular-nums">
+        <span className="shrink-0 text-[11px] font-medium text-[var(--apex-text-tertiary)] tabular-nums">
           {formatSessionSetTime(log.at)}
         </span>
       </button>
       <button
         type="button"
-        className="flex shrink-0 items-center justify-center w-11 border-l border-[0.5px] border-white/[0.08] text-[#7d7d88] touch-manipulation active:bg-red-950/30 active:text-red-400"
+        className="flex shrink-0 items-center justify-center w-11 border-l border-[0.5px] border-white/[0.08] text-[var(--apex-text-tertiary)] touch-manipulation active:bg-red-950/30 active:text-red-400"
         aria-label={`Delete ${log.exerciseName} set`}
         onClick={(e) => {
           e.stopPropagation()

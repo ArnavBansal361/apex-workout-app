@@ -120,7 +120,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
         </div>
       )}
 
-      <div className="mt-3 flex gap-3 text-[11px] font-medium text-[#7d7d88]">
+      <div className="mt-3 flex gap-3 text-[11px] font-medium text-[var(--apex-text-tertiary)]">
         <span style={{ color: RISK_CONFIG.low.color }}>● Low</span>
         <span style={{ color: RISK_CONFIG.moderate.color }}>● Moderate</span>
         <span style={{ color: RISK_CONFIG.high.color }}>● High</span>

@@ -46,23 +46,23 @@ export function HelpPage({ onClose }: Props) {
               <summary className="cursor-pointer list-none flex justify-between gap-2 min-h-12 items-start">
                 <div>
                   <span className="text-[13px] font-normal text-[var(--apex-text-primary)] block">{e.name}</span>
-                  <span className="text-[11px] text-[#a8a8b0] mt-0.5 block">{e.muscleGroup}</span>
+                  <span className="text-[11px] text-[var(--apex-text-secondary)] mt-0.5 block">{e.muscleGroup}</span>
                 </div>
-                <span className="text-[#a8a8b0] text-lg leading-none">▼</span>
+                <span className="text-[var(--apex-text-secondary)] text-lg leading-none">▼</span>
               </summary>
               <div className="mt-4 border-t border-[0.5px] border-[var(--apex-border)] pt-4 space-y-4">
                 <HelpExerciseAnimation exerciseId={e.id} />
                 <div>
                   <p className="apex-section-label mb-2">Form tips</p>
-                  <p className="text-[11px] font-normal text-[#a8a8b0] leading-relaxed">{h.formTips}</p>
+                  <p className="text-[11px] font-normal text-[var(--apex-text-secondary)] leading-relaxed">{h.formTips}</p>
                 </div>
                 <div>
                   <p className="apex-section-label mb-2">Common mistakes</p>
-                  <p className="text-[11px] font-normal text-[#a8a8b0] leading-relaxed">{h.commonMistakes}</p>
+                  <p className="text-[11px] font-normal text-[var(--apex-text-secondary)] leading-relaxed">{h.commonMistakes}</p>
                 </div>
                 <div>
                   <p className="apex-section-label mb-2">Beginner advice</p>
-                  <p className="text-[11px] font-normal text-[#a8a8b0] leading-relaxed">{h.beginnerAdvice}</p>
+                  <p className="text-[11px] font-normal text-[var(--apex-text-secondary)] leading-relaxed">{h.beginnerAdvice}</p>
                 </div>
               </div>
             </details>

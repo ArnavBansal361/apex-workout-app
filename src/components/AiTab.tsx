@@ -68,7 +68,7 @@ export function AiTab() {
       <div className="apex-ai-tab pb-28">
         <button
           type="button"
-          className="apex-ai-tab__back mb-3 flex items-center gap-1.5 text-[13px] font-medium text-[#7d7d88] touch-manipulation"
+          className="apex-ai-tab__back mb-3 flex items-center gap-1.5 text-[13px] font-medium text-[var(--apex-text-tertiary)] touch-manipulation"
           onClick={() => setActive(null)}
         >
           <i className="ti ti-chevron-left text-[16px]" aria-hidden />

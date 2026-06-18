@@ -143,7 +143,7 @@ export function BodyMeasurementsSection({
       <div className="grid grid-cols-2 gap-2">
         {BODY_MEASUREMENT_FIELDS.map((field) => (
           <label key={field} className="block min-w-0">
-            <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-[#7d7d88] block mb-1">
+            <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--apex-text-tertiary)] block mb-1">
               {BODY_MEASUREMENT_LABELS[field]} ({measurementUnitLabel(field, weightUnit)})
             </span>
             <input
@@ -167,7 +167,7 @@ export function BodyMeasurementsSection({
       </button>
 
       <div className="pt-1 border-t border-[0.5px] border-white/[0.06]">
-        <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-2">History</p>
+        <p className="text-[0.8125rem] font-medium text-[var(--apex-text-tertiary)] mb-2">History</p>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {BODY_MEASUREMENT_FIELDS.map((field) => {
             const on = chartField === field
@@ -189,9 +189,9 @@ export function BodyMeasurementsSection({
         </div>
 
         {loading ? (
-          <p className="text-[13px] font-medium text-[#7d7d88] py-8 text-center">Loading…</p>
+          <p className="text-[13px] font-medium text-[var(--apex-text-tertiary)] py-8 text-center">Loading…</p>
         ) : chartData.length === 0 ? (
-          <p className="text-[13px] font-medium text-[#7d7d88] py-8 text-center">
+          <p className="text-[13px] font-medium text-[var(--apex-text-tertiary)] py-8 text-center">
             No {BODY_MEASUREMENT_LABELS[chartField].toLowerCase()} entries yet
           </p>
         ) : (

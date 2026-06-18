@@ -114,7 +114,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
               className="w-full text-left p-4 touch-manipulation hover:bg-white/[0.04] active:bg-white/[0.06]"
               onClick={() => setExpandedId(open ? null : tpl.id)}
             >
-              <p className="text-[15px] font-medium text-[#f0f0f2] leading-tight tracking-tight">
+              <p className="text-[15px] font-medium text-[var(--apex-text-primary)] leading-tight tracking-tight">
                 {tpl.name}
               </p>
               {tpl.subtitle ? (
@@ -122,7 +122,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                   {tpl.subtitle}
                 </p>
               ) : null}
-              <p className="text-[11px] text-[#7d7d88] mt-2 font-medium">
+              <p className="text-[11px] text-[var(--apex-text-tertiary)] mt-2 font-medium">
                 {workoutDays.length} training day{workoutDays.length === 1 ? '' : 's'} ·{' '}
                 {open ? 'Hide' : 'Show'} details
               </p>
@@ -139,7 +139,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                         {label} · {isRest ? 'Rest' : day.sessionName}
                       </p>
                       {isRest ? (
-                        <p className="text-[12px] text-[#7d7d88] mt-1">Rest day</p>
+                        <p className="text-[12px] text-[var(--apex-text-tertiary)] mt-1">Rest day</p>
                       ) : (
                         <ul className="mt-1.5 space-y-1">
                           {day.exercises.map((ex) => {
@@ -147,7 +147,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                             return (
                               <li
                                 key={`${day.weekday}-${ex.exerciseId}`}
-                                className="text-[13px] font-medium text-[#c8c8ce] flex justify-between gap-2"
+                                className="text-[13px] font-medium text-[var(--apex-text-secondary)] flex justify-between gap-2"
                               >
                                 <span className="min-w-0 truncate">
                                   {meta?.name ?? ex.exerciseId}

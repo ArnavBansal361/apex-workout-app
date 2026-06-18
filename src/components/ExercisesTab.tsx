@@ -349,7 +349,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
         </div>
         <button
           type="button"
-          className="mt-3 text-[12px] font-medium text-[#7d7d88] touch-manipulation hover:text-[var(--apex-text-secondary)]"
+          className="mt-3 text-[12px] font-medium text-[var(--apex-text-tertiary)] touch-manipulation hover:text-[var(--apex-text-secondary)]"
           onClick={() => {
             setCreateOpen(true)
             resetCreateForm()
@@ -460,7 +460,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
           >
             <div className="flex justify-between gap-2 items-start">
               <div>
-                <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight">{active.name}</h3>
+                <h3 className="text-xl font-medium text-[var(--apex-text-primary)] tracking-tight">{active.name}</h3>
                 {activeLastHistoryLine ? (
                   <p className="mt-1.5 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                     {activeLastHistoryLine}
@@ -510,25 +510,25 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
                 <>
                   <div>
                     <p className="apex-section-label mb-2">Hold</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {activeStretch.hold}
                     </p>
                   </div>
                   <div>
                     <p className="apex-section-label mb-2">Target muscles</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {activeStretch.targets.join(', ')}
                     </p>
                   </div>
                   <div>
                     <p className="apex-section-label mb-2">Instructions</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {activeStretch.instructions}
                     </p>
                   </div>
                   <div>
                     <p className="apex-section-label mb-2">Avoid</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {help.commonMistakes}
                     </p>
                   </div>
@@ -537,7 +537,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
                 <>
                   <div>
                     <p className="apex-section-label mb-2">Form tips</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {help.formTips}
                     </p>
                   </div>
@@ -548,13 +548,13 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
                   />
                   <div>
                     <p className="apex-section-label mb-2">Common mistakes</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {help.commonMistakes}
                     </p>
                   </div>
                   <div>
                     <p className="apex-section-label mb-2">Beginner advice</p>
-                    <p className="text-[13px] font-medium text-[#a8a8b0] leading-relaxed">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                       {help.beginnerAdvice}
                     </p>
                   </div>
@@ -590,7 +590,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
             <div className="flex justify-between items-start gap-2">
               <div>
                 <p className="apex-page-sub">Library</p>
-                <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">New exercise</h3>
+                <h3 className="text-xl font-medium text-[var(--apex-text-primary)] tracking-tight mt-0.5">New exercise</h3>
                 <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                   Add your own movement to the library. It will show on the muscle diagram for its group.
                 </p>
