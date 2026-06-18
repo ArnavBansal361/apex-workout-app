@@ -1,23 +1,34 @@
-import { APEX_LOGO_URL } from '../lib/apexBrand'
-
-/** App icon mark — geometric white mountain from /public/apex-logo.svg */
+/** App icon mark — barbell, adapts to light/dark theme */
 export function ApexLogo({
   className,
   size = 80,
 }: {
   className?: string
-  /** Icon edge length in px (default 80 for auth / headers). */
   size?: number
 }) {
   return (
-    <img
-      src={APEX_LOGO_URL}
-      alt=""
-      aria-hidden
-      width={size}
-      height={size}
+    <span
       className={className}
-      style={{ flexShrink: 0, display: 'block' }}
-    />
+      style={{
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size,
+        height: size,
+        borderRadius: size * 0.2,
+        background: 'var(--apex-surface-nested)',
+        border: '0.5px solid var(--apex-border)',
+        color: 'var(--apex-text-primary)',
+      }}
+    >
+      <svg viewBox="0 0 80 80" width={size} height={size} aria-hidden>
+        <rect x="14" y="33" width="6" height="14" rx="2" fill="currentColor"/>
+        <rect x="20" y="36" width="4" height="8" rx="1" fill="currentColor"/>
+        <rect x="24" y="38.5" width="32" height="3" rx="1.5" fill="currentColor"/>
+        <rect x="56" y="36" width="4" height="8" rx="1" fill="currentColor"/>
+        <rect x="60" y="33" width="6" height="14" rx="2" fill="currentColor"/>
+      </svg>
+    </span>
   )
 }
