@@ -620,7 +620,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
           <button
             type="button"
             disabled={busy}
-            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-white/[0.12] bg-[#121212] text-[#ececee] touch-manipulation disabled:opacity-45"
+            className="apex-coach-attach-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-primary)] touch-manipulation disabled:opacity-45"
             aria-label="Attach photo"
             onClick={() => imageInputRef.current?.click()}
           >
@@ -633,7 +633,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] touch-manipulation disabled:opacity-45 transition-colors ${
               listening
                 ? 'border-[#e07070] bg-[rgba(224,112,112,0.12)] text-[#e07070]'
-                : 'border-white/[0.12] bg-[#121212] text-[#ececee]'
+                : 'border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-primary)]'
             }`}
             aria-label={listening ? 'Stop listening' : 'Voice input'}
             onClick={startListening}
@@ -655,7 +655,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] touch-manipulation transition-colors ${
               ttsEnabled
                 ? 'border-[var(--apex-accent)] bg-[rgba(var(--apex-accent-rgb,109,184,122),0.12)] text-[var(--apex-accent)]'
-                : 'border-white/[0.12] bg-[#121212] text-[#9898a0]'
+                : 'border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-secondary)]'
             }`}
             aria-label={ttsEnabled ? 'Disable voice reply' : 'Enable voice reply'}
             onClick={toggleTts}

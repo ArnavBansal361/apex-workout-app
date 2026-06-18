@@ -147,19 +147,19 @@ export function AchievementsPage({ onClose }: Props) {
               className={`rounded-[12px] border-[0.5px] p-4 ${
                 ok
                   ? 'bg-[var(--apex-surface-card)] border-white/[0.1]'
-                  : 'bg-[#101012] border-[#252528] opacity-90'
+                  : 'bg-[var(--apex-surface-card)] border-[var(--apex-border)] opacity-90'
               }`}
             >
               <div className="flex gap-4">
                 <div
                   className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border-[0.5px] ${
-                    ok ? 'border-transparent' : 'border-[#2a2a2e] bg-[#0d0d0f]'
+                    ok ? 'border-transparent' : 'border-[var(--apex-border)] bg-[var(--apex-surface-page)]'
                   }`}
                   style={ok ? { color: '#ffffff', background: '#1a1a1a' } : { color: '#909098' }}
                 >
                   <AchievementGlyph id={a.id} />
                   {!ok ? (
-                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[#2a2a2e] bg-[#141416] text-[#a0a0a8]">
+                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[#a0a0a8]">
                       <LockIcon className="text-[#a0a0a8]" />
                     </span>
                   ) : null}
@@ -171,7 +171,7 @@ export function AchievementsPage({ onClose }: Props) {
                     </p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
-                        ok ? 'text-[#0c0c0c]' : 'text-[#9898a0] bg-[#1a1a1e] border-[0.5px] border-[#2a2a2e]'
+                        ok ? 'text-[#0c0c0c]' : 'text-[var(--apex-text-tertiary)] bg-[var(--apex-surface-nested)] border-[0.5px] border-[var(--apex-border)]'
                       }`}
                       style={ok ? { backgroundColor: '#ffffff' } : undefined}
                     >
@@ -192,7 +192,7 @@ export function AchievementsPage({ onClose }: Props) {
                         {prog.current} / {prog.target}
                       </span>
                     </div>
-                    <div className="mt-1.5 h-2 w-full rounded-full bg-[#1a1a1e] overflow-hidden border-[0.5px] border-white/[0.04]">
+                    <div className="mt-1.5 h-2 w-full rounded-full bg-[var(--apex-surface-nested)] overflow-hidden border-[0.5px] border-[var(--apex-border)]">
                       <div
                         className="h-full rounded-full transition-[width] duration-300"
                         style={{
