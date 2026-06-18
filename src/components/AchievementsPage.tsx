@@ -155,7 +155,7 @@ export function AchievementsPage({ onClose }: Props) {
                   className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border-[0.5px] ${
                     ok ? 'border-transparent' : 'border-[var(--apex-border)] bg-[var(--apex-surface-page)]'
                   }`}
-                  style={ok ? { color: '#ffffff', background: '#1a1a1a' } : { color: '#909098' }}
+                  style={ok ? { color: 'var(--apex-text-primary)', background: 'var(--apex-surface-nested)' } : { color: 'var(--apex-text-tertiary)' }}
                 >
                   <AchievementGlyph id={a.id} />
                   {!ok ? (

@@ -535,7 +535,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
                         ? 'apex-coach-bubble--user text-white border-transparent'
                         : 'apex-coach-bubble--model apex-coach-bubble-ai border-white/[0.08] text-white'
                     }`}
-                    style={isUser ? { backgroundColor: '#2a2a2a' } : undefined}
+                    style={isUser ? { backgroundColor: 'var(--apex-surface-nested)' } : undefined}
                   >
                     {m.image ? (
                       <img
