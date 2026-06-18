@@ -2569,7 +2569,7 @@ export function ProfileTab({
               <span aria-hidden className="w-[2.75rem]" />
             </header>
           ) : (
-            <h1 className="apex-settings-screen__title px-4 pt-2 pb-1 shrink-0">Settings</h1>
+            <h1 className="apex-settings-screen__title px-4 pt-2 pb-1 shrink-0">Insights</h1>
           )}
           <div className="apex-settings-screen__scroll">
             <p className="apex-settings-v2-label">Units</p>
