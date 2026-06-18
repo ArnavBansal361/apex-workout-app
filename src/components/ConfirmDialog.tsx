@@ -35,14 +35,14 @@ export function ConfirmDialog({
         className="w-full max-w-sm apex-card p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="confirm-title" className="text-[13px] font-normal text-[#e0e0e0]">
+        <h2 id="confirm-title" className="text-[13px] font-normal text-[var(--apex-text-primary)]">
           {title}
         </h2>
-        <p className="mt-2 text-[13px] font-normal text-[#a0a0a8] leading-relaxed">{message}</p>
+        <p className="mt-2 text-[13px] font-normal text-[var(--apex-text-secondary)] leading-relaxed">{message}</p>
         <div className="mt-6 flex gap-3">
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[var(--apex-text-primary)]"
             onClick={onCancel}
           >
             {cancelLabel}

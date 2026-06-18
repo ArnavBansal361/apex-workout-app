@@ -59,9 +59,9 @@ function ScaleRow({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[13px] font-medium text-[#ececee]">{label}</p>
+      <p className="text-[13px] font-medium text-[var(--apex-text-primary)]">{label}</p>
       {prompt ? (
-        <p className="text-[12px] font-medium text-[#a0a0a8] leading-snug">{prompt}</p>
+        <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-snug">{prompt}</p>
       ) : null}
       <div className="flex gap-2">
         {([1, 2, 3, 4, 5] as const).map((n) => {
@@ -74,8 +74,8 @@ function ScaleRow({
               aria-pressed={active}
               className={`flex-1 min-h-10 rounded-[8px] border-[0.5px] text-[13px] font-medium tabular-nums touch-manipulation ${
                 active
-                  ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
-                  : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
+                  ? 'border-white/25 bg-white/[0.14] text-[var(--apex-text-primary)]'
+                  : 'border-white/[0.08] text-[var(--apex-text-secondary)] hover:border-white/[0.14]'
               }`}
               onClick={() => onChange(n)}
             >
@@ -172,10 +172,10 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Readiness check</p>
-        <h2 id="readiness-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
+        <h2 id="readiness-title" className="mt-2 text-[15px] font-medium text-[var(--apex-text-primary)]">
           Quick check before you train
         </h2>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Rate how you feel right now — we&apos;ll suggest how hard to push today.
         </p>
 
@@ -211,11 +211,11 @@ export function ReadinessCheckModal({ open, userId, todayKey, onClose, onComplet
         ) : (
           <>
             <div className="mt-5 rounded-[12px] border-[0.5px] border-white/[0.08] bg-white/[0.03] px-4 py-4">
-              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#a0a0a8]">
+              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--apex-text-secondary)]">
                 Recommendation
               </p>
-              <p className="mt-2 text-[16px] font-medium text-[#ececee]">{result.title}</p>
-              <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+              <p className="mt-2 text-[16px] font-medium text-[var(--apex-text-primary)]">{result.title}</p>
+              <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                 {result.message}
               </p>
             </div>

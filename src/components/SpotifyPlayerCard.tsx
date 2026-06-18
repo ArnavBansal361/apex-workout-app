@@ -95,7 +95,7 @@ export function SpotifyPlayerCard() {
     return (
       <div className="apex-card px-5 py-4">
         <p className="apex-section-label mb-2">Spotify</p>
-        <p className="m-0 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="m-0 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Set <span className="text-[#c8c8ce]">VITE_SPOTIFY_CLIENT_ID</span> in your environment to connect
           Spotify.
         </p>
@@ -110,7 +110,7 @@ export function SpotifyPlayerCard() {
           <i className="ti ti-brand-spotify text-[20px] text-[#1db954]" aria-hidden />
           <p className="apex-section-label m-0">Spotify</p>
         </div>
-        <p className="m-0 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="m-0 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Connect to see and control what&apos;s playing during your workout.
         </p>
         <button
@@ -159,13 +159,13 @@ export function SpotifyPlayerCard() {
             <p className="m-0 text-[15px] font-medium text-[#f0f0f2] truncate leading-snug">
               {nowPlaying.trackName}
             </p>
-            <p className="m-0 mt-1 text-[13px] font-medium text-[#a0a0a8] truncate">
+            <p className="m-0 mt-1 text-[13px] font-medium text-[var(--apex-text-secondary)] truncate">
               {nowPlaying.artistName}
             </p>
           </div>
         </div>
       ) : (
-        <p className="m-0 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="m-0 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Nothing playing — start music in Spotify on your phone or computer.
         </p>
       )}

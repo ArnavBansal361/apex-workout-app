@@ -79,7 +79,7 @@ const WeeklyVolumePanel = memo(function WeeklyVolumePanel({ state, weekKey }: Ch
 
   return (
     <div className={CHART_BODY_CLASS}>
-      <p className="text-[12px] text-[#a0a0a8] mb-3 leading-relaxed font-medium">
+      <p className="text-[12px] text-[var(--apex-text-secondary)] mb-3 leading-relaxed font-medium">
         Load = sets × reps × weight (converted to lb). Cardio not included.
       </p>
       <div
@@ -240,7 +240,7 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
 
   return (
     <div className={CHART_BODY_CLASS}>
-      <p className="text-[12px] text-[#a0a0a8] mb-3 leading-relaxed font-medium">
+      <p className="text-[12px] text-[var(--apex-text-secondary)] mb-3 leading-relaxed font-medium">
         Relative volume across six groups. A shrunken wedge means less load than your strongest
         group this week.
       </p>
@@ -252,7 +252,7 @@ const MuscleBalancePanel = memo(function MuscleBalancePanel({ state, weekKey }: 
           {injuryWarnings.map((warning) => (
             <p
               key={`${warning.kind}-${warning.muscle ?? warning.message}`}
-              className="text-[12px] font-medium text-[#ececee] leading-relaxed flex gap-2"
+              className="text-[12px] font-medium text-[var(--apex-text-primary)] leading-relaxed flex gap-2"
             >
               <i className="ti ti-alert-triangle shrink-0 mt-0.5 text-[14px] text-[#d4956a]" aria-hidden />
               <span>{warning.message}</span>
@@ -345,7 +345,7 @@ export const TodayWeekChartsSection = memo(function TodayWeekChartsSection() {
   return (
     <div className="apex-card min-w-0 overflow-visible">
       <p className="apex-section-label mb-2">This week</p>
-      <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">{SLIDE_LABELS[slide]}</p>
+      <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mb-2">{SLIDE_LABELS[slide]}</p>
 
       <div
         className="w-full min-w-0 overflow-visible touch-pan-y"
@@ -391,7 +391,7 @@ export const TodayWeeklyVolumeSection = memo(function TodayWeeklyVolumeSection()
   return (
     <div className="apex-card min-w-0 overflow-visible">
       <p className="apex-section-label mb-2">This week</p>
-      <p className="text-[12px] font-medium text-[#a0a0a8] mb-2">Weekly volume by muscle group.</p>
+      <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mb-2">Weekly volume by muscle group.</p>
       <WeeklyVolumePanel state={state} weekKey={weekKey} />
     </div>
   )
