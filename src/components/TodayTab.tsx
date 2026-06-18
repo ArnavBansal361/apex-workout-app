@@ -518,7 +518,7 @@ export function TodayTab({
   }, [refreshCoachNote])
 
   useEffect(() => {
-    void fetchWeeklyInsight().then((data) => {
+    void fetchWeeklyInsight(state).then((data) => {
       if (data) setWeeklyInsight(data)
     })
   }, [])
