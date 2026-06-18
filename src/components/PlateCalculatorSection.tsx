@@ -9,7 +9,7 @@ import {
 import { platesPerSide } from '../lib/stats'
 
 const inp =
-  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[var(--apex-text-primary)] placeholder:text-[var(--apex-text-tertiary)]'
 
 type Props = {
   totalWeight: number
@@ -75,8 +75,8 @@ export function PlateCalculatorSection({ totalWeight, unit, barPrefs, onBarPrefs
           type="button"
           className={`min-h-9 rounded-[8px] border-[0.5px] px-3 text-[12px] font-medium touch-manipulation ${
             barPrefs.mode === 'standard'
-              ? 'border-white/25 bg-white/[0.1] text-[#ececee]'
-              : 'border-white/[0.08] text-[#a0a0a8]'
+              ? 'border-white/25 bg-white/[0.1] text-[var(--apex-text-primary)]'
+              : 'border-white/[0.08] text-[var(--apex-text-secondary)]'
           }`}
           onClick={() => setMode('standard')}
         >
@@ -86,8 +86,8 @@ export function PlateCalculatorSection({ totalWeight, unit, barPrefs, onBarPrefs
           type="button"
           className={`min-h-9 rounded-[8px] border-[0.5px] px-3 text-[12px] font-medium touch-manipulation ${
             barPrefs.mode === 'custom'
-              ? 'border-white/25 bg-white/[0.1] text-[#ececee]'
-              : 'border-white/[0.08] text-[#a0a0a8]'
+              ? 'border-white/25 bg-white/[0.1] text-[var(--apex-text-primary)]'
+              : 'border-white/[0.08] text-[var(--apex-text-secondary)]'
           }`}
           onClick={() => setMode('custom')}
         >

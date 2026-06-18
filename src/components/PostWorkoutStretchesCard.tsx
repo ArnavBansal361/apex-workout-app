@@ -34,7 +34,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
         <h3 className="text-[15px] font-medium text-[#f0f0f2] tracking-tight mt-1">
           Suggested stretches
         </h3>
-        <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-1.5 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Based on {trainedLabel} work today — hold each stretch as noted.
         </p>
       </div>
@@ -46,8 +46,8 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-[#ececee]">{s.name}</p>
-                <p className="text-[11px] font-medium text-[#9898a0] mt-0.5">
+                <p className="text-[13px] font-medium text-[var(--apex-text-primary)]">{s.name}</p>
+                <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)] mt-0.5">
                   {s.targets.join(' · ')} · {s.hold}
                 </p>
                 {!compact ? (
@@ -58,7 +58,7 @@ export function PostWorkoutStretchesCard({ setLogs, todayKey, compact }: Props) 
               </div>
               <button
                 type="button"
-                className="shrink-0 min-h-9 px-2.5 rounded-[8px] border-[0.5px] border-white/[0.1] text-[11px] font-medium text-[#ececee] hover:bg-white/[0.06]"
+                className="shrink-0 min-h-9 px-2.5 rounded-[8px] border-[0.5px] border-white/[0.1] text-[11px] font-medium text-[var(--apex-text-primary)] hover:bg-white/[0.06]"
                 onClick={() => {
                   addPlanExercise(s.id)
                   notify(`Added ${s.name} to today’s plan`)

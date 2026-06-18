@@ -25,14 +25,14 @@ export function HelpPage({ onClose }: Props) {
           <ApexLogo />
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[var(--apex-text-primary)]"
             onClick={onClose}
           >
             ✕
           </button>
         </div>
         <input
-          className="w-full min-h-12 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] px-3 text-[13px] text-[#e0e0e0] placeholder:text-[#9898a0]"
+          className="w-full min-h-12 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] px-3 text-[13px] text-[var(--apex-text-primary)] placeholder:text-[var(--apex-text-tertiary)]"
           placeholder="Search exercises"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -45,7 +45,7 @@ export function HelpPage({ onClose }: Props) {
             <details key={e.id} className="apex-card p-4">
               <summary className="cursor-pointer list-none flex justify-between gap-2 min-h-12 items-start">
                 <div>
-                  <span className="text-[13px] font-normal text-[#e0e0e0] block">{e.name}</span>
+                  <span className="text-[13px] font-normal text-[var(--apex-text-primary)] block">{e.name}</span>
                   <span className="text-[11px] text-[#a8a8b0] mt-0.5 block">{e.muscleGroup}</span>
                 </div>
                 <span className="text-[#a8a8b0] text-lg leading-none">▼</span>

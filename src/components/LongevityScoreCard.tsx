@@ -19,7 +19,7 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
     return (
       <div className={`apex-card p-5 ${className}`.trim()}>
         <p className="apex-section-label mb-1">Longevity score</p>
-        <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Log workouts over a few weeks to unlock a weekly score based on training consistency,
           cardio, muscle balance, and sleep.
         </p>
@@ -32,13 +32,13 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="apex-section-label mb-1">Longevity score</p>
-          <p className="text-[11px] font-medium text-[#9898a0]">
+          <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)]">
             Updated weekly · week of {result.weekLabel}
           </p>
         </div>
-        <p className="text-[36px] font-medium tabular-nums text-[#ececee] leading-none">
+        <p className="text-[36px] font-medium tabular-nums text-[var(--apex-text-primary)] leading-none">
           {result.score}
-          <span className="text-[14px] font-medium text-[#9898a0]">/100</span>
+          <span className="text-[14px] font-medium text-[var(--apex-text-tertiary)]">/100</span>
         </p>
       </div>
 
@@ -55,10 +55,10 @@ export function LongevityScoreCard({ className = '' }: { className?: string }) {
             key={label}
             className="rounded-[8px] border-[0.5px] border-white/[0.06] bg-white/[0.03] px-3 py-2"
           >
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
               {label}
             </p>
-            <p className="text-[15px] font-medium tabular-nums text-[#ececee] mt-0.5">
+            <p className="text-[15px] font-medium tabular-nums text-[var(--apex-text-primary)] mt-0.5">
               {pts}
               <span className="text-[11px] font-medium text-[#7d7d88]">/25</span>
             </p>

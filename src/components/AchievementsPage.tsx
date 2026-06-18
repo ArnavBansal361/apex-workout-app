@@ -130,13 +130,13 @@ export function AchievementsPage({ onClose }: Props) {
           <ApexLogo />
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[var(--apex-text-primary)]"
             onClick={onClose}
           >
             ✕
           </button>
         </header>
-        <p className="px-4 pt-3 text-[13px] font-normal text-[#a0a0a8] shrink-0">Achievements</p>
+        <p className="px-4 pt-3 text-[13px] font-normal text-[var(--apex-text-secondary)] shrink-0">Achievements</p>
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 pb-28">
         {ACHIEVEMENT_DEFS.map((a) => {
           const ok = earned.has(a.id)
@@ -159,14 +159,14 @@ export function AchievementsPage({ onClose }: Props) {
                 >
                   <AchievementGlyph id={a.id} />
                   {!ok ? (
-                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[#a0a0a8]">
-                      <LockIcon className="text-[#a0a0a8]" />
+                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-secondary)]">
+                      <LockIcon className="text-[var(--apex-text-secondary)]" />
                     </span>
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[#ececee]' : 'text-[#a0a0a8]'}`}>
+                    <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[var(--apex-text-primary)]' : 'text-[var(--apex-text-secondary)]'}`}>
                       {a.title}
                     </p>
                     <span
@@ -180,15 +180,15 @@ export function AchievementsPage({ onClose }: Props) {
                   </div>
                   <p
                     className={`mt-2 text-[13px] font-medium leading-relaxed ${
-                      ok ? 'text-[#a0a0a8]' : 'text-[#909098]'
+                      ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'
                     }`}
                   >
                     {a.description}
                   </p>
                   <div className="mt-3">
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
                       <span>Progress</span>
-                      <span className="tabular-nums text-[#a0a0a8]">
+                      <span className="tabular-nums text-[var(--apex-text-secondary)]">
                         {prog.current} / {prog.target}
                       </span>
                     </div>
@@ -201,7 +201,7 @@ export function AchievementsPage({ onClose }: Props) {
                         }}
                       />
                     </div>
-                    <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[#a0a0a8]' : 'text-[#909098]'}`}>
+                    <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'}`}>
                       {prog.detail}
                     </p>
                   </div>

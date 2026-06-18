@@ -14,9 +14,9 @@ const historyCard =
   'rounded-[12px] border-[0.5px] bg-[var(--apex-surface-card)] [border-color:var(--apex-border)]'
 const historyField = `${historyCard} w-full min-h-12 px-3 py-2.5 text-[13px] font-normal text-[color:var(--apex-text-primary)] [color-scheme:light]`
 const historyGhostBtn =
-  'rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.15)] bg-transparent text-[#e0e0e0]'
+  'rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.15)] bg-transparent text-[var(--apex-text-primary)]'
 const historyEditBtn =
-  'min-h-9 px-3 text-[12px] font-medium rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.12)] bg-transparent text-[#e0e0e0]'
+  'min-h-9 px-3 text-[12px] font-medium rounded-[8px] border-[0.5px] border-[rgba(255,255,255,0.12)] bg-transparent text-[var(--apex-text-primary)]'
 
 function formatHistoryDayLabel(dayKey: string): string {
   return parseDateKey(dayKey).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -83,14 +83,14 @@ export function FullHistory({ onClose }: Props) {
             </button>
             <button
               type="button"
-              className={`${historyCard} min-h-11 min-w-11 px-0 flex items-center justify-center text-[13px] font-normal text-[#e0e0e0]`}
+              className={`${historyCard} min-h-11 min-w-11 px-0 flex items-center justify-center text-[13px] font-normal text-[var(--apex-text-primary)]`}
               onClick={onClose}
             >
               ✕
             </button>
           </div>
         </div>
-        <p className="text-[15px] font-medium text-[#ececee] mb-3">Full history</p>
+        <p className="text-[15px] font-medium text-[var(--apex-text-primary)] mb-3">Full history</p>
         <div className={`${historyCard} p-4 space-y-3`}>
           <select
             className={historyField}
@@ -121,7 +121,7 @@ export function FullHistory({ onClose }: Props) {
               {logs.map((l) => (
                 <li key={l.id} className={`${historyCard} p-4`}>
                   <div className="flex justify-between gap-2">
-                    <p className="text-[13px] font-medium text-[#e0e0e0]">{l.exerciseName}</p>
+                    <p className="text-[13px] font-medium text-[var(--apex-text-primary)]">{l.exerciseName}</p>
                     {l.isPr ? (
                       <span
                         className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-black"
@@ -130,13 +130,13 @@ export function FullHistory({ onClose }: Props) {
                       </span>
                     ) : null}
                   </div>
-                  <p className="text-[13px] font-normal text-[#a0a0a8] mt-1">
+                  <p className="text-[13px] font-normal text-[var(--apex-text-secondary)] mt-1">
                     {l.kind === 'weighted'
                       ? `${l.bodyweight ? 'BW' : `${l.weight ?? 0} ${state.settings.unit}`} × ${l.reps} · ${l.sets} sets`
                       : `${l.durationSec}s`}
                   </p>
                   {l.note ? (
-                    <p className="text-[12px] font-normal text-[#a0a0a8] mt-1">{l.note}</p>
+                    <p className="text-[12px] font-normal text-[var(--apex-text-secondary)] mt-1">{l.note}</p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[0.5px] border-[rgba(255,255,255,0.08)] pt-3">
                     <p className="apex-section-label">
@@ -165,7 +165,7 @@ export function FullHistory({ onClose }: Props) {
           </section>
         ))}
         {filtered.length === 0 ? (
-          <p className="text-[13px] font-normal text-[#a0a0a8]">No sets match these filters.</p>
+          <p className="text-[13px] font-normal text-[var(--apex-text-secondary)]">No sets match these filters.</p>
         ) : null}
       </div>
 

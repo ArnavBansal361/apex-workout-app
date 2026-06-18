@@ -30,7 +30,7 @@ function ScaleRow({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[13px] font-medium text-[#ececee]">{label}</p>
+      <p className="text-[13px] font-medium text-[var(--apex-text-primary)]">{label}</p>
       <div className="flex gap-2">
         {([1, 2, 3, 4, 5] as const).map((n) => {
           const active = value === n
@@ -42,8 +42,8 @@ function ScaleRow({
               aria-pressed={active}
               className={`flex-1 min-h-10 rounded-[8px] border-[0.5px] text-[13px] font-medium tabular-nums touch-manipulation ${
                 active
-                  ? 'border-white/25 bg-white/[0.14] text-[#ececee]'
-                  : 'border-white/[0.08] text-[#a0a0a8] hover:border-white/[0.14]'
+                  ? 'border-white/25 bg-white/[0.14] text-[var(--apex-text-primary)]'
+                  : 'border-white/[0.08] text-[var(--apex-text-secondary)] hover:border-white/[0.14]'
               }`}
               onClick={() => onChange(n)}
             >
@@ -111,7 +111,7 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Post-workout</p>
-        <h2 id="mood-checkin-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
+        <h2 id="mood-checkin-title" className="mt-2 text-[15px] font-medium text-[var(--apex-text-primary)]">
           Quick check-in
         </h2>
 
@@ -129,7 +129,7 @@ export function WorkoutMoodCheckinModal({ open, userId, todayKey, onClose, onCom
         <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"
-            className="apex-btn min-h-12 w-full text-[13px] font-medium text-[#a0a0a8]"
+            className="apex-btn min-h-12 w-full text-[13px] font-medium text-[var(--apex-text-secondary)]"
             onClick={onClose}
           >
             Skip

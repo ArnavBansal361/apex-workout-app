@@ -54,7 +54,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
     return (
       <div className={`apex-card p-5 ${className}`.trim()}>
         <p className="apex-section-label mb-1">Injury risk</p>
-        <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Log at least {MIN_SESSIONS} workout sessions to unlock your injury risk score based on
           volume spikes and muscle imbalances.
         </p>
@@ -70,7 +70,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <p className="apex-section-label mb-1">Injury risk</p>
-          <p className="text-[11px] font-medium text-[#9898a0]">Based on this week's volume</p>
+          <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)]">Based on this week's volume</p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-[36px] font-medium tabular-nums leading-none" style={{ color: cfg.color }}>
@@ -112,7 +112,7 @@ export function InjuryRiskScoreCard({ className = '' }: { className?: string }) 
                 style={{ color: cfg.color }}
                 aria-hidden
               />
-              <p className="text-[12px] font-medium text-[#ececee] leading-relaxed">
+              <p className="text-[12px] font-medium text-[var(--apex-text-primary)] leading-relaxed">
                 {w.message}
               </p>
             </div>

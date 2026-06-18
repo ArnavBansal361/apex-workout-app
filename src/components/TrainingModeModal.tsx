@@ -49,10 +49,10 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Training mode</p>
-        <h2 id="training-mode-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
+        <h2 id="training-mode-title" className="mt-2 text-[15px] font-medium text-[var(--apex-text-primary)]">
           How do you want to train today?
         </h2>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           This shapes your coach&apos;s tone and sets the intent for the session.
         </p>
 
@@ -71,8 +71,8 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
                 }`}
                 onClick={() => setSelected(mode.id)}
               >
-                <p className="text-[14px] font-medium text-[#ececee]">{mode.label}</p>
-                <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                <p className="text-[14px] font-medium text-[var(--apex-text-primary)]">{mode.label}</p>
+                <p className="mt-1 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                   {mode.hint}
                 </p>
               </button>
@@ -81,7 +81,7 @@ export function TrainingModeModal({ open, userId, todayKey, onClose, onComplete 
         </div>
 
         {selected ? (
-          <p className="mt-4 text-[13px] font-medium text-[#ececee] leading-relaxed">
+          <p className="mt-4 text-[13px] font-medium text-[var(--apex-text-primary)] leading-relaxed">
             {TRAINING_MODES.find((m) => m.id === selected)?.framing}
           </p>
         ) : null}

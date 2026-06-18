@@ -35,10 +35,10 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Warm-up</p>
-        <h2 id="warmup-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
+        <h2 id="warmup-title" className="mt-2 text-[15px] font-medium text-[var(--apex-text-primary)]">
           ~{plan.estimatedMinutes} min before you lift
         </h2>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Built for <span className="text-[#c8c8ce]">{focusLabel}</span> work based on{' '}
           {basedOnLabel}.
         </p>
@@ -49,10 +49,10 @@ export function WarmupCardModal({ open, plan, onSkip, onStart }: Props) {
               key={`${m.name}-${i}`}
               className="rounded-[12px] border-[0.5px] border-white/[0.08] bg-white/[0.03] px-3.5 py-3"
             >
-              <p className="text-[13px] font-medium text-[#ececee]">
+              <p className="text-[13px] font-medium text-[var(--apex-text-primary)]">
                 {i + 1}. {m.name}
               </p>
-              <p className="mt-1 text-[12px] font-medium text-[#9898a0] tabular-nums">
+              <p className="mt-1 text-[12px] font-medium text-[var(--apex-text-tertiary)] tabular-nums">
                 {m.prescription}
               </p>
             </li>

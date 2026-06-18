@@ -135,7 +135,7 @@ export function BodyMeasurementsSection({
     <div className="apex-card p-5 space-y-4">
       <div>
         <p className="apex-section-label">Body measurements</p>
-        <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-1 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Log weight ({weightUnit}) and circumferences (in). History syncs to your account.
         </p>
       </div>
@@ -177,7 +177,7 @@ export function BodyMeasurementsSection({
                 key={field}
                 type="button"
                 className={`min-h-9 px-3 rounded-full text-[11px] font-medium transition-colors touch-manipulation ${
-                  on ? 'apex-accent-pill-active' : 'border-[0.5px] border-white/[0.12] text-[#a0a0a8]'
+                  on ? 'apex-accent-pill-active' : 'border-[0.5px] border-white/[0.12] text-[var(--apex-text-secondary)]'
                 }`}
                 onClick={() => setChartField(field)}
               >
@@ -197,7 +197,7 @@ export function BodyMeasurementsSection({
         ) : (
           <>
             {latestForField ? (
-              <p className="text-[12px] font-medium text-[#a0a0a8] mb-2 tabular-nums">
+              <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mb-2 tabular-nums">
                 Latest: {formatMeasurementValue(chartField, latestForField.value, weightUnit)} ·{' '}
                 {latestForField.at}
               </p>

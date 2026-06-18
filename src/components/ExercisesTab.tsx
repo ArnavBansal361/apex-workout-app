@@ -349,7 +349,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
         </div>
         <button
           type="button"
-          className="mt-3 text-[12px] font-medium text-[#7d7d88] touch-manipulation hover:text-[#a0a0a8]"
+          className="mt-3 text-[12px] font-medium text-[#7d7d88] touch-manipulation hover:text-[var(--apex-text-secondary)]"
           onClick={() => {
             setCreateOpen(true)
             resetCreateForm()
@@ -462,11 +462,11 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               <div>
                 <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight">{active.name}</h3>
                 {activeLastHistoryLine ? (
-                  <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                  <p className="mt-1.5 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                     {activeLastHistoryLine}
                   </p>
                 ) : null}
-                <p className="text-[12px] font-medium text-[#a0a0a8] uppercase tracking-wider mt-1">
+                <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] uppercase tracking-wider mt-1">
                   {activeStretch
                     ? `${activeStretch.targets.join(' · ')} · ${activeStretch.hold}`
                     : active.muscleGroup}
@@ -474,7 +474,7 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               </div>
               <button
                 type="button"
-                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[#ececee] text-lg leading-none"
+                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[var(--apex-text-primary)] text-lg leading-none"
                 onClick={() => setActiveId(null)}
               >
                 ✕
@@ -591,13 +591,13 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               <div>
                 <p className="apex-page-sub">Library</p>
                 <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">New exercise</h3>
-                <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                   Add your own movement to the library. It will show on the muscle diagram for its group.
                 </p>
               </div>
               <button
                 type="button"
-                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[#ececee] text-lg leading-none"
+                className="apex-btn min-h-10 min-w-10 rounded-[8px] text-[var(--apex-text-primary)] text-lg leading-none"
                 onClick={() => {
                   setCreateOpen(false)
                   resetCreateForm()

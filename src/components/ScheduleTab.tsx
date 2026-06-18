@@ -439,7 +439,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           <>
             <p className="apex-page-sub">Calendar</p>
             <h1 className="apex-page-title mt-1">Schedule</h1>
-            <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               Plan the week, spot muscle balance, and drag days to reshuffle.
             </p>
           </>
@@ -484,7 +484,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <p className="apex-section-label">This week · muscle balance</p>
-              <p className="mt-1 text-[12px] font-medium text-[#a0a0a8]">
+              <p className="mt-1 text-[12px] font-medium text-[var(--apex-text-secondary)]">
                 Days per group (from planned exercises). Wider bars = more exposure.
               </p>
             </div>
@@ -493,7 +493,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <ul className="space-y-3">
               {muscleBalance.rows.map(({ group, days }) => (
                 <li key={group} className="flex items-center gap-3">
-                  <span className="w-24 shrink-0 text-[11px] font-medium text-[#a0a0a8]">
+                  <span className="w-24 shrink-0 text-[11px] font-medium text-[var(--apex-text-secondary)]">
                     {group}
                   </span>
                   <div className="flex-1 min-w-0 h-2.5 rounded-full bg-white/[0.06] border-[0.5px] border-white/[0.06] overflow-hidden">
@@ -512,7 +512,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] font-medium text-[#9898a0]">
+            <p className="text-[13px] font-medium text-[var(--apex-text-tertiary)]">
               Add planned exercises to days below — balance bars fill in automatically.
             </p>
           )}
@@ -697,7 +697,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                 ›
               </button>
             </div>
-            <p className="text-[11px] font-medium text-[#9898a0] mb-2">
+            <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)] mb-2">
               This app stores one training week. Days outside your current week are read-only. Drag between colored
               week days to swap plans.
             </p>
@@ -708,7 +708,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   className={`text-center text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.12em] py-1 rounded-t-[4px] ${
                     colIdx === todayColIdx
                       ? 'text-[#f4f4f5] bg-white/[0.08]'
-                      : 'text-[#9898a0]'
+                      : 'text-[var(--apex-text-tertiary)]'
                   }`}
                 >
                   {label}
@@ -745,7 +745,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     <div className="flex items-start justify-between gap-0.5">
                       <span
                         className={`text-[11px] sm:text-[12px] font-medium tabular-nums leading-none ${
-                          isToday ? 'text-[#f4f4f5]' : inMonth ? 'text-[#a8a8b0]' : 'text-[#9898a0]'
+                          isToday ? 'text-[#f4f4f5]' : inMonth ? 'text-[#a8a8b0]' : 'text-[var(--apex-text-tertiary)]'
                         }`}
                       >
                         {dt.getDate()}
@@ -754,7 +754,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         <div
                           draggable
                           onDragStart={(e) => onDragStartDay(e, dk)}
-                          className="cursor-grab rounded-[4px] p-0.5 text-[10px] text-[#a0a0a8] hover:bg-white/10 active:cursor-grabbing"
+                          className="cursor-grab rounded-[4px] p-0.5 text-[10px] text-[var(--apex-text-secondary)] hover:bg-white/10 active:cursor-grabbing"
                           title="Drag"
                         >
                           ⣿
@@ -839,7 +839,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             </label>
             <div className="mt-5">
               <span className="apex-section-label block mb-2">Quick presets</span>
-              <p className="text-[12px] font-medium text-[#9898a0] mb-3 leading-relaxed">
+              <p className="text-[12px] font-medium text-[var(--apex-text-tertiary)] mb-3 leading-relaxed">
                 One tap fills this day&apos;s planned exercises. Edit chips below or use search to tweak.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-0.5">
@@ -860,10 +860,10 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       }}
                     >
                       <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug">{p.title}</p>
-                      <p className="mt-1 text-[11px] font-medium text-[#a0a0a8] leading-snug line-clamp-2">
+                      <p className="mt-1 text-[11px] font-medium text-[var(--apex-text-secondary)] leading-snug line-clamp-2">
                         {p.subtitle}
                       </p>
-                      <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wide text-[#9898a0]">
+                      <p className="mt-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
                         {resolved.length} exercise{resolved.length === 1 ? '' : 's'}
                       </p>
                     </button>
@@ -873,7 +873,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             </div>
             <div className="mt-5">
               <span className="apex-section-label block mb-2">My templates</span>
-              <p className="text-[12px] font-medium text-[#9898a0] mb-3 leading-relaxed">
+              <p className="text-[12px] font-medium text-[var(--apex-text-tertiary)] mb-3 leading-relaxed">
                 Saved from Today (&quot;My templates&quot;). Tap to replace this day&apos;s planned list — you can
                 still adjust below.
               </p>
@@ -898,7 +898,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         <p className="text-[14px] font-medium text-[#f0f0f2] leading-snug line-clamp-2">
                           {t.name}
                         </p>
-                        <p className="mt-1 text-[11px] font-medium text-[#a0a0a8]">
+                        <p className="mt-1 text-[11px] font-medium text-[var(--apex-text-secondary)]">
                           {resolved.length} exercise{resolved.length === 1 ? '' : 's'}
                         </p>
                       </button>
@@ -906,7 +906,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   })}
                 </div>
               ) : (
-                <p className="text-[12px] font-medium text-[#9898a0] leading-relaxed">
+                <p className="text-[12px] font-medium text-[var(--apex-text-tertiary)] leading-relaxed">
                   No saved templates yet — build a plan on Today, open &quot;My templates&quot;, and save one to reuse
                   here.
                 </p>
@@ -932,12 +932,12 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         setDraftExSearch('')
                       }}
                     >
-                      <span className="text-[13px] font-medium text-[#ececee]">{e.name}</span>
-                      <span className="ml-2 text-[11px] font-medium text-[#a0a0a8]">{e.muscleGroup}</span>
+                      <span className="text-[13px] font-medium text-[var(--apex-text-primary)]">{e.name}</span>
+                      <span className="ml-2 text-[11px] font-medium text-[var(--apex-text-secondary)]">{e.muscleGroup}</span>
                     </button>
                   ))
                 ) : (
-                  <p className="px-3 py-4 text-[12px] font-medium text-[#9898a0]">
+                  <p className="px-3 py-4 text-[12px] font-medium text-[var(--apex-text-tertiary)]">
                     {draftPlannedIds.length >= visibleExercises.length
                       ? 'All exercises are already added.'
                       : 'No matches — try another search.'}
@@ -957,7 +957,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                         {ex.name}
                         <button
                           type="button"
-                          className="flex h-6 w-6 items-center justify-center rounded-full text-[#a0a0a8] hover:bg-white/10 hover:text-[#ececee]"
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--apex-text-secondary)] hover:bg-white/10 hover:text-[var(--apex-text-primary)]"
                           aria-label={`Remove ${ex.name}`}
                           onClick={() => setDraftPlannedIds((ids) => ids.filter((x) => x !== id))}
                         >
@@ -968,7 +968,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                   })}
                 </div>
               ) : (
-                <p className="mt-2 text-[12px] font-medium text-[#9898a0]">
+                <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-tertiary)]">
                   Pick exercises from your library — muscle tags appear on the week cards.
                 </p>
               )}
@@ -1014,7 +1014,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
             <div className="shrink-0 p-5 pb-3 border-b border-[0.5px] border-white/[0.06]">
               <p className="apex-page-sub">Bulk edit</p>
               <h3 className="text-xl font-medium text-[#f4f4f5] tracking-tight mt-0.5">Plan this week</h3>
-              <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+              <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                 Set workout names and exercises for every day at once. Save applies all changes together.
               </p>
             </div>
@@ -1058,7 +1058,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {muscles.length ? renderMuscleDots(muscles) : null}
-                        <span className="text-[#a0a0a8] text-lg font-light" aria-hidden>
+                        <span className="text-[var(--apex-text-secondary)] text-lg font-light" aria-hidden>
                           {dayExpanded ? '−' : '+'}
                         </span>
                       </div>
@@ -1195,7 +1195,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                               }
                             >
                               {e.name}{' '}
-                              <span className="text-[#a0a0a8]">· {e.muscleGroup}</span>
+                              <span className="text-[var(--apex-text-secondary)]">· {e.muscleGroup}</span>
                             </button>
                           ))}
                         </div>
@@ -1212,7 +1212,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                                   {ex.name}
                                   <button
                                     type="button"
-                                    className="h-5 w-5 rounded-full text-[#a0a0a8] hover:bg-white/10"
+                                    className="h-5 w-5 rounded-full text-[var(--apex-text-secondary)] hover:bg-white/10"
                                     aria-label="Remove"
                                     onClick={() =>
                                       setWeekBulkDraft((rows) =>

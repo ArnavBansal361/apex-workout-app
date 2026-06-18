@@ -74,13 +74,13 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
       <div className="w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
         <div ref={cardRef} className="apex-card p-6">
           <p className="apex-section-label">Lift</p>
-          <p className="mt-2 text-[13px] font-normal text-[#e0e0e0]">{data.headline}</p>
+          <p className="mt-2 text-[13px] font-normal text-[var(--apex-text-primary)]">{data.headline}</p>
           {data.comebackMessage ? (
-            <p className="mt-2 text-[13px] font-medium text-[#ececee] leading-relaxed">
+            <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-primary)] leading-relaxed">
               {data.comebackMessage}
             </p>
           ) : null}
-          <p className="mt-2 text-[13px] font-normal text-[#a0a0a8]">{data.dateLabel}</p>
+          <p className="mt-2 text-[13px] font-normal text-[var(--apex-text-secondary)]">{data.dateLabel}</p>
           {data.badges.length > 0 ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {data.badges.map((badge) => (
@@ -128,7 +128,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
                 {data.stretchSuggestions.map((s) => (
                   <li key={s.id} className="text-[12px] leading-relaxed">
                     <p className="font-medium text-[#e8e8ea]">{s.name}</p>
-                    <p className="text-[#9898a0] mt-0.5">
+                    <p className="text-[var(--apex-text-tertiary)] mt-0.5">
                       {s.targets} · {s.hold}
                     </p>
                     <p className="text-[#a8a8b0] mt-1">{s.instructions}</p>
@@ -138,12 +138,12 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
             </div>
           ) : null}
           {data.badges.some((b) => b.id === 'short-session') ? (
-            <p className="mt-4 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-4 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               Short sessions still count toward your streak and weekly progress.
             </p>
           ) : null}
           {data.badges.some((b) => b.id === 'efficient-session') ? (
-            <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               20 minutes counts — a focused session beats skipping the gym.
             </p>
           ) : null}
@@ -152,19 +152,19 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
         <div className="flex flex-col gap-2">
           <button
             type="button"
-            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[var(--apex-text-primary)]"
             onClick={downloadImage}
           >
             Download as image
           </button>
           <button
             type="button"
-            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 w-full rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[var(--apex-text-primary)]"
             onClick={() => void shareOut()}
           >
             Share text summary
           </button>
-          <button type="button" className="min-h-11 text-[13px] font-normal text-[#a0a0a8]" onClick={onClose}>
+          <button type="button" className="min-h-11 text-[13px] font-normal text-[var(--apex-text-secondary)]" onClick={onClose}>
             Close
           </button>
         </div>

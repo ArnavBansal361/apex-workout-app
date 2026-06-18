@@ -12,7 +12,7 @@ type Props = {
 }
 
 const inp =
-  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[#e0e0e0] placeholder:text-[#9898a0]'
+  'rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] px-3 text-[16px] font-normal text-[var(--apex-text-primary)] placeholder:text-[var(--apex-text-tertiary)]'
 
 export function QuickLogModal({ onClose, initialExercise = null }: Props) {
   const { visibleExercises, addSetLog, notify, state } = useWorkout()
@@ -151,7 +151,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
         <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-[var(--apex-border)]">
           <div>
             <p className="apex-section-label">Quick log</p>
-            <p className="mt-1 text-[12px] font-normal text-[#a0a0a8] leading-relaxed">
+            <p className="mt-1 text-[12px] font-normal text-[var(--apex-text-secondary)] leading-relaxed">
               Search any exercise, enter load and volume, save — no plan required.
             </p>
           </div>
@@ -159,7 +159,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             <button
               type="button"
               aria-label="Voice input"
-              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[#e0e0e0] flex items-center justify-center ${
+              className={`relative min-h-11 min-w-11 rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[var(--apex-text-primary)] flex items-center justify-center ${
                 listening ? 'apex-mic-listening' : ''
               }`}
               style={
@@ -176,7 +176,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             </button>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[13px] text-[var(--apex-text-primary)]"
               onClick={onClose}
               aria-label="Close"
             >
@@ -200,7 +200,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
             </label>
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] divide-y divide-[#1e1e1e]">
               {filtered.length === 0 ? (
-                <li className="px-3 py-3 text-[13px] text-[#a0a0a8]">No matches</li>
+                <li className="px-3 py-3 text-[13px] text-[var(--apex-text-secondary)]">No matches</li>
               ) : (
                 filtered.map((e) => (
                   <li key={e.id}>
@@ -208,19 +208,19 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
                       type="button"
                       className={`w-full min-h-11 border-l-2 text-left px-3 py-2.5 text-[13px] font-normal transition-colors ${
                         selected?.id === e.id
-                          ? 'bg-[var(--apex-surface-nested)] text-[#e0e0e0]'
-                          : 'border-transparent text-[#e0e0e0] hover:bg-[var(--apex-surface-nested)]'
+                          ? 'bg-[var(--apex-surface-nested)] text-[var(--apex-text-primary)]'
+                          : 'border-transparent text-[var(--apex-text-primary)] hover:bg-[var(--apex-surface-nested)]'
                       }`}
                       style={{ borderLeftColor: selected?.id === e.id ? 'var(--apex-accent)' : 'transparent' }}
                       onClick={() => setSelected(e)}
                     >
                       <span className="block">{e.name}</span>
                       {formatExerciseLastHistoryLine(state.setLogs, e.id, unit) ? (
-                        <span className="block text-[11px] text-[#9898a0] mt-0.5">
+                        <span className="block text-[11px] text-[var(--apex-text-tertiary)] mt-0.5">
                           {formatExerciseLastHistoryLine(state.setLogs, e.id, unit)}
                         </span>
                       ) : (
-                        <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
+                        <span className="text-[var(--apex-text-secondary)]"> · {e.muscleGroup}</span>
                       )}
                     </button>
                   </li>
@@ -232,17 +232,17 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
           {selected ? (
             <div className="space-y-3 rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] p-4">
               <div>
-                <p className="text-[13px] font-normal text-[#e0e0e0]">
-                  <span className="text-[#a0a0a8]">Selected · </span>
+                <p className="text-[13px] font-normal text-[var(--apex-text-primary)]">
+                  <span className="text-[var(--apex-text-secondary)]">Selected · </span>
                   {selected.name}
                 </p>
                 {formatExerciseLastHistoryLine(state.setLogs, selected.id, unit) ? (
-                  <p className="mt-1.5 text-[12px] font-medium text-[#a0a0a8]">
+                  <p className="mt-1.5 text-[12px] font-medium text-[var(--apex-text-secondary)]">
                     {formatExerciseLastHistoryLine(state.setLogs, selected.id, unit)}
                   </p>
                 ) : null}
               </div>
-              <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[#e0e0e0]">
+              <label className="flex items-center gap-3 min-h-12 text-[13px] font-normal text-[var(--apex-text-primary)]">
                 <input
                   type="checkbox"
                   checked={bodyweight}
@@ -281,7 +281,7 @@ export function QuickLogModal({ onClose, initialExercise = null }: Props) {
         <div className="shrink-0 flex gap-3 p-5 pt-3 border-t border-[0.5px] border-[var(--apex-border)]">
           <button
             type="button"
-            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[#e0e0e0]"
+            className="min-h-12 flex-1 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] font-normal text-[var(--apex-text-primary)]"
             onClick={onClose}
           >
             Cancel

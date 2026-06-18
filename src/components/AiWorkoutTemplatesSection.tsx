@@ -70,14 +70,14 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
         <p className="apex-section-label">AI templates</p>
         <button
           type="button"
-          className="text-[12px] font-medium text-[#a0a0a8] hover:text-[#ececee] touch-manipulation disabled:opacity-40"
+          className="text-[12px] font-medium text-[var(--apex-text-secondary)] hover:text-[var(--apex-text-primary)] touch-manipulation disabled:opacity-40"
           disabled={loading}
           onClick={() => void load(true)}
         >
           {loading ? 'Generating…' : 'Refresh'}
         </button>
       </div>
-      <p className="text-[12px] font-medium text-[#a0a0a8] leading-snug">
+      <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-snug">
         Personalized weekly splits from your history, PRs, and muscle balance. Tap one to apply to
         this week&apos;s schedule.
       </p>
@@ -96,7 +96,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
       ) : null}
 
       {loading && !templates?.length ? (
-        <p className="text-[13px] font-medium text-[#a0a0a8] py-4">Building your templates…</p>
+        <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] py-4">Building your templates…</p>
       ) : null}
 
       {templates?.map((tpl) => {
@@ -135,7 +135,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                   const isRest = /^rest$/i.test(day.sessionName) || day.exercises.length === 0
                   return (
                     <div key={`${tpl.id}-${day.weekday}`}>
-                      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#a0a0a8]">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-secondary)]">
                         {label} · {isRest ? 'Rest' : day.sessionName}
                       </p>
                       {isRest ? (
@@ -152,7 +152,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                                 <span className="min-w-0 truncate">
                                   {meta?.name ?? ex.exerciseId}
                                 </span>
-                                <span className="shrink-0 tabular-nums text-[#a0a0a8]">
+                                <span className="shrink-0 tabular-nums text-[var(--apex-text-secondary)]">
                                   {ex.sets}×{ex.reps}
                                 </span>
                               </li>

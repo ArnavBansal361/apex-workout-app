@@ -193,18 +193,18 @@ export function ApexStepper({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[20px] leading-none text-[#e0e0e0]"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[20px] leading-none text-[var(--apex-text-primary)]"
           aria-label={`Decrease ${label}`}
           onClick={() => onChange(Math.max(min, value - 1))}
         >
           −
         </button>
-        <span className="flex-1 text-center text-[18px] font-medium tabular-nums text-[#e0e0e0]">
+        <span className="flex-1 text-center text-[18px] font-medium tabular-nums text-[var(--apex-text-primary)]">
           {value}
         </span>
         <button
           type="button"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[20px] leading-none text-[#e0e0e0]"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-nested)] text-[20px] leading-none text-[var(--apex-text-primary)]"
           aria-label={`Increase ${label}`}
           onClick={() => onChange(value + 1)}
         >

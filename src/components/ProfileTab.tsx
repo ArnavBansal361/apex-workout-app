@@ -140,7 +140,7 @@ function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) 
               key={p.id}
               type="button"
               className={`shrink-0 text-[11px] font-medium transition-colors touch-manipulation ${
-                on ? 'apex-accent-pill-active' : 'bg-transparent text-[#ececee]'
+                on ? 'apex-accent-pill-active' : 'bg-transparent text-[var(--apex-text-primary)]'
               }`}
               style={{
                 height: 30,
@@ -236,7 +236,7 @@ export function TopLiftsProgressCard({
     return (
       <div className={`apex-card p-5 ${className}`.trim()}>
         <p className="apex-section-label mb-1">Progress</p>
-        <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed mt-2">
+        <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed mt-2">
           Log weighted sets for the same exercises across multiple weeks to see your strength trends here.
         </p>
       </div>
@@ -261,8 +261,8 @@ export function TopLiftsProgressCard({
               onClick={() => setRange(o.id)}
               className={`px-2.5 py-1 rounded-[6px] text-[11px] font-medium transition-colors ${
                 range === o.id
-                  ? 'bg-white/[0.12] text-[#ececee]'
-                  : 'text-[#7d7d88] hover:text-[#a0a0a8]'
+                  ? 'bg-white/[0.12] text-[var(--apex-text-primary)]'
+                  : 'text-[#7d7d88] hover:text-[var(--apex-text-secondary)]'
               }`}
             >
               {o.label}
@@ -279,7 +279,7 @@ export function TopLiftsProgressCard({
             onClick={() => onOpenLibrary?.(lift.id)}
           >
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-[#ececee] truncate">{lift.name}</p>
+              <p className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate">{lift.name}</p>
               <p className="text-[11px] font-medium text-[#7d7d88] mt-0.5">
                 {lift.currentMax != null ? `${lift.currentMax} ${state.settings.unit}` : '—'}
                 {lift.delta != null && lift.delta !== 0 ? (
@@ -594,7 +594,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
             />
             <button
               type="button"
-              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-white/[0.15] bg-[var(--apex-surface-nested)] text-[#ececee] text-[14px] touch-manipulation"
+              className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full border-[0.5px] border-white/[0.15] bg-[var(--apex-surface-nested)] text-[var(--apex-text-primary)] text-[14px] touch-manipulation"
               aria-label="Remove photo"
               disabled={busy}
               onClick={() => setPendingImage(null)}
@@ -697,7 +697,7 @@ function AiParserPanel({
   return (
     <div className="apex-card min-w-0 max-w-full p-5 space-y-3">
       <p className="apex-section-label">Import with AI</p>
-      <p className="m-0 text-[12px] font-medium text-[#a0a0a8] leading-relaxed break-words">
+      <p className="m-0 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed break-words">
         Paste workout notes (e.g. &quot;3 sets of 10 bench press at 135 lbs&quot;), preview, then save to
         today&apos;s log.
       </p>
@@ -919,7 +919,7 @@ function AiInsightsPanel() {
       <div className="py-14 text-center">
         <i className="ti ti-chart-bar text-[26px] leading-none mx-auto block mb-4 text-[#3d7ab5]" aria-hidden />
         <p className="text-[20px] font-medium text-[#f0f0f2]">No data yet</p>
-        <p className="mt-2 text-[14px] font-medium text-[#a0a0a8]">
+        <p className="mt-2 text-[14px] font-medium text-[var(--apex-text-secondary)]">
           Log your first workout to start seeing patterns here.
         </p>
       </div>
@@ -931,7 +931,7 @@ function AiInsightsPanel() {
       <header>
         <p className="apex-section-label text-[#3d7ab5]">INSIGHTS</p>
         <h2 className="mt-1 text-[28px] font-medium text-[#f4f4f5] leading-tight">Training Patterns</h2>
-        <p className="mt-2 text-[14px] font-medium text-[#a0a0a8]">Updated weekly based on your sessions.</p>
+        <p className="mt-2 text-[14px] font-medium text-[var(--apex-text-secondary)]">Updated weekly based on your sessions.</p>
       </header>
 
       <section className="apex-card p-4">
@@ -982,7 +982,7 @@ function AiInsightsPanel() {
               </div>
             ))
           ) : (
-            <p className="text-[13px] font-medium text-[#a0a0a8]">Log sets this week to see your top muscle groups.</p>
+            <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">Log sets this week to see your top muscle groups.</p>
           )}
         </div>
       </section>
@@ -991,7 +991,7 @@ function AiInsightsPanel() {
         <p className="apex-section-label">CONSISTENCY</p>
         <p className="mt-2 text-[38px] leading-none font-medium text-[#f4f4f5] tabular-nums">
           {consistency.score}
-          <span className="text-[18px] text-[#a0a0a8] font-medium">/100</span>
+          <span className="text-[18px] text-[var(--apex-text-secondary)] font-medium">/100</span>
         </p>
         <p className="mt-2 text-[13px] font-medium text-[#c8c8ce]">{consistency.explanation}</p>
       </section>
@@ -1004,10 +1004,10 @@ function AiInsightsPanel() {
               <span>Feel: <span className="tabular-nums text-[#f4f4f5]">{recovery.avgFeel.toFixed(1)}/5</span></span>
               <span>Energy: <span className="tabular-nums text-[#f4f4f5]">{recovery.avgEnergy.toFixed(1)}/5</span></span>
             </div>
-            <p className="mt-2 text-[13px] font-medium text-[#a0a0a8]">{recovery.note}</p>
+            <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)]">{recovery.note}</p>
           </>
         ) : (
-          <p className="mt-2 text-[13px] font-medium text-[#a0a0a8]">
+          <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)]">
             Complete post-workout check-ins to unlock recovery insights.
           </p>
         )}
@@ -1160,30 +1160,30 @@ export function AiHub({
             className="w-full max-w-md apex-card p-5 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-[13px] font-normal text-[#e0e0e0]">Import preview</h3>
+            <h3 className="text-[13px] font-normal text-[var(--apex-text-primary)]">Import preview</h3>
             <p className="mt-2 text-[13px] font-normal text-[#a8a8b0] leading-relaxed">
               Set logs are added to today&apos;s workout. Other entries are merged into your data.
             </p>
-            <ul className="mt-4 space-y-2 text-[13px] font-normal text-[#e0e0e0]">
+            <ul className="mt-4 space-y-2 text-[13px] font-normal text-[var(--apex-text-primary)]">
               <li>
                 Set logs:{' '}
-                <span className="tabular-nums text-[#e0e0e0]">{importPreview.setLogs?.length ?? 0}</span>
+                <span className="tabular-nums text-[var(--apex-text-primary)]">{importPreview.setLogs?.length ?? 0}</span>
               </li>
               <li>
                 Cardio:{' '}
-                <span className="tabular-nums text-[#e0e0e0]">
+                <span className="tabular-nums text-[var(--apex-text-primary)]">
                   {importPreview.cardioEntries?.length ?? 0}
                 </span>
               </li>
               <li>
                 Bodyweight:{' '}
-                <span className="tabular-nums text-[#e0e0e0]">
+                <span className="tabular-nums text-[var(--apex-text-primary)]">
                   {importPreview.bodyweightLogs?.length ?? 0}
                 </span>
               </li>
               <li>
                 Schedule:{' '}
-                <span className="text-[#e0e0e0]">
+                <span className="text-[var(--apex-text-primary)]">
                   {importPreview.schedule ? `${importPreview.schedule.length} days` : 'unchanged'}
                 </span>
               </li>
@@ -2364,11 +2364,11 @@ export function ProfileTab({
             <>
               <div className={`apex-card p-5 space-y-3 ${isDesktop ? 'col-span-2' : ''}`}>
                 <p className="apex-section-label">Your trainer code</p>
-                <p className="text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+                <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                   Share this code with clients so they can connect in Settings.
                 </p>
                 <div className="flex items-center gap-3">
-                  <p className="flex-1 text-[26px] font-medium tracking-[0.22em] text-[#ececee] tabular-nums">
+                  <p className="flex-1 text-[26px] font-medium tracking-[0.22em] text-[var(--apex-text-primary)] tabular-nums">
                     {trainerCode || ensureTrainerCode()}
                   </p>
                   <button
@@ -2389,9 +2389,9 @@ export function ProfileTab({
               <div className={`space-y-3 ${isDesktop ? 'col-span-2' : ''}`}>
                 <p className="apex-section-label">My Clients</p>
                 {clientsLoading ? (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">Loading clients…</p>
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">Loading clients…</p>
                 ) : clients.length === 0 ? (
-                  <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                     No clients connected yet. Share your trainer code so they can connect in Settings.
                   </p>
                 ) : (
@@ -2403,8 +2403,8 @@ export function ProfileTab({
                           className="apex-card w-full p-4 text-left touch-manipulation hover:border-white/[0.14]"
                           onClick={() => openClientDetail(c)}
                         >
-                          <p className="text-[15px] font-medium text-[#ececee]">{c.displayName}</p>
-                          <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">
+                          <p className="text-[15px] font-medium text-[var(--apex-text-primary)]">{c.displayName}</p>
+                          <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-1">
                             Last active · {formatLastActive(c.lastActiveMs)}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-medium text-[#7d7d88]">
@@ -2427,17 +2427,17 @@ export function ProfileTab({
           ) : null}
           <div className="apex-card p-5">
             <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-2">Muscle groups</p>
-            <p className="text-[15px] font-medium text-[#ececee] leading-relaxed">
+            <p className="text-[15px] font-medium text-[var(--apex-text-primary)] leading-relaxed">
               {muscleGroupsThisWeek(state).length
                 ? muscleGroupsThisWeek(state).join(', ')
                 : 'None yet'}
             </p>
-            <p className="text-[12px] font-medium text-[#a0a0a8] mt-2">Hit this week</p>
+            <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-2">Hit this week</p>
           </div>
           <div className="apex-card p-5 space-y-4">
             <p className="apex-section-label">Log bodyweight</p>
             {lastBodyweight ? (
-              <p className="text-[13px] font-normal text-[#e0e0e0]">
+              <p className="text-[13px] font-normal text-[var(--apex-text-primary)]">
                 Last entry:{' '}
                 <span className="tabular-nums">
                   {lastBodyweight.value} {state.settings.unit}
@@ -2972,7 +2972,7 @@ export function ProfileTab({
 
             <button
               type="button"
-              className="w-full min-h-11 mt-6 text-[13px] font-medium text-[#a0a0a8] bg-transparent"
+              className="w-full min-h-11 mt-6 text-[13px] font-medium text-[var(--apex-text-secondary)] bg-transparent"
               disabled={clearDataBusy}
               onClick={() => setConfirmClearData(true)}
             >
@@ -2995,13 +2995,13 @@ export function ProfileTab({
           <header className="px-4 py-3 border-b border-[0.5px] border-[var(--apex-border)] flex items-center justify-between gap-2">
             <div>
               <p className="text-[15px] font-medium text-[#f4f4f5]">{selectedClient.displayName}</p>
-              <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5">
+              <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-0.5">
                 Last active · {formatLastActive(selectedClient.lastActiveMs)}
               </p>
             </div>
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[#e0e0e0]"
+              className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[13px] text-[var(--apex-text-primary)]"
               onClick={() => {
                 setSelectedClient(null)
                 setClientDetailState(null)
@@ -3013,13 +3013,13 @@ export function ProfileTab({
           </header>
           <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-28">
             {clientDetailLoading ? (
-              <p className="text-[13px] font-medium text-[#a0a0a8]">Loading…</p>
+              <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">Loading…</p>
             ) : !clientDetailState ? (
-              <p className="text-[13px] font-medium text-[#a0a0a8]">
+              <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                 No shared data yet. Ask your client to enable sharing in Settings.
               </p>
             ) : clientAllSharingOff ? (
-              <p className="text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+              <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
                 This client has turned off all sharing. Workout logs, bodyweight, and personal records
                 are hidden until they enable them in Settings.
               </p>
@@ -3032,18 +3032,18 @@ export function ProfileTab({
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {sessionsThisWeek(clientDetailState)}
                       </p>
-                      <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">This week</p>
+                      <p className="text-[0.8125rem] font-medium text-[var(--apex-text-secondary)] mt-1">This week</p>
                     </div>
                     <div className="rounded-[12px] border-[0.5px] border-white/[0.055] p-4">
                       <p className="text-[0.75rem] font-medium text-[#7d7d88]">Streak</p>
                       <p className="apex-stat-num mt-2 tabular-nums">
                         {streakCurrent(clientDetailState)}d
                       </p>
-                      <p className="text-[0.8125rem] font-medium text-[#a0a0a8] mt-1">Current</p>
+                      <p className="text-[0.8125rem] font-medium text-[var(--apex-text-secondary)] mt-1">Current</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                     Workout logs are hidden by this client.
                   </p>
                 )}
@@ -3054,18 +3054,18 @@ export function ProfileTab({
                       {clientDetailPr.slice(0, 12).map((row) => (
                         <li
                           key={row.exerciseId}
-                          className="flex justify-between gap-2 text-[13px] text-[#e0e0e0]"
+                          className="flex justify-between gap-2 text-[13px] text-[var(--apex-text-primary)]"
                         >
                           <span className="font-medium">{row.exerciseName}</span>
-                          <span className="text-[#a0a0a8] tabular-nums shrink-0">{row.detail}</span>
+                          <span className="text-[var(--apex-text-secondary)] tabular-nums shrink-0">{row.detail}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : clientDetailShare?.personalRecords ? (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">No personal records logged yet.</p>
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">No personal records logged yet.</p>
                 ) : (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                     Personal records are hidden by this client.
                   </p>
                 )}
@@ -3073,7 +3073,7 @@ export function ProfileTab({
                 clientDetailState.bodyweightLogs.length > 0 ? (
                   <div className="apex-card p-5">
                     <p className="apex-section-label mb-2">Bodyweight</p>
-                    <p className="text-[15px] font-medium text-[#ececee] tabular-nums">
+                    <p className="text-[15px] font-medium text-[var(--apex-text-primary)] tabular-nums">
                       {(() => {
                         const latest = [...clientDetailState.bodyweightLogs].sort(
                           (a, b) => b.at - a.at,
@@ -3083,24 +3083,24 @@ export function ProfileTab({
                           : '—'
                       })()}
                     </p>
-                    <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Latest log</p>
+                    <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-1">Latest log</p>
                   </div>
                 ) : (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">No bodyweight logs yet.</p>
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">No bodyweight logs yet.</p>
                 )
                 ) : (
-                  <p className="text-[13px] font-medium text-[#a0a0a8]">
+                  <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                     Bodyweight is hidden by this client.
                   </p>
                 )}
                 <div>
                   <p className="apex-section-label mb-2">Workout history</p>
                   {!clientDetailShare?.workoutLogs ? (
-                    <p className="text-[13px] font-medium text-[#a0a0a8]">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                       Workout logs are hidden by this client.
                     </p>
                   ) : clientDetailGrouped.length === 0 ? (
-                    <p className="text-[13px] font-medium text-[#a0a0a8]">
+                    <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
                       No workout logs shared.
                     </p>
                   ) : (
@@ -3127,7 +3127,7 @@ export function ProfileTab({
                                     : `${l.durationSec}s`}
                                 </p>
                                 {l.note ? (
-                                  <p className="text-[12px] text-[#a0a0a8] mt-1">{l.note}</p>
+                                  <p className="text-[12px] text-[var(--apex-text-secondary)] mt-1">{l.note}</p>
                                 ) : null}
                               </li>
                             ))}
@@ -3187,7 +3187,7 @@ export function ProfileTab({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-[15px] font-medium text-[#f4f4f5]">Gym Membership</h3>
-            <p className="mt-2 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-2 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               Save your membership barcode for quick check-in from Today.
             </p>
             <label className="mt-4 block">

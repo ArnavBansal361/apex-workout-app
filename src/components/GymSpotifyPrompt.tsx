@@ -20,10 +20,10 @@ export function GymSpotifyPrompt() {
         onClick={(e) => e.stopPropagation()}
       >
         <p className="apex-section-label">Gym session</p>
-        <h2 id="gym-spotify-prompt-title" className="mt-2 text-[15px] font-medium text-[#ececee]">
+        <h2 id="gym-spotify-prompt-title" className="mt-2 text-[15px] font-medium text-[var(--apex-text-primary)]">
           Start music?
         </h2>
-        <p className="mt-2 text-[13px] font-medium text-[#a0a0a8] leading-relaxed">
+        <p className="mt-2 text-[13px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
           Open Spotify on this device when you&apos;re ready to train.
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">

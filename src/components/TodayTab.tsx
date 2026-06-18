@@ -252,7 +252,7 @@ function SleepLogSheet({
         </p>
         <div className="grid grid-cols-2 gap-3 pb-2">
           <label className="block">
-            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Bedtime</span>
+            <span className="text-[12px] font-medium text-[var(--apex-text-secondary)] mb-1.5 block">Bedtime</span>
             <input
               type="time"
               className={inp}
@@ -261,7 +261,7 @@ function SleepLogSheet({
             />
           </label>
           <label className="block">
-            <span className="text-[12px] font-medium text-[#a0a0a8] mb-1.5 block">Wake time</span>
+            <span className="text-[12px] font-medium text-[var(--apex-text-secondary)] mb-1.5 block">Wake time</span>
             <input
               type="time"
               className={inp}
@@ -271,7 +271,7 @@ function SleepLogSheet({
           </label>
         </div>
         {totalMin > 0 ? (
-          <p className="text-[12px] font-medium text-[#a0a0a8] text-center pb-2 tabular-nums">
+          <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] text-center pb-2 tabular-nums">
             {formatSleepDuration(totalMin)}
           </p>
         ) : null}
@@ -334,9 +334,9 @@ function WaterLogSheet({
           <span className="text-[32px] font-medium tabular-nums text-[#f4f4f5] leading-none">
             {waterTodayOz}
           </span>
-          <span className="text-[14px] font-medium text-[#a0a0a8] ml-1">oz today</span>
+          <span className="text-[14px] font-medium text-[var(--apex-text-secondary)] ml-1">oz today</span>
         </p>
-        <p className="text-[12px] font-medium text-[#a0a0a8] text-center mb-5 tabular-nums">
+        <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] text-center mb-5 tabular-nums">
           Goal {waterGoalOz} oz
         </p>
         <div className="grid grid-cols-2 gap-2 pb-3">
@@ -344,7 +344,7 @@ function WaterLogSheet({
             <button
               key={oz}
               type="button"
-              className="min-h-12 rounded-[8px] border-[0.5px] border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[#ececee] touch-manipulation active:scale-[0.98]"
+              className="min-h-12 rounded-[8px] border-[0.5px] border-white/[0.1] bg-white/[0.06] text-[15px] font-medium text-[var(--apex-text-primary)] touch-manipulation active:scale-[0.98]"
               onClick={() => onAddOz(oz)}
             >
               +{oz} oz
@@ -354,8 +354,8 @@ function WaterLogSheet({
             type="button"
             className={`min-h-12 rounded-[8px] border-[0.5px] text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
               customMode
-                ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[#ececee]'
-                : 'border-white/[0.1] bg-white/[0.06] text-[#ececee]'
+                ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[var(--apex-text-primary)]'
+                : 'border-white/[0.1] bg-white/[0.06] text-[var(--apex-text-primary)]'
             }`}
             onClick={() => onCustomMode(!customMode)}
           >
@@ -1073,10 +1073,10 @@ export function TodayTab({
               {appleHealthToday?.restingHeartRateBpm != null ? (
                 <p className="text-[28px] font-medium tabular-nums text-[#f4f4f5] leading-none">
                   {appleHealthToday.restingHeartRateBpm}
-                  <span className="text-[14px] font-medium text-[#a0a0a8] ml-1">bpm resting</span>
+                  <span className="text-[14px] font-medium text-[var(--apex-text-secondary)] ml-1">bpm resting</span>
                 </p>
               ) : null}
-              <p className="text-[12px] font-medium text-[#a0a0a8]">Session timer</p>
+              <p className="text-[12px] font-medium text-[var(--apex-text-secondary)]">Session timer</p>
               <p className="apex-stat-num tabular-nums">{formatDuration(cardioSec)}</p>
               <div className="flex gap-1 flex-wrap mt-auto">
                 <button
@@ -1133,7 +1133,7 @@ export function TodayTab({
                       className="flex items-center justify-between gap-2 rounded-[8px] border-[0.5px] border-white/[0.07] px-4 py-3 apex-card-interactive"
                     >
                       <div>
-                        <p className="text-[13px] font-normal text-[#e0e0e0]">{c.name}</p>
+                        <p className="text-[13px] font-normal text-[var(--apex-text-primary)]">{c.name}</p>
                         <p className="text-[11px] text-[#a8a8b0]">{fmtCardioMin(c.durationMinutes)}</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
@@ -1168,7 +1168,7 @@ export function TodayTab({
           <div className="apex-card p-5 space-y-4">
             <div>
               <p className="apex-section-label">Nutrition</p>
-              <p className="text-[12px] font-medium text-[#a0a0a8] mt-1">Today&apos;s macros</p>
+              <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-1">Today&apos;s macros</p>
             </div>
             <div className="space-y-3">
               {macroRows.map((row) => {
@@ -1176,8 +1176,8 @@ export function TodayTab({
                 return (
                   <div key={row.key}>
                     <div className="flex justify-between gap-2 text-[12px] font-medium mb-1.5">
-                      <span className="text-[#a0a0a8]">{row.label}</span>
-                      <span className="text-[#ececee] tabular-nums">
+                      <span className="text-[var(--apex-text-secondary)]">{row.label}</span>
+                      <span className="text-[var(--apex-text-primary)] tabular-nums">
                         {row.current}
                         {row.unit} / {row.goal}
                         {row.unit}
@@ -1276,8 +1276,8 @@ export function TodayTab({
                     className="flex items-start justify-between gap-2 rounded-[8px] border-[0.5px] border-white/[0.07] px-4 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-[#ececee] truncate">{m.name}</p>
-                      <p className="text-[11px] font-medium text-[#a0a0a8] mt-1 tabular-nums">
+                      <p className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate">{m.name}</p>
+                      <p className="text-[11px] font-medium text-[var(--apex-text-secondary)] mt-1 tabular-nums">
                         {m.calories} cal · P {m.proteinG}g · C {m.carbsG}g · F {m.fatG}g
                       </p>
                     </div>
@@ -1330,7 +1330,7 @@ export function TodayTab({
                       ? `${l.bodyweight ? 'Bodyweight' : `${l.weight ?? 0} ${state.settings.unit}`} × ${l.reps} · ${l.sets} sets`
                       : `${l.durationSec}s timed`}
                   </p>
-                  {l.note ? <p className="text-[12px] text-[#a0a0a8] mt-2 leading-relaxed">{l.note}</p> : null}
+                  {l.note ? <p className="text-[12px] text-[var(--apex-text-secondary)] mt-2 leading-relaxed">{l.note}</p> : null}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[0.5px] border-white/[0.06] pt-3">
                     <p className="apex-section-label opacity-80">
                       {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1360,7 +1360,7 @@ export function TodayTab({
               {todaysLogs.length === 0 ? (
                 <li>
                   <div className="apex-empty-state">
-                    <p className="text-[14px] font-medium text-[#a0a0a8]">No sets logged yet today.</p>
+                    <p className="text-[14px] font-medium text-[var(--apex-text-secondary)]">No sets logged yet today.</p>
                   </div>
                 </li>
               ) : null}
@@ -1497,7 +1497,7 @@ export function TodayTab({
           </div>
           <div>
             <p className="text-[18px] font-medium text-[#f4f4f5] tracking-tight">Start your first workout</p>
-            <p className="text-[13px] font-medium text-[#a0a0a8] mt-1.5 leading-relaxed max-w-[260px] mx-auto">
+            <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] mt-1.5 leading-relaxed max-w-[260px] mx-auto">
               Log a set to unlock progress tracking, your AI coach, and streak.
             </p>
           </div>
@@ -1525,7 +1525,7 @@ export function TodayTab({
           aria-live="polite"
         >
           <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#a0a0a8]">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--apex-text-secondary)]">
               Gym session
             </p>
             <p className="text-[1.75rem] font-medium tabular-nums text-[#f4f4f5] leading-none tracking-tight">
@@ -1566,7 +1566,7 @@ export function TodayTab({
           <p className="apex-section-label">
             {trainingModeDef(todayScheduledMode).label} mode
           </p>
-          <p className="mt-2 text-[14px] font-medium text-[#ececee] leading-relaxed">
+          <p className="mt-2 text-[14px] font-medium text-[var(--apex-text-primary)] leading-relaxed">
             {trainingModeDef(todayScheduledMode).framing}
           </p>
         </div>
@@ -1637,7 +1637,7 @@ export function TodayTab({
           <p className="text-[0.8125rem] font-medium text-[#7d7d88] mb-1">Sunday week recap</p>
           <h2 className="text-lg font-medium text-[#f4f4f5] tracking-tight">This week · {weekRecap.weekLabel}</h2>
           {weekRecapEmpty ? (
-            <p className="mt-4 text-[14px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-4 text-[14px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               Start logging to see your week take shape
             </p>
           ) : (
@@ -1645,13 +1645,13 @@ export function TodayTab({
               {weekRecap.totalSets > 0 ? (
                 <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Sets</p>
-                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.totalSets}</p>
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[var(--apex-text-primary)]">{weekRecap.totalSets}</p>
                 </div>
               ) : null}
               {weekRecap.totalVolumeLbs > 0 ? (
                 <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">Volume</p>
-                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[var(--apex-text-primary)]">
                     {weekRecap.totalVolumeLbs.toLocaleString()} lb
                   </p>
                 </div>
@@ -1671,7 +1671,7 @@ export function TodayTab({
               {weekRecap.prCount > 0 ? (
                 <div className="rounded-[12px] border-[0.5px] border-white/[0.06] px-3 py-3 col-span-2">
                   <p className="text-[0.75rem] font-medium text-[#7d7d88]">PRs hit</p>
-                  <p className="mt-1 text-xl font-medium tabular-nums text-[#ececee]">{weekRecap.prCount}</p>
+                  <p className="mt-1 text-xl font-medium tabular-nums text-[var(--apex-text-primary)]">{weekRecap.prCount}</p>
                 </div>
               ) : null}
             </div>
@@ -1713,7 +1713,7 @@ export function TodayTab({
               Not this week
             </button>
           </div>
-          <p className="mt-3 text-[11px] font-medium text-[#9898a0] leading-relaxed">
+          <p className="mt-3 text-[11px] font-medium text-[var(--apex-text-tertiary)] leading-relaxed">
             Keeps the same exercises and reps; logging prefills at 60% of your last weights (−40%).
           </p>
         </div>
@@ -1722,7 +1722,7 @@ export function TodayTab({
       {deloadWeekActive ? (
         <div className="apex-card px-5 py-3 border-[0.5px] border-white/[0.08]">
           <p className="text-[13px] font-medium text-[#c8c8ce] leading-relaxed">
-            <span className="font-medium text-[#ececee]">Deload week active.</span> Same plan and
+            <span className="font-medium text-[var(--apex-text-primary)]">Deload week active.</span> Same plan and
             reps — weights prefill at 60% of your last session.
           </p>
         </div>
@@ -1731,7 +1731,7 @@ export function TodayTab({
       {state.onboardingComplete && !state.notificationPromptDone ? (
         <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-[0.5px] border-white/[0.08]">
           <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#a0a0a8] mb-1.5">Stay in the loop</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--apex-text-secondary)] mb-1.5">Stay in the loop</p>
             <p className="text-[14px] font-medium text-[#d4d4d8] leading-snug">
               Enable notifications for Sunday evening week summaries and when your rest timer finishes while Lift is in the background.
             </p>

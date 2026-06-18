@@ -180,7 +180,7 @@ function WorkoutExerciseRow({
 }
 
 const pickerInputClass =
-  'w-full min-h-12 rounded-[8px] border-[0.5px] border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[#ececee] placeholder:text-[#a0a0a8]'
+  'w-full min-h-12 rounded-[8px] border-[0.5px] border-white/[0.12] bg-[var(--apex-surface-card)] px-3 text-[16px] font-normal text-[var(--apex-text-primary)] placeholder:text-[var(--apex-text-secondary)]'
 
 function formatSessionSetLine(log: SetLog, unit: 'lbs' | 'kg'): string {
   if (log.kind === 'timed') return `${log.durationSec}s timed`
@@ -209,7 +209,7 @@ function SessionSetRow({ log, unit, onEdit, onDelete }: SessionSetRowProps) {
       >
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-medium text-[#f0f0f2] truncate">{log.exerciseName}</p>
-          <p className="text-[12px] font-medium text-[#a0a0a8] mt-0.5 tabular-nums">
+          <p className="text-[12px] font-medium text-[var(--apex-text-secondary)] mt-0.5 tabular-nums">
             {formatSessionSetLine(log, unit)}
           </p>
         </div>
@@ -281,13 +281,13 @@ function WorkoutExercisePicker({
         <div className="flex items-start justify-between gap-3 p-5 pb-3 shrink-0 border-b border-[0.5px] border-white/[0.08]">
           <div>
             <p className="apex-section-label">Add exercise</p>
-            <p className="mt-1 text-[12px] font-medium text-[#a0a0a8] leading-relaxed">
+            <p className="mt-1 text-[12px] font-medium text-[var(--apex-text-secondary)] leading-relaxed">
               Search your library to add to this workout.
             </p>
           </div>
           <button
             type="button"
-            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-white/[0.12] text-[13px] text-[#ececee] shrink-0"
+            className="min-h-11 min-w-11 rounded-[8px] border-[0.5px] border-white/[0.12] text-[13px] text-[var(--apex-text-primary)] shrink-0"
             onClick={onClose}
             aria-label="Close"
           >
@@ -308,7 +308,7 @@ function WorkoutExercisePicker({
           </label>
           <ul className="mt-2 max-h-[min(50vh,20rem)] overflow-y-auto rounded-[12px] border-[0.5px] border-white/[0.08] bg-[var(--apex-surface-card)] divide-y divide-white/[0.06]">
             {filtered.length === 0 ? (
-              <li className="px-3 py-3 text-[13px] font-medium text-[#a0a0a8]">
+              <li className="px-3 py-3 text-[13px] font-medium text-[var(--apex-text-secondary)]">
                 {planExerciseIds.length >= visibleExercises.length
                   ? 'All exercises are already in this workout.'
                   : 'No matches — try another search.'}
@@ -318,16 +318,16 @@ function WorkoutExercisePicker({
                 <li key={e.id}>
                   <button
                     type="button"
-                    className="w-full min-h-11 text-left px-3 py-2.5 text-[13px] font-medium text-[#ececee] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors"
+                    className="w-full min-h-11 text-left px-3 py-2.5 text-[13px] font-medium text-[var(--apex-text-primary)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors"
                     onClick={() => onPick(e)}
                   >
                     <span className="block">{e.name}</span>
                     {formatExerciseLastHistoryLine(setLogs, e.id, unit) ? (
-                      <span className="block text-[11px] font-medium text-[#a0a0a8] mt-0.5">
+                      <span className="block text-[11px] font-medium text-[var(--apex-text-secondary)] mt-0.5">
                         {formatExerciseLastHistoryLine(setLogs, e.id, unit)}
                       </span>
                     ) : (
-                      <span className="text-[#a0a0a8]"> · {e.muscleGroup}</span>
+                      <span className="text-[var(--apex-text-secondary)]"> · {e.muscleGroup}</span>
                     )}
                   </button>
                 </li>
