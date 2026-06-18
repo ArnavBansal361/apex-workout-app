@@ -153,7 +153,7 @@ function AppShell() {
       <div className="apex-phone-column">
         {notifications[0] ? (
           <div className="fixed top-3 left-1/2 z-[100] w-[min(calc(480px-2rem),calc(100%-2rem))] -translate-x-1/2 px-3 pointer-events-none">
-            <div className="apex-card text-[13px] font-medium text-[#e8e8ea] pointer-events-auto">
+            <div className="apex-card text-[13px] font-medium text-[var(--apex-text-primary)] pointer-events-auto">
               {stripNotificationMessage(notifications[0].message)}
             </div>
           </div>

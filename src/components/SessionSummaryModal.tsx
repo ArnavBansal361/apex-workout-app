@@ -127,7 +127,7 @@ export function SessionSummaryModal({ open, data, shareText, onClose }: Props) {
               <ul className="space-y-2.5 max-h-48 overflow-y-auto">
                 {data.stretchSuggestions.map((s) => (
                   <li key={s.id} className="text-[12px] leading-relaxed">
-                    <p className="font-medium text-[#e8e8ea]">{s.name}</p>
+                    <p className="font-medium text-[var(--apex-text-primary)]">{s.name}</p>
                     <p className="text-[var(--apex-text-tertiary)] mt-0.5">
                       {s.targets} · {s.hold}
                     </p>

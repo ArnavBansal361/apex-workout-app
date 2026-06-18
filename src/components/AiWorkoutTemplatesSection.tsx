@@ -118,7 +118,7 @@ export function AiWorkoutTemplatesSection({ enabled }: Props) {
                 {tpl.name}
               </p>
               {tpl.subtitle ? (
-                <p className="text-[11px] text-[#8e8e96] mt-1.5 leading-snug font-medium">
+                <p className="text-[11px] text-[var(--apex-text-tertiary)] mt-1.5 leading-snug font-medium">
                   {tpl.subtitle}
                 </p>
               ) : null}

@@ -505,7 +505,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                       }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 text-right text-[13px] font-medium tabular-nums text-[#e4e4e8]">
+                  <span className="w-8 shrink-0 text-right text-[13px] font-medium tabular-nums text-[var(--apex-text-primary)]">
                     {days}
                   </span>
                 </li>
@@ -952,7 +952,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                     return (
                       <span
                         key={id}
-                        className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-medium text-[#e4e4e8]"
+                        className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-white/[0.12] pl-2.5 pr-1 py-1 text-[11px] font-medium text-[var(--apex-text-primary)]"
                       >
                         {ex.name}
                         <button
@@ -1183,7 +1183,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                             <button
                               key={e.id}
                               type="button"
-                              className="w-full text-left px-3 py-2 text-[12px] font-medium text-[#e4e4e8] hover:bg-white/[0.05]"
+                              className="w-full text-left px-3 py-2 text-[12px] font-medium text-[var(--apex-text-primary)] hover:bg-white/[0.05]"
                               onClick={() =>
                                 setWeekBulkDraft((rows) =>
                                   rows.map((r, j) =>
@@ -1207,7 +1207,7 @@ export function ScheduleTab({ defaultViewMode = 'week' }: ScheduleTabProps) {
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex items-center gap-0.5 rounded-full border-[0.5px] border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-medium text-[#e0e0e4]"
+                                  className="inline-flex items-center gap-0.5 rounded-full border-[0.5px] border-white/10 pl-2 pr-1 py-0.5 text-[10px] font-medium text-[var(--apex-text-primary)]"
                                 >
                                   {ex.name}
                                   <button

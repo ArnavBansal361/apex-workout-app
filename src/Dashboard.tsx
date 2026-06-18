@@ -206,7 +206,7 @@ export function DashboardShell() {
     <div className="apex-dashboard apex-theme-shell min-h-[100dvh]">
       {notifications[0] ? (
         <div className="apex-dashboard-toast fixed top-4 left-1/2 z-[100] -translate-x-1/2 px-4 pointer-events-none">
-          <div className="apex-card text-[13px] font-medium text-[#e8e8ea] pointer-events-auto max-w-md">
+          <div className="apex-card text-[13px] font-medium text-[var(--apex-text-primary)] pointer-events-auto max-w-md">
             {stripNotificationMessage(notifications[0].message)}
           </div>
         </div>

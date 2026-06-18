@@ -90,7 +90,7 @@ export function ExerciseMuscleDiagram({ muscleGroup, exerciseName, className }: 
           {muscleLabels.primary.length ? (
             <p className="text-[11px] font-medium leading-relaxed">
               <span className="text-[var(--apex-text-tertiary)]">Primary · </span>
-              <span className="text-[#c8d0dc]">{muscleLabels.primary.join(', ')}</span>
+              <span className="text-[var(--apex-text-secondary)]">{muscleLabels.primary.join(', ')}</span>
             </p>
           ) : null}
           {muscleLabels.secondary.length ? (
