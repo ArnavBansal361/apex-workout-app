@@ -129,10 +129,10 @@ const AI_PILLS: { id: AiSub; label: string }[] = [
   { id: 'insights', label: 'Insights' },
 ]
 
-function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) => void }) {
+function AiPillNav({ active, onChange, compact }: { active: AiSub; onChange: (id: AiSub) => void; compact?: boolean }) {
   return (
     <div className="pb-1">
-      <div className="flex flex-wrap gap-2">
+      <div className={`flex gap-1.5 ${compact ? 'overflow-x-auto' : 'flex-wrap gap-2'}`} style={compact ? { scrollbarWidth: 'none' } : undefined}>
         {AI_PILLS.map((p) => {
           const on = active === p.id
           return (
@@ -143,8 +143,8 @@ function AiPillNav({ active, onChange }: { active: AiSub; onChange: (id: AiSub) 
                 on ? 'apex-accent-pill-active' : 'bg-transparent text-[var(--apex-text-primary)]'
               }`}
               style={{
-                height: 30,
-                padding: '0 14px',
+                height: 28,
+                padding: compact ? '0 10px' : '0 14px',
                 borderRadius: 99,
                 border: on ? '0.5px solid transparent' : '0.5px solid rgba(255,255,255,0.2)',
               }}
@@ -1134,7 +1134,7 @@ export function AiHub({
       <div className={hubShellClass}>
         {showNav ? (
           <div className={variant === 'sidebar' ? 'shrink-0 pb-3' : undefined}>
-            <AiPillNav active={aiSub} onChange={setAiSub} />
+            <AiPillNav active={aiSub} onChange={setAiSub} compact={variant === 'sidebar'} />
           </div>
         ) : null}
         {variant === 'sidebar' ? (

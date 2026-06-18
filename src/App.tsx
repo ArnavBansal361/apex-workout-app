@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+
+const DEV_BYPASS = import.meta.env.DEV && new URLSearchParams(window.location.search).has('dev')
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { DashboardShell, DesktopOnlyGate, MobileOnlyGate } from './Dashboard'
@@ -203,7 +205,7 @@ function AppWithOnboarding() {
 
 function DashboardWithOnboarding() {
   const { state, completeOnboarding } = useWorkout()
-  if (!state.onboardingComplete) {
+  if (!DEV_BYPASS && !state.onboardingComplete) {
     return <Onboarding onComplete={completeOnboarding} />
   }
   return <DashboardShell />
@@ -289,13 +291,13 @@ export default function App() {
     )
   }
 
-  if (!session || needsPasswordReset) {
+  if (!DEV_BYPASS && (!session || needsPasswordReset)) {
     return <Auth initialMode={needsPasswordReset ? 'reset-password' : 'sign-in'} onPasswordReset={() => setNeedsPasswordReset(false)} />
   }
 
   return (
     <BrowserRouter>
-      <WorkoutProvider userId={session.user.id}>
+      <WorkoutProvider userId={DEV_BYPASS ? 'dev-preview-00000000' : session!.user.id}>
         <GoogleCalendarOAuthHandler />
         <SpotifyOAuthHandler />
         <Routes>

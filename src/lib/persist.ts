@@ -149,7 +149,7 @@ export function coachWelcomeMessages(): ChatMessage[] {
     {
       id: COACH_WELCOME_ID,
       role: 'model',
-      text: "Hi — I'm your Lift AI coach. I can see your goals, this week's logged work, your schedule, and your streak. Ask me anything about training, recovery, or programming.",
+      text: "Hey. I know your training history — your PRs, your recent sessions, your schedule. Ask me anything.",
       at: Date.now(),
     },
   ]
