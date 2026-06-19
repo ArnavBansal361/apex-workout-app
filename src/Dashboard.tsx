@@ -18,14 +18,17 @@ import { ScheduleTab } from './components/ScheduleTab'
 import { TodayTab } from './components/TodayTab'
 import { ApexLogo } from './components/ApexLogo'
 import { SpotifyPlayerCard } from './components/SpotifyPlayerCard'
+import { TrainerClientsOverview } from './components/TrainerClientsOverview'
 import { useSwipeBackLayer } from './lib/swipeBackNavigation'
 import { streakCurrent } from './lib/achievements'
 import { computeWeekSummary } from './lib/weekSummary'
 import { computeLongevityScore } from './lib/longevityScore'
+import { readTrainerModeEnabled } from './lib/trainer'
+import { type TrainerClientSummary } from './lib/supabase'
 
 const DESKTOP_MIN_WIDTH = 768
 
-type DashboardNavId = 'today' | 'coach' | 'exercises' | 'schedule' | 'achievements' | 'settings'
+type DashboardNavId = 'today' | 'coach' | 'exercises' | 'schedule' | 'achievements' | 'clients' | 'settings'
 
 const NAV_ICONS: Record<DashboardNavId, ReactElement> = {
   today: (
@@ -60,6 +63,14 @@ const NAV_ICONS: Record<DashboardNavId, ReactElement> = {
       <path d="M12 3l1.8 5.5h5.8l-4.7 3.4 1.8 5.5-4.7-3.4-4.7 3.4 1.8-5.5-4.7-3.4h5.8L12 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   ),
+  clients: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M16 11c1.7 0 3 1.3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M19 14c1.5.5 2.5 1.8 2.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
@@ -68,14 +79,16 @@ const NAV_ICONS: Record<DashboardNavId, ReactElement> = {
   ),
 }
 
-const NAV_ITEMS: { id: DashboardNavId; label: string }[] = [
+const BASE_NAV_ITEMS: { id: DashboardNavId; label: string }[] = [
   { id: 'today', label: 'Dashboard' },
   { id: 'coach', label: 'AI Coach' },
   { id: 'exercises', label: 'Library' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'achievements', label: 'Achievements' },
-  { id: 'settings', label: 'Settings' },
 ]
+
+const TRAINER_NAV_ITEM: { id: DashboardNavId; label: string } = { id: 'clients', label: 'Clients' }
+const SETTINGS_NAV_ITEM: { id: DashboardNavId; label: string } = { id: 'settings', label: 'Settings' }
 
 function useViewportDesktop(): boolean {
   const [desktop, setDesktop] = useState(
@@ -292,6 +305,14 @@ export function DashboardShell() {
   const { notifications } = useWorkout()
   const [nav, setNav] = useState<DashboardNavId>('today')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [isTrainer] = useState(() => readTrainerModeEnabled())
+  const [_selectedClient, setSelectedClient] = useState<TrainerClientSummary | null>(null)
+
+  const navItems = [
+    ...BASE_NAV_ITEMS,
+    ...(isTrainer ? [TRAINER_NAV_ITEM] : []),
+    SETTINGS_NAV_ITEM,
+  ]
 
   useSwipeBackLayer(historyOpen, () => setHistoryOpen(false))
 
@@ -333,7 +354,7 @@ export function DashboardShell() {
 
         {/* Nav */}
         <nav className="flex flex-col gap-0.5 px-3 flex-1" aria-label="Dashboard">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = nav === item.id
             return (
               <button
@@ -394,6 +415,12 @@ export function DashboardShell() {
             </p>
           </div>
         )}
+        {nav === 'clients' && (
+          <div className="px-8 pt-8 pb-2 shrink-0">
+            <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">Clients</h2>
+            <p className="mt-1 text-[13px] text-[var(--apex-text-tertiary)]">Your connected clients — today at a glance</p>
+          </div>
+        )}
         {nav === 'settings' && (
           <div className="px-8 pt-8 pb-2 shrink-0">
             <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">Settings</h2>
@@ -433,6 +460,11 @@ export function DashboardShell() {
           )}
           {nav === 'achievements' && (
             <AchievementsPage onClose={() => {}} standalone />
+          )}
+          {nav === 'clients' && (
+            <div className="px-8 pb-8">
+              <TrainerClientsOverview onSelectClient={(c) => setSelectedClient(c)} />
+            </div>
           )}
           {nav === 'settings' && (
             <div className="px-8 pb-8">
