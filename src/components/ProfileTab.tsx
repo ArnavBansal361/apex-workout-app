@@ -3044,6 +3044,74 @@ export function ProfileTab({
               </p>
             ) : (
               <>
+                {/* Goal + today's check-in */}
+                {(clientDetailState.settings.fitnessGoalType || clientDetailState.dailyCheckins?.length > 0) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {clientDetailState.settings.fitnessGoalType && (
+                      <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] p-4">
+                        <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)]">Goal</p>
+                        <p className="mt-1.5 text-[14px] font-medium text-[var(--apex-text-primary)] capitalize">
+                          {clientDetailState.settings.fitnessGoalType.replace(/-/g, ' ')}
+                        </p>
+                      </div>
+                    )}
+                    {(() => {
+                      const todayKey = new Date().toISOString().slice(0, 10)
+                      const checkin = clientDetailState.dailyCheckins?.find((c) => c.dateKey === todayKey)
+                      if (!checkin) return null
+                      return (
+                        <div className="rounded-[12px] border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] p-4">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)]">Today's check-in</p>
+                          {checkin.weightLbs != null && (
+                            <p className="mt-1.5 text-[14px] font-medium text-[var(--apex-text-primary)]">{checkin.weightLbs} {clientDetailState.settings.unit}</p>
+                          )}
+                          {checkin.foodNote && (
+                            <p className="mt-0.5 text-[12px] text-[var(--apex-text-secondary)] leading-snug">{checkin.foodNote}</p>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* Compliance: assigned vs logged */}
+                {clientPlans.length > 0 && (
+                  <div className="apex-card p-4">
+                    <p className="apex-section-label mb-3">Compliance</p>
+                    <div className="space-y-2">
+                      {clientPlans.slice(0, 7).map((plan) => {
+                        const logsOnDay = clientDetailState.setLogs.filter(
+                          (l) => new Date(l.at).toISOString().slice(0, 10) === plan.dateKey,
+                        )
+                        const done = logsOnDay.length > 0
+                        const isPast = plan.dateKey < new Date().toISOString().slice(0, 10)
+                        const isToday = plan.dateKey === new Date().toISOString().slice(0, 10)
+                        return (
+                          <div key={plan.id} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate">
+                                {plan.title || `${plan.exercises.length} exercises`}
+                              </p>
+                              <p className="text-[11px] text-[var(--apex-text-tertiary)]">{plan.dateKey}</p>
+                            </div>
+                            <span
+                              className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                              style={done
+                                ? { background: 'rgba(74,222,128,0.12)', color: '#4ade80' }
+                                : isPast
+                                  ? { background: 'rgba(248,113,113,0.12)', color: '#f87171' }
+                                  : { background: 'var(--apex-surface-nested)', color: 'var(--apex-text-tertiary)' }
+                              }
+                            >
+                              {done ? 'Done' : isPast ? 'Missed' : isToday ? 'Today' : 'Upcoming'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {clientDetailShare?.workoutLogs ? (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-[12px] border-[0.5px] border-white/[0.055] p-4">
