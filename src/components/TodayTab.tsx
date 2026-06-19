@@ -1627,6 +1627,7 @@ export function TodayTab({
         <TodayMoreQuickGrid
           activeId={moreQuickPanel}
           onSelect={handleMoreQuickSelect}
+          hideIds={isDesktop ? ['water-tracker', 'sleep-tracker'] : undefined}
         />
 
         {moreQuickPanel &&

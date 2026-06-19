@@ -121,9 +121,10 @@ function formatWater(oz: number, unit: 'lbs' | 'kg'): string {
 type Props = {
   activeId: TodaySectionId | null
   onSelect: (id: TodaySectionId) => void
+  hideIds?: MoreQuickTileId[]
 }
 
-export function TodayMoreQuickGrid({ activeId, onSelect }: Props) {
+export function TodayMoreQuickGrid({ activeId, onSelect, hideIds }: Props) {
   const { state } = useWorkout()
   const nowMs = Date.now()
   const todayKey = dateKey(new Date(nowMs))
@@ -194,7 +195,7 @@ export function TodayMoreQuickGrid({ activeId, onSelect }: Props) {
 
   return (
     <div className="apex-today-quick-grid" role="group" aria-label="Quick access">
-      {MORE_QUICK_TILES.map((tile) => {
+      {MORE_QUICK_TILES.filter((tile) => !hideIds?.includes(tile.id)).map((tile) => {
         const active = activeId === tile.id
         const v = tileVisuals[tile.id]
         return (
