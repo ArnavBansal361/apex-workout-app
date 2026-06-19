@@ -30,6 +30,7 @@ import { AppleHealthBadge } from './AppleHealthBadge'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
 import { DailyCheckinCard } from './DailyCheckinCard'
+import { TrainerPlanCard } from './TrainerPlanCard'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
 import { buildSessionSummaryExtras } from '../lib/sessionSummary'
@@ -1616,6 +1617,8 @@ export function TodayTab({
           )}
         </div>
       )}
+
+      <TrainerPlanCard clientUserId={userId} />
 
       <DailyCheckinCard />
 

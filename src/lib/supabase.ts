@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 import { filterClientStateForTrainer, type TrainerSharePrefs } from './trainer'
-import type { AppPersisted, ReadinessLogEntry, WorkoutMoodLogEntry } from '../types'
+import type { AppPersisted, AssignedWorkout, ReadinessLogEntry, WorkoutMoodLogEntry } from '../types'
 import { streakCurrent, workoutDaysFromLogs } from './achievements'
 import { stateForCloudSync } from './cycleTracking'
 import { alignScheduleWeek, migrateCustomExercises } from './persist'
@@ -357,6 +357,28 @@ export function formatLeaderboardVolume(lbs: number): string {
 const TRAINER_CODES_TABLE = 'trainer_codes'
 const TRAINER_CONNECTIONS_TABLE = 'trainer_connections'
 const TRAINER_NOTES_TABLE = 'trainer_notes'
+const TRAINER_ASSIGNED_WORKOUTS_TABLE = 'trainer_assigned_workouts'
+
+/*
+ * Run once in Supabase SQL editor:
+ *
+ * create table if not exists public.trainer_assigned_workouts (
+ *   id uuid default gen_random_uuid() primary key,
+ *   trainer_user_id uuid not null references auth.users(id) on delete cascade,
+ *   client_user_id uuid not null references auth.users(id) on delete cascade,
+ *   date_key text not null,
+ *   title text not null default '',
+ *   exercises jsonb not null default '[]',
+ *   notes text not null default '',
+ *   created_at timestamptz default now(),
+ *   unique(trainer_user_id, client_user_id, date_key)
+ * );
+ * alter table public.trainer_assigned_workouts enable row level security;
+ * create policy "assigned_trainer_all" on public.trainer_assigned_workouts
+ *   for all to authenticated using (auth.uid() = trainer_user_id) with check (auth.uid() = trainer_user_id);
+ * create policy "assigned_client_read" on public.trainer_assigned_workouts
+ *   for select to authenticated using (auth.uid() = client_user_id);
+ */
 
 export type TrainerConnectionRow = {
   id: string
@@ -1545,6 +1567,72 @@ export async function clearUserSupabaseData(userId: string): Promise<void> {
     Promise.resolve(supabase.from(TRAINER_CONNECTIONS_TABLE).delete().eq('trainer_user_id', userId)),
     Promise.resolve(supabase.from(TRAINER_NOTES_TABLE).delete().eq('client_user_id', userId)),
     Promise.resolve(supabase.from(TRAINER_NOTES_TABLE).delete().eq('trainer_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_ASSIGNED_WORKOUTS_TABLE).delete().eq('trainer_user_id', userId)),
+    Promise.resolve(supabase.from(TRAINER_ASSIGNED_WORKOUTS_TABLE).delete().eq('client_user_id', userId)),
   ]
   await Promise.allSettled(ops)
+}
+
+export async function upsertAssignedWorkout(
+  workout: Omit<AssignedWorkout, 'id' | 'createdAt'>,
+): Promise<void> {
+  const { error } = await supabase.from(TRAINER_ASSIGNED_WORKOUTS_TABLE).upsert(
+    {
+      trainer_user_id: workout.trainerUserId,
+      client_user_id: workout.clientUserId,
+      date_key: workout.dateKey,
+      title: workout.title,
+      exercises: workout.exercises,
+      notes: workout.notes,
+    },
+    { onConflict: 'trainer_user_id,client_user_id,date_key' },
+  )
+  if (error) throw error
+}
+
+export async function fetchAssignedWorkoutForClient(
+  clientUserId: string,
+  dateKey: string,
+): Promise<AssignedWorkout | null> {
+  const { data, error } = await supabase
+    .from(TRAINER_ASSIGNED_WORKOUTS_TABLE)
+    .select('*')
+    .eq('client_user_id', clientUserId)
+    .eq('date_key', dateKey)
+    .maybeSingle()
+  if (error || !data) return null
+  return {
+    id: data.id,
+    trainerUserId: data.trainer_user_id,
+    clientUserId: data.client_user_id,
+    dateKey: data.date_key,
+    title: data.title,
+    exercises: data.exercises ?? [],
+    notes: data.notes ?? '',
+    createdAt: data.created_at,
+  }
+}
+
+export async function fetchAssignedWorkoutsForTrainer(
+  trainerUserId: string,
+  clientUserId: string,
+): Promise<AssignedWorkout[]> {
+  const { data, error } = await supabase
+    .from(TRAINER_ASSIGNED_WORKOUTS_TABLE)
+    .select('*')
+    .eq('trainer_user_id', trainerUserId)
+    .eq('client_user_id', clientUserId)
+    .order('date_key', { ascending: false })
+    .limit(30)
+  if (error || !Array.isArray(data)) return []
+  return data.map((d) => ({
+    id: d.id,
+    trainerUserId: d.trainer_user_id,
+    clientUserId: d.client_user_id,
+    dateKey: d.date_key,
+    title: d.title,
+    exercises: d.exercises ?? [],
+    notes: d.notes ?? '',
+    createdAt: d.created_at,
+  }))
 }

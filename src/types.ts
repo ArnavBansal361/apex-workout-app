@@ -107,6 +107,24 @@ export type SetLogEditPayload =
   | Pick<WeightedSetLog, 'kind' | 'weight' | 'bodyweight' | 'reps' | 'sets' | 'note'>
   | Pick<TimedSetLog, 'kind' | 'durationSec' | 'note'>
 
+export interface AssignedExercise {
+  name: string
+  sets: number
+  reps: string
+  weightNote: string
+}
+
+export interface AssignedWorkout {
+  id: string
+  trainerUserId: string
+  clientUserId: string
+  dateKey: string
+  title: string
+  exercises: AssignedExercise[]
+  notes: string
+  createdAt: string
+}
+
 export interface CardioEntry {
   id: string
   name: string

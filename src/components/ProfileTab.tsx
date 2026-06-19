@@ -49,6 +49,8 @@ import {
   fetchLeaderboardXpForUsers,
   formatLeaderboardVolume,
   insertTrainerNote,
+  upsertAssignedWorkout,
+  fetchAssignedWorkoutsForTrainer,
   supabase,
   TENDED_FRIEND_CODE_PROFILE_DATE_KEY,
   upsertTrainerCode,
@@ -117,7 +119,7 @@ import {
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
 import { coachImageDataUrl, prepareCoachChatImage } from '../lib/coachChatImage'
-import type { AppPersisted, ChatMessage, CoachChatImage } from '../types'
+import type { AppPersisted, AssignedExercise, AssignedWorkout, ChatMessage, CoachChatImage } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 type Sub = 'stats' | 'ai'
 export type AiSub = 'coach' | 'parser' | 'form' | 'insights'
@@ -1949,6 +1951,15 @@ export function ProfileTab({
   const [clientDetailState, setClientDetailState] = useState<AppPersisted | null>(null)
   const [clientDetailLoading, setClientDetailLoading] = useState(false)
   const [clientNoteDraft, setClientNoteDraft] = useState('')
+  const [assignWorkoutOpen, setAssignWorkoutOpen] = useState(false)
+  const [assignDateKey, setAssignDateKey] = useState(() => new Date().toISOString().slice(0, 10))
+  const [assignTitle, setAssignTitle] = useState('')
+  const [assignExercises, setAssignExercises] = useState<AssignedExercise[]>([
+    { name: '', sets: 3, reps: '8-10', weightNote: '' },
+  ])
+  const [assignNotes, setAssignNotes] = useState('')
+  const [assignBusy, setAssignBusy] = useState(false)
+  const [clientPlans, setClientPlans] = useState<AssignedWorkout[]>([])
   const chart = useApexChartColors()
   const vol = useMemo(() => weeklyVolumeSeries(state), [state])
   const bw = useMemo(() => bodyweightSeries(state), [state])
@@ -2059,10 +2070,17 @@ export function ProfileTab({
     setSelectedClient(client)
     setClientDetailState(null)
     setClientNoteDraft('')
+    setAssignWorkoutOpen(false)
+    setAssignTitle('')
+    setAssignNotes('')
+    setAssignExercises([{ name: '', sets: 3, reps: '8-10', weightNote: '' }])
+    setAssignDateKey(new Date().toISOString().slice(0, 10))
     setClientDetailLoading(true)
     void fetchUserWorkoutStateForTrainer(client.connection.client_user_id)
       .then((raw) => setClientDetailState(raw ? filterClientStateForTrainer(raw) : null))
       .finally(() => setClientDetailLoading(false))
+    void fetchAssignedWorkoutsForTrainer(userId, client.connection.client_user_id)
+      .then(setClientPlans)
   }
 
   useEffect(() => {
@@ -3141,7 +3159,126 @@ export function ProfileTab({
               </>
             )}
           </div>
-          <div className="shrink-0 border-t border-[0.5px] border-[var(--apex-border)] p-4 bg-[var(--apex-surface-page)] space-y-2">
+          <div className="shrink-0 border-t border-[0.5px] border-[var(--apex-border)] p-4 bg-[var(--apex-surface-page)] space-y-3">
+            {/* Assign workout */}
+            {!assignWorkoutOpen ? (
+              <button
+                type="button"
+                className="w-full rounded-[8px] py-2.5 text-[13px] font-medium border-[0.5px] border-[var(--apex-border)] text-[var(--apex-text-primary)] bg-[var(--apex-surface-card)]"
+                onClick={() => setAssignWorkoutOpen(true)}
+              >
+                + Assign workout
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="apex-section-label">Assign workout</p>
+                  <button type="button" className="text-[12px] text-[var(--apex-text-tertiary)]" onClick={() => setAssignWorkoutOpen(false)}>Cancel</button>
+                </div>
+                <input
+                  type="date"
+                  className="apex-input w-full px-3 py-2 text-[13px]"
+                  value={assignDateKey}
+                  onChange={(e) => setAssignDateKey(e.target.value)}
+                />
+                <input
+                  className="apex-input w-full px-3 py-2 text-[13px]"
+                  placeholder="Workout title (e.g. Push Day A)"
+                  value={assignTitle}
+                  onChange={(e) => setAssignTitle(e.target.value)}
+                />
+                <div className="space-y-1.5">
+                  {assignExercises.map((ex, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_48px_56px_80px_28px] gap-1.5 items-center">
+                      <input
+                        className="apex-input px-2 py-1.5 text-[12px]"
+                        placeholder="Exercise"
+                        value={ex.name}
+                        onChange={(e) => setAssignExercises((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                      />
+                      <input
+                        type="number"
+                        className="apex-input px-2 py-1.5 text-[12px] text-center"
+                        placeholder="Sets"
+                        value={ex.sets}
+                        onChange={(e) => setAssignExercises((prev) => prev.map((x, j) => j === i ? { ...x, sets: parseInt(e.target.value) || 3 } : x))}
+                      />
+                      <input
+                        className="apex-input px-2 py-1.5 text-[12px] text-center"
+                        placeholder="Reps"
+                        value={ex.reps}
+                        onChange={(e) => setAssignExercises((prev) => prev.map((x, j) => j === i ? { ...x, reps: e.target.value } : x))}
+                      />
+                      <input
+                        className="apex-input px-2 py-1.5 text-[12px]"
+                        placeholder="Weight"
+                        value={ex.weightNote}
+                        onChange={(e) => setAssignExercises((prev) => prev.map((x, j) => j === i ? { ...x, weightNote: e.target.value } : x))}
+                      />
+                      <button
+                        type="button"
+                        className="text-[var(--apex-text-tertiary)] text-[16px] leading-none"
+                        onClick={() => setAssignExercises((prev) => prev.filter((_, j) => j !== i))}
+                      >×</button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-[12px] text-[var(--apex-text-tertiary)] border-[0.5px] border-[var(--apex-border)] rounded-[8px] px-3 py-1.5 w-full"
+                    onClick={() => setAssignExercises((prev) => [...prev, { name: '', sets: 3, reps: '8-10', weightNote: '' }])}
+                  >+ Add exercise</button>
+                </div>
+                <textarea
+                  className="apex-input w-full min-h-16 px-3 py-2 resize-none text-[13px]"
+                  placeholder="Notes for client (optional)"
+                  value={assignNotes}
+                  onChange={(e) => setAssignNotes(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={assignBusy || !assignExercises.some((e) => e.name.trim())}
+                  className="apex-btn-primary w-full min-h-11 text-[13px] font-medium disabled:opacity-50"
+                  onClick={() => {
+                    if (!selectedClient) return
+                    setAssignBusy(true)
+                    const exercises = assignExercises.filter((e) => e.name.trim())
+                    void upsertAssignedWorkout({
+                      trainerUserId: userId,
+                      clientUserId: selectedClient.connection.client_user_id,
+                      dateKey: assignDateKey,
+                      title: assignTitle.trim(),
+                      exercises,
+                      notes: assignNotes.trim(),
+                    })
+                      .then(() => {
+                        notify('Workout assigned')
+                        setAssignWorkoutOpen(false)
+                        setAssignTitle('')
+                        setAssignNotes('')
+                        setAssignExercises([{ name: '', sets: 3, reps: '8-10', weightNote: '' }])
+                        void fetchAssignedWorkoutsForTrainer(userId, selectedClient.connection.client_user_id).then(setClientPlans)
+                      })
+                      .catch((e) => notify(e instanceof Error ? e.message : 'Could not assign workout'))
+                      .finally(() => setAssignBusy(false))
+                  }}
+                >
+                  {assignBusy ? 'Saving…' : 'Send to client'}
+                </button>
+                {clientPlans.length > 0 && (
+                  <div className="pt-1">
+                    <p className="apex-section-label mb-1.5">Recent plans</p>
+                    {clientPlans.slice(0, 5).map((p) => (
+                      <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-[0.5px] border-[var(--apex-border)] last:border-0">
+                        <span className="text-[12px] text-[var(--apex-text-secondary)]">{p.dateKey}</span>
+                        <span className="text-[12px] font-medium text-[var(--apex-text-primary)]">{p.title || `${p.exercises.length} exercises`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Coach note */}
             <p className="apex-section-label">Coach note</p>
             <textarea
               className="apex-input w-full min-h-20 px-3 py-3 resize-y"
