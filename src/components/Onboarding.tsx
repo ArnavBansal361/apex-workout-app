@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { FITNESS_GOAL_OPTIONS, type FitnessGoalType } from '../types'
 import { useSwipeBackLayer } from '../lib/swipeBackNavigation'
 import { useWorkout } from '../context/WorkoutContext'
 import { APEX_COACH_PROFILE_KEY } from '../lib/persist'
@@ -113,7 +114,8 @@ export function Onboarding({ onComplete }: Props) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   useSwipeBackLayer(step > 1, () => setStep((s) => (s === 3 ? 2 : 1)))
   const [name, setName] = useState(state.settings.displayName)
-  const [goal, setGoal] = useState(state.settings.fitnessGoals)
+  const [goal] = useState(state.settings.fitnessGoals)
+  const [goalType, setGoalType] = useState<FitnessGoalType | null>(state.settings.fitnessGoalType)
   const [unit, setUnit] = useState<'lbs' | 'kg'>(state.settings.unit)
   const [barcode, setBarcode] = useState(() => '')
   const [trainerCode, setTrainerCode] = useState('')
@@ -124,10 +126,13 @@ export function Onboarding({ onComplete }: Props) {
   const [busy, setBusy] = useState(false)
 
   function saveStep1() {
-    const fitnessGoal = goal.trim()
+    const fitnessGoal = goalType
+      ? FITNESS_GOAL_OPTIONS.find((o) => o.id === goalType)?.label ?? goal.trim()
+      : goal.trim()
     updateSettings({
       displayName: name.trim(),
       fitnessGoals: fitnessGoal,
+      fitnessGoalType: goalType,
     })
     try {
       localStorage.setItem(APEX_COACH_PROFILE_KEY, JSON.stringify({ fitnessGoal }))
@@ -223,14 +228,30 @@ export function Onboarding({ onComplete }: Props) {
               autoComplete="name"
             />
           </OnboardingField>
-          <OnboardingField label="YOUR MAIN GOAL">
-            <input
-              className="apex-onboarding-input"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="e.g. build muscle, get stronger"
-            />
-          </OnboardingField>
+          <div className="block">
+            <span className="apex-onboarding-field__label">YOUR GOAL</span>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {FITNESS_GOAL_OPTIONS.map((opt) => {
+                const active = goalType === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setGoalType(active ? null : opt.id)}
+                    className="text-left rounded-[12px] px-4 py-4 border-[0.5px] transition-colors"
+                    style={{
+                      background: active ? 'var(--apex-accent)' : 'var(--apex-surface-card)',
+                      borderColor: active ? 'var(--apex-accent)' : 'var(--apex-border)',
+                      color: active ? '#fff' : 'var(--apex-text-primary)',
+                    }}
+                  >
+                    <p className="text-[14px] font-medium leading-snug">{opt.label}</p>
+                    <p className="text-[12px] mt-0.5" style={{ opacity: active ? 0.8 : 0.5 }}>{opt.sub}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </OnboardingShell>
     )

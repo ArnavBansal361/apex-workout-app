@@ -29,6 +29,7 @@ import { readPostWorkoutCheckinEnabled } from '../lib/persist'
 import { AppleHealthBadge } from './AppleHealthBadge'
 import { scheduledTrainingModeForDay, trainingModeDef } from '../lib/trainingMode'
 import { TodayMoreQuickGrid } from './TodayMoreQuickGrid'
+import { DailyCheckinCard } from './DailyCheckinCard'
 import { requestNotificationPermission } from '../lib/desktopNotifications'
 import { streakCurrent } from '../lib/achievements'
 import { buildSessionSummaryExtras } from '../lib/sessionSummary'
@@ -1615,6 +1616,8 @@ export function TodayTab({
           )}
         </div>
       )}
+
+      <DailyCheckinCard />
 
       {sectionBody('daily-motivation')}
 

@@ -687,6 +687,7 @@ export function defaultState(): AppPersisted {
     deloadActiveWeekStart: null,
     deloadDismissedWeekStart: null,
     cycleStartDateKey: null,
+    dailyCheckins: [],
   }
 }
 
@@ -750,6 +751,7 @@ export function loadState(): AppPersisted {
         ? parsed.postWorkoutCheckins
         : [],
       mealLogs: migrateMealLogs(parsed.mealLogs ?? []),
+      dailyCheckins: Array.isArray(parsed.dailyCheckins) ? parsed.dailyCheckins : [],
       lifetimeXp:
         typeof parsed.lifetimeXp === 'number' && Number.isFinite(parsed.lifetimeXp)
           ? Math.max(0, parsed.lifetimeXp)

@@ -176,9 +176,27 @@ export interface FriendEntry {
   weeklySets: number
 }
 
+export type FitnessGoalType = 'gain-muscle' | 'lose-weight' | 'improve-fitness' | 'stay-active'
+
+export const FITNESS_GOAL_OPTIONS: { id: FitnessGoalType; label: string; sub: string }[] = [
+  { id: 'gain-muscle', label: 'Gain Muscle', sub: 'Build strength and size' },
+  { id: 'lose-weight', label: 'Lose Weight', sub: 'Burn fat, stay strong' },
+  { id: 'improve-fitness', label: 'Improve Fitness', sub: 'Endurance and performance' },
+  { id: 'stay-active', label: 'Stay Active', sub: 'Move consistently' },
+]
+
+export interface DailyCheckin {
+  id: string
+  dateKey: string
+  weightLbs: number | null
+  foodNote: string
+  createdAt: number
+}
+
 export interface Settings {
   displayName: string
   fitnessGoals: string
+  fitnessGoalType: FitnessGoalType | null
   unit: 'lbs' | 'kg'
   restTimerSeconds: number
   restTimerEnabled: boolean
@@ -351,6 +369,7 @@ export interface AppPersisted {
   deloadDismissedWeekStart: string | null
   /** Day 1 of current cycle (YYYY-MM-DD). Local only — never synced to Supabase. */
   cycleStartDateKey: string | null
+  dailyCheckins: DailyCheckin[]
   /** Synced to cloud so trainers can respect client privacy toggles. */
   trainerShare?: {
     workoutLogs: boolean
@@ -370,6 +389,7 @@ export const DEFAULT_MACRO_GOAL_FAT_G = 65
 export const DEFAULT_SETTINGS: Settings = {
   displayName: '',
   fitnessGoals: '',
+  fitnessGoalType: null,
   unit: 'lbs',
   restTimerSeconds: 90,
   restTimerEnabled: true,

@@ -196,6 +196,7 @@ type Ctx = {
   dismissDeloadSuggestion: () => void
   toggleFavoriteExercise: (exerciseId: string) => void
   addBodyweight: (value: number) => void
+  saveDailyCheckin: (dateKey: string, weightLbs: number | null, foodNote: string) => void
   addWaterOz: (oz?: number) => void
   logSleep: (durationMinutes: number, quality: number) => void
   logReadinessCheck: (entry: Omit<ReadinessLogEntry, 'at'> & { at?: number }) => void
@@ -1342,6 +1343,23 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     )
   }, [])
 
+  const saveDailyCheckin = useCallback((dateKey: string, weightLbs: number | null, foodNote: string) => {
+    setState((s) => {
+      const existing = s.dailyCheckins.findIndex((c) => c.dateKey === dateKey)
+      const entry = {
+        id: existing >= 0 ? s.dailyCheckins[existing].id : crypto.randomUUID(),
+        dateKey,
+        weightLbs,
+        foodNote,
+        createdAt: Date.now(),
+      }
+      const updated = existing >= 0
+        ? s.dailyCheckins.map((c, i) => (i === existing ? entry : c))
+        : [...s.dailyCheckins, entry]
+      return { ...s, dailyCheckins: updated }
+    })
+  }, [])
+
   const addWaterOz = useCallback((oz = 8) => {
     const amount = Math.max(0, Math.round(oz))
     if (amount <= 0) return
@@ -1835,6 +1853,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissDeloadSuggestion,
       toggleFavoriteExercise,
       addBodyweight,
+      saveDailyCheckin,
       addWaterOz,
       logSleep,
       logReadinessCheck,
@@ -1910,6 +1929,7 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       dismissDeloadSuggestion,
       toggleFavoriteExercise,
       addBodyweight,
+      saveDailyCheckin,
       addWaterOz,
       logSleep,
       logReadinessCheck,
