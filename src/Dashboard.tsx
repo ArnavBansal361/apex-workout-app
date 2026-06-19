@@ -113,7 +113,7 @@ function DashboardHeader() {
   const { greeting, dateLine } = useMemo(() => {
     const d = new Date(clock)
     const hour = d.getHours()
-    const sal = hour >= 5 && hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
+    const sal = hour >= 5 && hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
     const sched = state.schedule.find((s) => s.dateKey === todayKey)
     const planName = sched?.workoutName?.trim() ?? ''
     const dow = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -155,6 +155,19 @@ function DashboardHeader() {
 
   const weeklyGoal = state.schedule.filter((s) => s.workoutName?.trim()).length || 5
 
+  const activeDaysThisWeek = useMemo(() => {
+    const ws = new Date(clock)
+    const day = ws.getDay()
+    ws.setDate(ws.getDate() + (day === 0 ? -6 : 1 - day))
+    ws.setHours(0, 0, 0, 0)
+    const we = new Date(ws)
+    we.setDate(ws.getDate() + 7)
+    const totalMins = state.cardioEntries
+      .filter((e) => e.date >= ws.toISOString().slice(0, 10) && e.date < we.toISOString().slice(0, 10))
+      .reduce((sum, e) => sum + (e.durationMinutes ?? 0), 0)
+    return totalMins
+  }, [state.cardioEntries, clock])
+
   const kpis = [
     {
       label: 'WEEKLY VOLUME',
@@ -172,9 +185,9 @@ function DashboardHeader() {
       sub: longevityScore > 0 ? '/ 100' : null,
     },
     {
-      label: 'STREAK',
-      value: streakDays > 0 ? `${streakDays}` : '—',
-      sub: streakDays > 0 ? 'days' : null,
+      label: 'ACTIVE MINS',
+      value: activeDaysThisWeek > 0 ? `${activeDaysThisWeek}` : '—',
+      sub: activeDaysThisWeek > 0 ? 'this week' : null,
     },
   ]
 
@@ -184,12 +197,25 @@ function DashboardHeader() {
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">{dateLine}</p>
           <h1 className="text-[32px] font-medium leading-none tracking-[-0.02em] text-[var(--apex-text-primary)]">{greeting}</h1>
-          {streakDays > 0 && (
-            <p className="mt-2 text-[14px] text-[var(--apex-text-secondary)]">
-              You're on a <span className="font-medium text-[var(--apex-text-primary)]">{streakDays}-day</span> streak.
-            </p>
-          )}
+          <p className="mt-2 text-[14px] text-[var(--apex-text-secondary)]">
+            {streakDays > 0
+              ? <>You're on a <span className="font-medium text-[var(--apex-text-primary)]">{streakDays}-day</span> streak.{weekSessions < weeklyGoal ? <> One session away from your weekly goal.</> : <> Weekly goal hit.</>}</>
+              : weekSessions < weeklyGoal
+                ? `${weeklyGoal - weekSessions} session${weeklyGoal - weekSessions > 1 ? 's' : ''} left this week.`
+                : 'Weekly goal hit.'
+            }
+          </p>
         </div>
+        {streakDays > 0 && (
+          <div
+            className="shrink-0 flex flex-col items-center justify-center rounded-[12px] px-5 py-4 min-w-[96px]"
+            style={{ background: 'var(--apex-surface-card)', border: '0.5px solid var(--apex-border)' }}
+          >
+            <span className="text-[22px] leading-none">🔥</span>
+            <span className="text-[22px] font-medium tabular-nums leading-none mt-1 text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.02em' }}>{streakDays}</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)] mt-1">day streak</span>
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-4 gap-3 mb-6">
         {kpis.map((kpi) => (
@@ -276,18 +302,16 @@ export function DashboardShell() {
                 type="button"
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-[8px] text-[14px] font-medium text-left transition-colors ${
                   active
-                    ? 'bg-[var(--apex-surface-card)] text-[var(--apex-text-primary)]'
-                    : 'text-[var(--apex-text-secondary)] hover:text-[var(--apex-text-primary)] hover:bg-[var(--apex-surface-card)]/60'
+                    ? 'text-[var(--apex-text-primary)]'
+                    : 'text-[var(--apex-text-secondary)] hover:text-[var(--apex-text-primary)]'
                 }`}
+                style={active ? { background: 'rgba(61,122,181,0.15)', border: '0.5px solid rgba(61,122,181,0.25)' } : undefined}
                 onClick={() => setNav(item.id)}
               >
-                <span className={`shrink-0 ${active ? 'text-[var(--apex-text-primary)]' : 'text-[var(--apex-text-tertiary)]'}`}>
+                <span className={`shrink-0 ${active ? 'text-[#3d7ab5]' : 'text-[var(--apex-text-tertiary)]'}`}>
                   {NAV_ICONS[item.id]}
                 </span>
                 {item.label}
-                {active && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#3d7ab5' }} />
-                )}
               </button>
             )
           })}
