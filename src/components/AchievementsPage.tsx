@@ -3,7 +3,7 @@ import { getAchievementProgress } from '../lib/achievements'
 import { useWorkout } from '../context/WorkoutContext'
 import { ApexLogo } from './ApexLogo'
 
-type Props = { onClose: () => void }
+type Props = { onClose: () => void; standalone?: boolean }
 
 function LockIcon({ className }: { className?: string }) {
   return (
@@ -112,9 +112,94 @@ function AchievementGlyph({ id, className }: { id: string; className?: string })
   }
 }
 
-export function AchievementsPage({ onClose }: Props) {
+function AchievementList({ standalone }: { standalone?: boolean }) {
   const { state } = useWorkout()
   const earned = new Set(state.achievements)
+  return (
+    <div className={standalone
+      ? 'overflow-y-auto p-6 grid grid-cols-2 xl:grid-cols-3 gap-3 pb-8'
+      : 'flex-1 min-h-0 overflow-y-auto p-4 space-y-3 pb-28'
+    }>
+      {ACHIEVEMENT_DEFS.map((a) => {
+        const ok = earned.has(a.id)
+        const prog = getAchievementProgress(state, a.id)
+        return (
+          <div
+            key={a.id}
+            className={`rounded-[12px] border-[0.5px] p-4 ${
+              ok
+                ? 'bg-[var(--apex-surface-card)] border-white/[0.1]'
+                : 'bg-[var(--apex-surface-card)] border-[var(--apex-border)] opacity-90'
+            }`}
+          >
+            <div className="flex gap-4">
+              <div
+                className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border-[0.5px] ${
+                  ok ? 'border-transparent' : 'border-[var(--apex-border)] bg-[var(--apex-surface-page)]'
+                }`}
+                style={ok ? { color: 'var(--apex-text-primary)', background: 'var(--apex-surface-nested)' } : { color: 'var(--apex-text-tertiary)' }}
+              >
+                <AchievementGlyph id={a.id} />
+                {!ok ? (
+                  <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-secondary)]">
+                    <LockIcon className="text-[var(--apex-text-secondary)]" />
+                  </span>
+                ) : null}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[var(--apex-text-primary)]' : 'text-[var(--apex-text-secondary)]'}`}>
+                    {a.title}
+                  </p>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
+                      ok ? 'text-[#0c0c0c]' : 'text-[var(--apex-text-tertiary)] bg-[var(--apex-surface-nested)] border-[0.5px] border-[var(--apex-border)]'
+                    }`}
+                    style={ok ? { backgroundColor: '#ffffff' } : undefined}
+                  >
+                    {ok ? 'Unlocked' : 'Locked'}
+                  </span>
+                </div>
+                <p
+                  className={`mt-2 text-[13px] font-medium leading-relaxed ${
+                    ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'
+                  }`}
+                >
+                  {a.description}
+                </p>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
+                    <span>Progress</span>
+                    <span className="tabular-nums text-[var(--apex-text-secondary)]">
+                      {prog.current} / {prog.target}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 w-full rounded-full bg-[var(--apex-surface-nested)] overflow-hidden border-[0.5px] border-[var(--apex-border)]">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-300"
+                      style={{
+                        width: `${prog.percent}%`,
+                        backgroundColor: ok ? '#ffffff' : '#3f3f46',
+                      }}
+                    />
+                  </div>
+                  <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'}`}>
+                    {prog.detail}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+export function AchievementsPage({ onClose, standalone }: Props) {
+  if (standalone) {
+    return <AchievementList standalone />
+  }
 
   return (
     <div
@@ -137,80 +222,7 @@ export function AchievementsPage({ onClose }: Props) {
           </button>
         </header>
         <p className="px-4 pt-3 text-[13px] font-normal text-[var(--apex-text-secondary)] shrink-0">Achievements</p>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 pb-28">
-        {ACHIEVEMENT_DEFS.map((a) => {
-          const ok = earned.has(a.id)
-          const prog = getAchievementProgress(state, a.id)
-          return (
-            <div
-              key={a.id}
-              className={`rounded-[12px] border-[0.5px] p-4 ${
-                ok
-                  ? 'bg-[var(--apex-surface-card)] border-white/[0.1]'
-                  : 'bg-[var(--apex-surface-card)] border-[var(--apex-border)] opacity-90'
-              }`}
-            >
-              <div className="flex gap-4">
-                <div
-                  className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border-[0.5px] ${
-                    ok ? 'border-transparent' : 'border-[var(--apex-border)] bg-[var(--apex-surface-page)]'
-                  }`}
-                  style={ok ? { color: 'var(--apex-text-primary)', background: 'var(--apex-surface-nested)' } : { color: 'var(--apex-text-tertiary)' }}
-                >
-                  <AchievementGlyph id={a.id} />
-                  {!ok ? (
-                    <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-secondary)]">
-                      <LockIcon className="text-[var(--apex-text-secondary)]" />
-                    </span>
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[var(--apex-text-primary)]' : 'text-[var(--apex-text-secondary)]'}`}>
-                      {a.title}
-                    </p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
-                        ok ? 'text-[#0c0c0c]' : 'text-[var(--apex-text-tertiary)] bg-[var(--apex-surface-nested)] border-[0.5px] border-[var(--apex-border)]'
-                      }`}
-                      style={ok ? { backgroundColor: '#ffffff' } : undefined}
-                    >
-                      {ok ? 'Unlocked' : 'Locked'}
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-2 text-[13px] font-medium leading-relaxed ${
-                      ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'
-                    }`}
-                  >
-                    {a.description}
-                  </p>
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
-                      <span>Progress</span>
-                      <span className="tabular-nums text-[var(--apex-text-secondary)]">
-                        {prog.current} / {prog.target}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-2 w-full rounded-full bg-[var(--apex-surface-nested)] overflow-hidden border-[0.5px] border-[var(--apex-border)]">
-                      <div
-                        className="h-full rounded-full transition-[width] duration-300"
-                        style={{
-                          width: `${prog.percent}%`,
-                          backgroundColor: ok ? '#ffffff' : '#3f3f46',
-                        }}
-                      />
-                    </div>
-                    <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'}`}>
-                      {prog.detail}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+        <AchievementList />
       </div>
     </div>
   )
