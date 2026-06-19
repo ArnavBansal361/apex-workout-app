@@ -681,6 +681,9 @@ export function TodayTab({
   }, [gymCardOpen, gymBarcode])
   const layout = state.todayLayout
   const hiddenSet = useMemo(() => new Set(layout.hidden), [layout.hidden])
+  const DESKTOP_HIDDEN: TodaySectionId[] = [
+    'water-tracker', 'sleep-tracker', 'spotify-player', 'nutrition-tracker',
+  ]
   const orderedSectionIds = useMemo(
     () =>
       layout.order.filter(
@@ -688,9 +691,10 @@ export function TodayTab({
           !hiddenSet.has(id) &&
           id !== 'muscle-balance' &&
           id !== 'gym-tracker' &&
-          id !== 'my-plan',
+          id !== 'my-plan' &&
+          !(isDesktop && DESKTOP_HIDDEN.includes(id)),
       ),
-    [layout.order, hiddenSet],
+    [layout.order, hiddenSet, isDesktop],
   )
 
   const moreSectionIds = useMemo(
@@ -1728,7 +1732,7 @@ export function TodayTab({
         </div>
       ) : null}
 
-      {state.onboardingComplete && !state.notificationPromptDone ? (
+      {!isDesktop && state.onboardingComplete && !state.notificationPromptDone ? (
         <div className="apex-card p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-[0.5px] border-white/[0.08]">
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--apex-text-secondary)] mb-1.5">Stay in the loop</p>

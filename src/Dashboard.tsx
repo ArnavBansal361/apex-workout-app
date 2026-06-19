@@ -110,19 +110,18 @@ function DashboardHeader() {
     return full.split(' ')[0] || null
   }, [state.settings.displayName])
 
-  const greeting = useMemo(() => {
-    const hour = new Date(clock).getHours()
-    const sal = hour >= 5 && hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
-    return firstName ? `Good ${sal}, ${firstName}.` : `Good ${sal}.`
-  }, [clock, firstName])
-
-  const dateLine = useMemo(() => {
+  const { greeting, dateLine } = useMemo(() => {
     const d = new Date(clock)
+    const hour = d.getHours()
+    const sal = hour >= 5 && hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
     const sched = state.schedule.find((s) => s.dateKey === todayKey)
     const planName = sched?.workoutName?.trim() ?? ''
     const dow = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    return planName ? `${dow} · ${planName}` : dow
-  }, [clock, state.schedule, todayKey])
+    return {
+      greeting: firstName ? `Good ${sal}, ${firstName}` : `Good ${sal}`,
+      dateLine: planName ? `${dow} · ${planName}` : dow,
+    }
+  }, [clock, firstName, state.schedule, todayKey])
 
   const streakDays = useMemo(
     () => streakCurrent(state, clock),
@@ -154,31 +153,54 @@ function DashboardHeader() {
     return days.size
   }, [state.setLogs, clock])
 
+  const weeklyGoal = state.schedule.filter((s) => s.workoutName?.trim()).length || 5
+
   const kpis = [
-    { label: 'Streak', value: streakDays > 0 ? `${streakDays}d` : '—' },
-    { label: 'Weekly vol', value: weeklyVolLabel },
-    { label: 'Sessions', value: `${weekSessions}` },
-    { label: 'Longevity', value: longevityScore > 0 ? `${longevityScore}` : '—' },
+    {
+      label: 'WEEKLY VOLUME',
+      value: weeklyVolLabel,
+      sub: weekRecap.totalSets > 0 ? `${weekRecap.totalSets} sets` : null,
+    },
+    {
+      label: 'SESSIONS',
+      value: `${weekSessions}`,
+      sub: `/ ${weeklyGoal} goal`,
+    },
+    {
+      label: 'LONGEVITY SCORE',
+      value: longevityScore > 0 ? `${longevityScore}` : '—',
+      sub: longevityScore > 0 ? '/ 100' : null,
+    },
+    {
+      label: 'STREAK',
+      value: streakDays > 0 ? `${streakDays}` : '—',
+      sub: streakDays > 0 ? 'days' : null,
+    },
   ]
 
   return (
-    <div className="shrink-0 px-8 pt-8 pb-6">
-      <div className="flex items-end justify-between gap-6">
+    <div className="shrink-0 px-8 pt-8 pb-0">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)] mb-2">{dateLine}</p>
-          <h1 className="text-[28px] font-medium leading-none tracking-[-0.02em] text-[var(--apex-text-primary)]">{greeting}</h1>
+          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">{dateLine}</p>
+          <h1 className="text-[32px] font-medium leading-none tracking-[-0.02em] text-[var(--apex-text-primary)]">{greeting}</h1>
+          {streakDays > 0 && (
+            <p className="mt-2 text-[14px] text-[var(--apex-text-secondary)]">
+              You're on a <span className="font-medium text-[var(--apex-text-primary)]">{streakDays}-day</span> streak.
+            </p>
+          )}
         </div>
-        <div className="flex gap-2 shrink-0">
-          {kpis.map((kpi) => (
-            <div
-              key={kpi.label}
-              className="apex-card px-4 py-3 flex flex-col gap-1.5 min-w-[88px]"
-            >
-              <span className="text-[22px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.02em' }}>{kpi.value}</span>
-              <span className="apex-section-label">{kpi.label}</span>
+      </div>
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {kpis.map((kpi) => (
+          <div key={kpi.label} className="apex-card px-5 py-4 flex flex-col gap-1">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">{kpi.label}</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.02em' }}>{kpi.value}</span>
+              {kpi.sub && <span className="text-[13px] text-[var(--apex-text-tertiary)]">{kpi.sub}</span>}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   )
