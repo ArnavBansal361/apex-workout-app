@@ -163,7 +163,7 @@ function DashboardHeader() {
     const we = new Date(ws)
     we.setDate(ws.getDate() + 7)
     const totalMins = state.cardioEntries
-      .filter((e) => e.date >= ws.toISOString().slice(0, 10) && e.date < we.toISOString().slice(0, 10))
+      .filter((e) => e.at >= ws.getTime() && e.at < we.getTime())
       .reduce((sum, e) => sum + (e.durationMinutes ?? 0), 0)
     return totalMins
   }, [state.cardioEntries, clock])
