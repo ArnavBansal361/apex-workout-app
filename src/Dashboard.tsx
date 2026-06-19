@@ -129,12 +129,21 @@ function DashboardHeader() {
   )
 
   const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
+  const lastWeekRecap = useMemo(() => computeWeekSummary(state, clock - 7 * 24 * 60 * 60 * 1000), [state, clock])
 
   const weeklyVolLabel = useMemo(() => {
     const v = weekRecap.totalVolumeLbs
     if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K lbs`
     return v > 0 ? `${v} lbs` : '—'
   }, [weekRecap.totalVolumeLbs])
+
+  const volTrend = useMemo(() => {
+    const cur = weekRecap.totalVolumeLbs
+    const prev = lastWeekRecap.totalVolumeLbs
+    if (!prev || !cur) return null
+    const pct = Math.round(((cur - prev) / prev) * 100)
+    return pct
+  }, [weekRecap.totalVolumeLbs, lastWeekRecap.totalVolumeLbs])
 
   const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
 
@@ -168,26 +177,37 @@ function DashboardHeader() {
     return totalMins
   }, [state.cardioEntries, clock])
 
-  const kpis = [
+  const kpis: {
+    label: string
+    value: string
+    sub: string | null
+    trend?: number | null
+    progress?: { filled: number; total: number } | null
+    extra?: string | null
+  }[] = [
     {
       label: 'WEEKLY VOLUME',
       value: weeklyVolLabel,
       sub: weekRecap.totalSets > 0 ? `${weekRecap.totalSets} sets` : null,
+      trend: volTrend,
     },
     {
       label: 'SESSIONS',
       value: `${weekSessions}`,
       sub: `/ ${weeklyGoal} goal`,
+      progress: { filled: weekSessions, total: weeklyGoal },
     },
     {
       label: 'LONGEVITY SCORE',
       value: longevityScore > 0 ? `${longevityScore}` : '—',
       sub: longevityScore > 0 ? '/ 100' : null,
+      extra: longevityScore > 0 ? 'Based on your training age' : null,
     },
     {
       label: 'ACTIVE MINS',
       value: activeDaysThisWeek > 0 ? `${activeDaysThisWeek}` : '—',
       sub: activeDaysThisWeek > 0 ? 'this week' : null,
+      extra: activeDaysThisWeek > 0 ? 'from cardio sessions' : null,
     },
   ]
 
@@ -196,7 +216,7 @@ function DashboardHeader() {
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">{dateLine}</p>
-          <h1 className="text-[32px] font-medium leading-none tracking-[-0.02em] text-[var(--apex-text-primary)]">{greeting}</h1>
+          <h1 className="text-[38px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)]">{greeting}</h1>
           <p className="mt-2 text-[14px] text-[var(--apex-text-secondary)]">
             {streakDays > 0
               ? <>You're on a <span className="font-medium text-[var(--apex-text-primary)]">{streakDays}-day</span> streak.{weekSessions < weeklyGoal ? <> One session away from your weekly goal.</> : <> Weekly goal hit.</>}</>
@@ -219,12 +239,31 @@ function DashboardHeader() {
       </div>
       <div className="grid grid-cols-4 gap-3 mb-6">
         {kpis.map((kpi) => (
-          <div key={kpi.label} className="apex-card px-5 py-4 flex flex-col gap-1">
+          <div key={kpi.label} className="apex-card px-5 py-5 flex flex-col gap-1">
             <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">{kpi.label}</p>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.02em' }}>{kpi.value}</span>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{kpi.value}</span>
               {kpi.sub && <span className="text-[13px] text-[var(--apex-text-tertiary)]">{kpi.sub}</span>}
             </div>
+            {kpi.trend != null && (
+              <p className="mt-2 text-[12px] font-medium" style={{ color: kpi.trend >= 0 ? '#4ade80' : '#f87171' }}>
+                {kpi.trend >= 0 ? '↑' : '↓'} {Math.abs(kpi.trend)}% vs last week
+              </p>
+            )}
+            {kpi.progress && (
+              <div className="mt-2 flex gap-1">
+                {Array.from({ length: kpi.progress.total }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-1 flex-1 rounded-full"
+                    style={{ background: i < kpi.progress!.filled ? '#3d7ab5' : 'var(--apex-surface-nested)' }}
+                  />
+                ))}
+              </div>
+            )}
+            {kpi.extra && (
+              <p className="mt-1.5 text-[11px] text-[var(--apex-text-tertiary)]">{kpi.extra}</p>
+            )}
           </div>
         ))}
       </div>
@@ -305,7 +344,7 @@ export function DashboardShell() {
                     ? 'text-[var(--apex-text-primary)]'
                     : 'text-[var(--apex-text-secondary)] hover:text-[var(--apex-text-primary)]'
                 }`}
-                style={active ? { background: 'rgba(61,122,181,0.15)', border: '0.5px solid rgba(61,122,181,0.25)' } : undefined}
+                style={active ? { background: 'rgba(61,122,181,0.22)', border: '0.5px solid rgba(61,122,181,0.4)' } : undefined}
                 onClick={() => setNav(item.id)}
               >
                 <span className={`shrink-0 ${active ? 'text-[#3d7ab5]' : 'text-[var(--apex-text-tertiary)]'}`}>

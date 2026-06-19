@@ -17,9 +17,9 @@ export function ApexLogo({
         width: size,
         height: size,
         borderRadius: size * 0.2,
-        background: 'var(--apex-surface-nested)',
-        border: '0.5px solid var(--apex-border)',
-        color: 'var(--apex-text-primary)',
+        background: '#3d7ab5',
+        border: 'none',
+        color: '#ffffff',
       }}
     >
       <svg viewBox="0 0 80 80" width={size} height={size} aria-hidden>
