@@ -5,7 +5,7 @@ import { dateKey } from '../lib/dates'
 export function DailyCheckinCard() {
   const { state, saveDailyCheckin, addBodyweight } = useWorkout()
   const today = dateKey(new Date())
-  const existing = state.dailyCheckins.find((c) => c.dateKey === today)
+  const existing = state.dailyCheckins?.find((c) => c.dateKey === today)
 
   const lastWeight = state.bodyweightLogs.length > 0
     ? state.bodyweightLogs[state.bodyweightLogs.length - 1].value
