@@ -63,10 +63,9 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 5. Report what you saw, not just what you built
 
 ## Design violations to watch for in this app
-- font-bold or font-semibold anywhere (weights must be 400/500 only)
 - Hardcoded "Apex" text in UI (file/repo names are fine)
 - Shadows (no box-shadow anywhere)
-- Gradients (none)
 - Pink colors (none)
 - Card bg other than #13181f dark / #f5f9f7 light
 - Border heavier than 0.5px
+- Font weight 600/700 and gradients are acceptable if they look good — not hard violations
