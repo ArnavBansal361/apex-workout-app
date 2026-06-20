@@ -339,22 +339,27 @@ function DashboardHome() {
     return { name: sched.workoutName.trim(), exercises }
   }, [state.schedule, todayKey, resolveExerciseById])
 
+  const totalSessions = useMemo(() => {
+    const days = new Set(state.setLogs.map((l) => new Date(l.at).toISOString().slice(0, 10)))
+    return days.size
+  }, [state.setLogs])
+
   return (
     <div className="px-8 pt-8 pb-10 overflow-y-auto flex-1 min-h-0">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: ACCENT }}>{dateLine}</p>
         {streakDays > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-[99px]" style={{ background: ACCENT_BG, border: ACCENT_BORDER }}>
             <span className="text-[15px] leading-none" aria-hidden>🔥</span>
-            <span className="text-[20px] font-medium tabular-nums leading-none" style={{ color: ACCENT, letterSpacing: '-0.02em' }}>{streakDays}</span>
+            <span className="text-[20px] font-bold tabular-nums leading-none" style={{ color: ACCENT, letterSpacing: '-0.02em' }}>{streakDays}</span>
             <span className="text-[10px] font-medium uppercase tracking-[0.08em]" style={{ color: ACCENT, opacity: 0.8 }}>day streak</span>
           </div>
         )}
       </div>
-      <h1 className="text-[48px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)] mb-2">{greeting}</h1>
-      <p className="text-[14px] text-[var(--apex-text-secondary)] mb-8">{subtitle}</p>
+      <h1 className="text-[52px] font-bold leading-none tracking-[-0.03em] text-[var(--apex-text-primary)] mb-2">{greeting}</h1>
+      <p className="text-[15px] text-[var(--apex-text-secondary)] mb-8">{subtitle}</p>
 
       {/* ── 4-col stat strip ── */}
       <div className="grid grid-cols-4 gap-3 mb-4">
@@ -362,13 +367,15 @@ function DashboardHome() {
         <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
           <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Weekly Volume</p>
           <div className="flex items-baseline gap-1 mt-3">
-            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weeklyVolStr}</span>
+            <span className="text-[32px] font-bold tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weeklyVolStr}</span>
             {weekRecap.totalVolumeLbs > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">lbs</span>}
           </div>
-          {volTrend != null && (
+          {volTrend != null ? (
             <p className="mt-2 text-[12px] font-medium" style={{ color: volTrend >= 0 ? '#4ade80' : '#f87171' }}>
               {volTrend >= 0 ? '↑' : '↓'} {Math.abs(volTrend)}% vs last week
             </p>
+          ) : (
+            <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">No data yet this week</p>
           )}
         </div>
 
@@ -376,11 +383,11 @@ function DashboardHome() {
         <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
           <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Sessions</p>
           <div className="flex items-baseline gap-1 mt-3">
-            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weekSessions}</span>
+            <span className="text-[32px] font-bold tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weekSessions}</span>
             <span className="text-[13px] text-[var(--apex-text-tertiary)]">/ {weeklyGoal} goal</span>
           </div>
           <div className="mt-3 flex gap-1">
-            {Array.from({ length: weeklyGoal }).map((_, i) => (
+            {Array.from({ length: Math.max(weeklyGoal, 1) }).map((_, i) => (
               <div key={i} className="h-[3px] flex-1 rounded-full" style={{ background: i < weekSessions ? ACCENT : 'rgba(255,255,255,0.1)' }} />
             ))}
           </div>
@@ -390,25 +397,25 @@ function DashboardHome() {
         <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
           <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Longevity Score</p>
           <div className="flex items-baseline gap-1 mt-3">
-            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{longevityScore > 0 ? longevityScore : '—'}</span>
+            <span className="text-[32px] font-bold tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{longevityScore > 0 ? longevityScore : '—'}</span>
             {longevityScore > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">/ 100</span>}
           </div>
-          {longevityScore > 0 && <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">Based on training age</p>}
+          <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">{longevityScore > 0 ? 'Based on training age' : 'Log workouts to unlock'}</p>
         </div>
 
-        {/* Active Days */}
+        {/* Total Sessions */}
         <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
-          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Active Mins</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Total Sessions</p>
           <div className="flex items-baseline gap-1 mt-3">
-            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
-            {cardioMinsThisWeek > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">this week</span>}
+            <span className="text-[32px] font-bold tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{totalSessions}</span>
+            {totalSessions > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">logged</span>}
           </div>
-          {cardioMinsThisWeek === 0 && <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">No cardio logged yet</p>}
+          <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">{totalSessions > 0 ? 'all-time' : 'Start your first session'}</p>
         </div>
       </div>
 
       {/* ── Daily quote ── */}
-      <div className="mb-4 px-5 py-4 rounded-[12px] relative flex items-start gap-4" style={{ background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderLeft: `3px solid ${ACCENT}` }}>
+      <div className="mb-4 px-5 py-4 rounded-[12px] flex items-start gap-4" style={{ background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderLeft: `3px solid ${ACCENT}` }}>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] text-[var(--apex-text-primary)] leading-relaxed">"{quote.text}"</p>
           <p className="mt-2 text-[12px] text-[var(--apex-text-tertiary)]">— {quote.attr}</p>
@@ -417,80 +424,93 @@ function DashboardHome() {
       </div>
 
       {/* ── Two-column section ── */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 0.65fr' }}>
+      <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
 
         {/* Left: Weekly Training Volume bar chart */}
         <div style={CARD_STYLE} className="px-5 py-5">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <p className="text-[14px] font-medium text-[var(--apex-text-primary)]">Weekly Training Volume</p>
-              <p className="text-[11px] text-[var(--apex-text-tertiary)] mt-0.5">Total tonnage lifted per day</p>
+              <p className="text-[15px] font-medium text-[var(--apex-text-primary)]">Weekly Training Volume</p>
+              <p className="text-[11px] text-[var(--apex-text-tertiary)] mt-0.5">Total tonnage lifted per day (k lbs)</p>
             </div>
             <div className="flex gap-1">
               <span className="px-2.5 py-1 rounded-[6px] text-[11px] font-medium text-white" style={{ background: ACCENT }}>Week</span>
               <span className="px-2.5 py-1 rounded-[6px] text-[11px] font-medium text-[var(--apex-text-tertiary)]">Month</span>
             </div>
           </div>
-          <div className="flex items-end gap-2 mt-2" style={{ height: 140 }}>
+          <div className="flex items-end gap-3 mt-2" style={{ height: 160 }}>
             {weekBarData.map((d, i) => {
-              const barH = d.vol > 0 ? Math.max((d.vol / maxBarVol) * 100, 8) : 4
+              const barH = d.vol > 0 ? Math.max((d.vol / maxBarVol) * 120, 8) : 6
               return (
-                <div key={i} className="flex-1 flex flex-col items-center" style={{ gap: 4 }}>
-                  <span className="text-[9px] tabular-nums" style={{ color: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.35)' : 'transparent', minHeight: 13 }}>{d.volK || ' '}</span>
+                <div key={i} className="flex-1 flex flex-col items-center" style={{ gap: 6 }}>
+                  <span className="text-[10px] tabular-nums" style={{ color: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.5)' : 'transparent', minHeight: 14 }}>{d.volK || ' '}</span>
                   <div className="flex-1 w-full flex items-end">
                     <div
-                      className="w-full rounded-t-[3px]"
+                      className="w-full rounded-t-[4px]"
                       style={{
                         height: barH,
-                        background: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                        background: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)',
                       }}
                     />
                   </div>
-                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? ACCENT : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                  <span className="text-[11px] font-medium" style={{ color: d.isToday ? ACCENT : 'rgba(255,255,255,0.35)' }}>{d.label}</span>
                 </div>
               )
             })}
           </div>
         </div>
 
-        {/* Right: two stacked cards */}
+        {/* Right: Cardio + Today's Session stacked */}
         <div className="flex flex-col gap-3">
           {/* Cardio card */}
           <div style={CARD_STYLE} className="px-5 py-5 flex-1">
-            <div className="flex items-start justify-between mb-1">
+            <div className="flex items-start justify-between mb-2">
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Cardio</p>
               <span className="text-[10px] font-medium text-[var(--apex-text-tertiary)]">Zone 2</span>
             </div>
-            <div className="flex items-baseline gap-1 mt-2">
-              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
-              {cardioMinsThisWeek > 0 && <span className="text-[12px] text-[var(--apex-text-tertiary)]">min this week</span>}
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-[28px] font-bold tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : 0}</span>
+              <span className="text-[12px] text-[var(--apex-text-tertiary)]">min this week</span>
             </div>
             <div className="flex gap-2 mt-4">
               {cardioByDay.map((active, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-[4px]"
-                  style={{ aspectRatio: '1', background: active ? ACCENT : 'rgba(255,255,255,0.07)', maxWidth: 24 }}
-                />
+                <div key={i} className="flex-1 rounded-[4px]" style={{ aspectRatio: '1', background: active ? ACCENT : 'rgba(255,255,255,0.07)', maxWidth: 24 }} />
               ))}
             </div>
-            <div className="flex justify-between mt-1.5">
+            <div className="flex mt-1.5">
               {(['M','T','W','T','F','S','S'] as const).map((l, i) => (
                 <span key={i} className="text-[9px] text-[var(--apex-text-tertiary)] flex-1 text-center">{l}</span>
               ))}
             </div>
           </div>
 
-          {/* Placeholder card */}
-          <div style={CARD_STYLE} className="px-5 py-5 flex-1 flex flex-col items-start justify-center">
-            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-1">Coming soon</p>
-            <p className="text-[13px] text-[var(--apex-text-secondary)] leading-snug mt-1">Body composition &amp; recovery trends</p>
+          {/* Today's Session card */}
+          <div style={CARD_STYLE} className="px-5 py-5 flex-1">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Today's session</p>
+            </div>
+            {todaySession ? (
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-[10px]" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.07)' }}>
+                <div className="w-9 h-9 shrink-0 rounded-[9px] flex items-center justify-center text-[14px] font-bold" style={{ background: ACCENT_BG, color: ACCENT }}>
+                  {todaySession.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate">{todaySession.name}</p>
+                  <p className="text-[11px] text-[var(--apex-text-tertiary)]">{todaySession.exercises.length} exercises</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[14px] font-medium text-[var(--apex-text-primary)]">Rest day</p>
+                <p className="text-[12px] text-[var(--apex-text-tertiary)] mt-1">Nothing scheduled — recovery counts.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Bottom row: Water + Today's Session ── */}
-      <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: '1fr 1.4fr' }}>
+      {/* ── Bottom row: Water ── */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1.4fr' }}>
 
         {/* Water */}
         <div style={CARD_STYLE} className="px-5 py-5">
