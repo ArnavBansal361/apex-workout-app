@@ -5,7 +5,7 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 ## App
 - **Name:** Lift (formerly Apex — repo/deploy still use apex name, UI says Lift)
 - **Stack:** React + Vite + TypeScript + Tailwind
-- **Accent color:** #3d7ab5 (weathered denim)
+- **Accent color:** #c0582a (burnt sienna)
 - **Deployed:** lift.tendedstudio.com (Vercel, project: apex-workout-app)
 - **GitHub:** ArnavBansal361/apex-workout-app
 - **Branch:** cursor/match-approved-design-mockups
