@@ -233,7 +233,7 @@ export function DesktopOnlyGate({ children }: { children: ReactNode }) {
 }
 
 function DashboardHome() {
-  const { state, todayKey } = useWorkout()
+  const { state, todayKey, addWaterOz, resolveExerciseById } = useWorkout()
   const { clock } = useWorkoutTick()
 
   const firstName = useMemo(() => {
@@ -318,6 +318,26 @@ function DashboardHome() {
 
   const quote = useMemo(() => dailyQuote(todayKey), [todayKey])
   const maxBarVol = Math.max(...weekBarData.map((d) => d.vol), 1)
+
+  const { waterOz, waterGoal, waterPct, waterDash } = useMemo(() => {
+    const goal = state.settings.waterGoalOz ?? 64
+    const oz = (state.waterLogs ?? [])
+      .filter((l) => l.dateKey === todayKey)
+      .reduce((s, l) => s + l.oz, 0)
+    const pct = Math.min(100, Math.round((oz / goal) * 100))
+    const r = 32
+    const circ = 2 * Math.PI * r
+    return { waterOz: oz, waterGoal: goal, waterPct: pct, waterDash: circ - (circ * pct) / 100 }
+  }, [state.waterLogs, state.settings.waterGoalOz, todayKey])
+
+  const todaySession = useMemo(() => {
+    const sched = state.schedule.find((s) => s.dateKey === todayKey)
+    if (!sched?.workoutName?.trim()) return null
+    const exercises = (sched.plannedExerciseIds ?? [])
+      .map((id) => resolveExerciseById(id))
+      .filter((ex): ex is NonNullable<typeof ex> => ex != null)
+    return { name: sched.workoutName.trim(), exercises }
+  }, [state.schedule, todayKey, resolveExerciseById])
 
   return (
     <div className="px-8 pt-8 pb-10 overflow-y-auto flex-1 min-h-0">
@@ -466,6 +486,99 @@ function DashboardHome() {
             <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-1">Coming soon</p>
             <p className="text-[13px] text-[var(--apex-text-secondary)] leading-snug mt-1">Body composition &amp; recovery trends</p>
           </div>
+        </div>
+      </div>
+
+      {/* ── Bottom row: Water + Today's Session ── */}
+      <div className="grid gap-3 mt-3" style={{ gridTemplateColumns: '1fr 1.4fr' }}>
+
+        {/* Water */}
+        <div style={CARD_STYLE} className="px-5 py-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Water</p>
+            <span className="text-[10px] tabular-nums text-[var(--apex-text-tertiary)]">{waterOz} / {waterGoal} oz</span>
+          </div>
+          <div className="flex items-center gap-5">
+            {/* Circular ring */}
+            <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
+              <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+                <circle
+                  cx="36" cy="36" r="30" fill="none"
+                  stroke="#4a9eca"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 30}`}
+                  strokeDashoffset={waterDash}
+                  style={{ transition: 'stroke-dashoffset 0.5s' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center text-[13px] font-medium text-[var(--apex-text-primary)]">
+                {waterPct}%
+              </div>
+            </div>
+            {/* Buttons */}
+            <div className="flex flex-col gap-2 flex-1">
+              <button
+                type="button"
+                className="w-full py-2 rounded-[8px] text-[12px] font-medium text-[var(--apex-text-primary)]"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.1)' }}
+                onClick={() => addWaterOz(8)}
+              >
+                + 8 oz
+              </button>
+              <button
+                type="button"
+                className="w-full py-2 rounded-[8px] text-[12px] font-medium text-[var(--apex-text-secondary)]"
+                style={{ border: '0.5px solid rgba(255,255,255,0.08)' }}
+                onClick={() => addWaterOz(16)}
+              >
+                + 16 oz
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's session */}
+        <div style={CARD_STYLE} className="px-5 py-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Today's session</p>
+          </div>
+          {todaySession ? (
+            <>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-[10px] mb-3" style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.07)' }}>
+                <div
+                  className="w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center text-[15px] font-medium"
+                  style={{ background: ACCENT_BG, color: ACCENT }}
+                >
+                  {todaySession.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[var(--apex-text-primary)] truncate">{todaySession.name}</p>
+                  <p className="text-[12px] text-[var(--apex-text-tertiary)]">{todaySession.exercises.length} exercises</p>
+                </div>
+              </div>
+              {todaySession.exercises.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {todaySession.exercises.slice(0, 3).map((ex) => (
+                    <span key={ex.id} className="px-2.5 py-1 text-[11px] rounded-[6px] text-[var(--apex-text-tertiary)]" style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                      {ex.name}
+                    </span>
+                  ))}
+                  {todaySession.exercises.length > 3 && (
+                    <span className="px-2.5 py-1 text-[11px] rounded-[6px] text-[var(--apex-text-tertiary)]" style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                      +{todaySession.exercises.length - 3} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-[15px] font-medium text-[var(--apex-text-primary)]">Rest day</p>
+              <p className="text-[13px] text-[var(--apex-text-tertiary)]">No workout scheduled — recovery is part of the plan.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
