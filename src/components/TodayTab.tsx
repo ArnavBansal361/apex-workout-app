@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useWorkout, useWorkoutTick } from '../context/WorkoutContext'
-import { dateKey, formatLong, getNow } from '../lib/dates'
+import { dateKey, formatLong, getNow, weekStartMonday, weekDatesFromStart } from '../lib/dates'
 import { formatDuration } from '../lib/timers'
 import { progressiveOverloadBanner } from '../lib/overload'
 import {
@@ -484,6 +484,53 @@ export function TodayTab({
     if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K`
     return v > 0 ? `${v}` : '—'
   }, [weekRecap.totalVolumeLbs])
+
+  const { weeklySessionsDone, weeklySessionGoal } = useMemo(() => {
+    const ws = weekStartMonday(new Date(clock))
+    const dates = weekDatesFromStart(ws)
+    const loggedKeys = new Set(state.setLogs.map((l) => new Date(l.at).toISOString().slice(0, 10)))
+    const done = dates.filter((d) => loggedKeys.has(d)).length
+    const goal = dates.filter((d) => state.schedule.some((s) => s.dateKey === d && s.workoutName.trim())).length
+    return { weeklySessionsDone: done, weeklySessionGoal: Math.max(goal, 1) }
+  }, [state.setLogs, state.schedule, clock])
+
+  const weeklyBarData = useMemo(() => {
+    const ws = weekStartMonday(new Date(clock))
+    const dates = weekDatesFromStart(ws)
+    const todayStr = new Date(clock).toISOString().slice(0, 10)
+    return dates.map((d, i) => {
+      const vol = state.setLogs
+        .filter((l): l is import('../types').WeightedSetLog => l.kind === 'weighted' && new Date(l.at).toISOString().slice(0, 10) === d)
+        .reduce((sum, l) => sum + (l.weight ?? 0) * l.reps, 0)
+      return { date: d, vol, isToday: d === todayStr, label: ['M','T','W','T','F','S','S'][i] ?? '' }
+    })
+  }, [state.setLogs, clock])
+
+  const strengthSparkline = useMemo(() => {
+    const now = new Date(clock)
+    const points: number[] = []
+    for (let w = 7; w >= 0; w--) {
+      const ws = weekStartMonday(new Date(now.getFullYear(), now.getMonth(), now.getDate() - w * 7))
+      const we = new Date(ws.getTime() + 7 * 86400000)
+      const weekLogs = state.setLogs.filter((l): l is import('../types').WeightedSetLog =>
+        l.kind === 'weighted' && l.at >= ws.getTime() && l.at < we.getTime()
+      )
+      const maxE1rm = weekLogs.reduce((best, l) => {
+        const w2 = l.weight ?? 0
+        const e1rm = l.reps > 0 ? w2 * (1 + l.reps / 30) : w2
+        return e1rm > best ? e1rm : best
+      }, 0)
+      points.push(maxE1rm)
+    }
+    return points
+  }, [state.setLogs, clock])
+
+  const todayPlannedExercises = useMemo(() => {
+    if (!sched?.plannedExerciseIds?.length) return []
+    return sched.plannedExerciseIds
+      .map((id) => resolveExerciseById(id))
+      .filter((ex): ex is NonNullable<typeof ex> => ex != null)
+  }, [sched, resolveExerciseById])
 
   useEffect(() => {
     let cancelled = false
@@ -1415,35 +1462,45 @@ export function TodayTab({
       ) : null}
 
     <div className={`apex-tab-stack ${isDesktop ? 'pb-8' : 'pb-32'}${state.gymSession.active ? ' hidden' : ''}`}>
-      {!isDesktop ? <header className="apex-card apex-today-header-card px-6 py-6">
-        <button
-          type="button"
-          className="apex-today-header-barcode"
-          aria-label={
-            gymBarcode ? 'Open gym membership barcode' : 'Set up gym membership barcode'
-          }
-          onClick={() => {
-            const saved = readGymBarcode()
-            setGymBarcode(saved)
-            if (saved) {
-              setGymCardOpen(true)
-            } else {
-              onOpenGymMembershipSetup?.()
-            }
-          }}
-        >
-          <i className="ti ti-barcode text-[20px] leading-none" aria-hidden />
-        </button>
-        <div className="apex-today-header-meta pr-12" aria-label="Today">
-          <span>{headerDateLabel}</span>
-          {!isRestDay && (
-            <>
-              <span className="apex-today-header-meta__sep" aria-hidden>·</span>
-              <span style={{ color: 'var(--apex-accent)' }}>{dayStatusLabel}</span>
-            </>
-          )}
+      {!isDesktop ? <header className="apex-card px-5 py-5">
+        {/* Date row + streak badge */}
+        <div className="flex items-start justify-between mb-3">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--apex-text-tertiary)]">
+            {headerDateLabel}
+            {!isRestDay && (
+              <span style={{ color: 'var(--apex-accent)' }}> · {dayStatusLabel}</span>
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            {streakDays > 0 && (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1 rounded-[99px] text-[12px] font-medium"
+                style={{ background: 'rgba(61,122,181,0.14)', color: 'var(--apex-accent)' }}
+              >
+                <span className="tabular-nums">{streakDays}</span>
+                <span className="text-[11px]">days</span>
+              </div>
+            )}
+            <button
+              type="button"
+              className="w-7 h-7 flex items-center justify-center rounded-[8px] text-[var(--apex-text-tertiary)]"
+              style={{ background: 'rgba(255,255,255,0.05)' }}
+              aria-label={gymBarcode ? 'Open gym membership barcode' : 'Set up gym membership barcode'}
+              onClick={() => {
+                const saved = readGymBarcode()
+                setGymBarcode(saved)
+                if (saved) { setGymCardOpen(true) } else { onOpenGymMembershipSetup?.() }
+              }}
+            >
+              <i className="ti ti-barcode text-[16px] leading-none" aria-hidden />
+            </button>
+          </div>
         </div>
-        <h1 className="apex-today-header-title">{headerGreeting}</h1>
+        {/* Greeting */}
+        <h1 className="text-[32px] font-medium text-[var(--apex-text-primary)] leading-none tracking-[-0.02em] mb-4">
+          {headerGreeting}
+        </h1>
+        {/* Action buttons */}
         <div className="apex-today-header-actions">
           <button
             type="button"
@@ -1468,28 +1525,133 @@ export function TodayTab({
             }}
           >
             <span>Workout day</span>
-            <span className="apex-today-btn-workout__arrow" aria-hidden>
-              →
-            </span>
+            <span className="apex-today-btn-workout__arrow" aria-hidden>→</span>
           </button>
         </div>
       </header> : null}
 
-      {/* ── Stats strip ─────────────────────────────────────────────────── */}
+      {/* ── Stat trio ───────────────────────────────────────────────────── */}
       {!isDesktop ? <div className="apex-card flex divide-x divide-white/[0.08]" style={{ borderRadius: 12 }}>
-        <div className="flex-1 px-5 py-4">
-          <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{streakDays}</div>
-          <div className="apex-section-label mt-1.5">Day streak</div>
-        </div>
-        <div className="flex-1 px-5 py-4">
+        <div className="flex-1 px-4 py-4">
           <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{weeklyVolLabel}</div>
-          <div className="apex-section-label mt-1.5">Weekly lb</div>
+          <div className="apex-section-label mt-1.5">Volume</div>
         </div>
-        <div className="flex-1 px-5 py-4">
+        <div className="flex-1 px-4 py-4">
+          <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>
+            {weeklySessionsDone}<span className="text-[14px] text-[var(--apex-text-tertiary)]">/{weeklySessionGoal}</span>
+          </div>
+          <div className="apex-section-label mt-1.5">Sessions</div>
+          <div className="flex gap-[3px] mt-2">
+            {Array.from({ length: weeklySessionGoal }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[3px] rounded-full flex-1"
+                style={{ background: i < weeklySessionsDone ? 'var(--apex-accent)' : 'rgba(255,255,255,0.1)' }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 px-4 py-4">
           <div className="text-[22px] font-medium tabular-nums leading-none" style={{ letterSpacing: '-0.02em' }}>{longevityScore}</div>
           <div className="apex-section-label mt-1.5">Longevity</div>
         </div>
       </div> : null}
+
+      {/* ── Today's workout card ─────────────────────────────────────────── */}
+      {!isDesktop && !isRestDay && !state.gymSession.active ? (
+        <div className="apex-card px-4 py-4">
+          <p className="apex-section-label mb-2">Today's workout</p>
+          <p className="text-[18px] font-medium text-[var(--apex-text-primary)] tracking-tight mb-3">{planName}</p>
+          {todayPlannedExercises.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {todayPlannedExercises.slice(0, 3).map((ex) => (
+                <span
+                  key={ex.id}
+                  className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-secondary)]"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}
+                >
+                  {ex.name}
+                </span>
+              ))}
+              {todayPlannedExercises.length > 3 && (
+                <span
+                  className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-tertiary)]"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}
+                >
+                  +{todayPlannedExercises.length - 3} more
+                </span>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            className="w-full min-h-11 rounded-[8px] text-[14px] font-medium text-white touch-manipulation"
+            style={{ background: 'var(--apex-accent)' }}
+            onClick={beginWorkoutFlow}
+          >
+            Start workout
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── Weekly volume bar chart ──────────────────────────────────────── */}
+      {!isDesktop && weeklyBarData.some((d) => d.vol > 0) ? (
+        <div className="apex-card px-4 py-4">
+          <p className="apex-section-label mb-3">This week</p>
+          <div className="flex items-end gap-[6px] h-16">
+            {(() => {
+              const maxVol = Math.max(...weeklyBarData.map((d) => d.vol), 1)
+              return weeklyBarData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                  <div className="w-full rounded-[3px] transition-all" style={{
+                    height: `${Math.max((d.vol / maxVol) * 48, d.vol > 0 ? 4 : 2)}px`,
+                    background: d.isToday ? 'var(--apex-accent)' : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                    alignSelf: 'flex-end',
+                  }} />
+                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? 'var(--apex-accent)' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                </div>
+              ))
+            })()}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Strength sparkline ───────────────────────────────────────────── */}
+      {!isDesktop && strengthSparkline.some((v) => v > 0) ? (
+        <div className="apex-card px-4 py-4">
+          <p className="apex-section-label mb-3">8-week strength trend</p>
+          <svg viewBox="0 0 200 48" className="w-full" style={{ height: 48 }} preserveAspectRatio="none">
+            {(() => {
+              const max = Math.max(...strengthSparkline, 1)
+              const min = Math.min(...strengthSparkline.filter((v) => v > 0), max)
+              const range = max - min || 1
+              const pts = strengthSparkline.map((v, i) => {
+                const x = (i / (strengthSparkline.length - 1)) * 200
+                const y = v > 0 ? 44 - ((v - min) / range) * 40 : 44
+                return `${x},${y}`
+              })
+              const d = `M ${pts.join(' L ')}`
+              const fillD = `M 0,48 L ${pts.join(' L ')} L 200,48 Z`
+              return (
+                <>
+                  <defs>
+                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3d7ab5" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#3d7ab5" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d={fillD} fill="url(#sparkGrad)" />
+                  <path d={d} stroke="#3d7ab5" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </>
+              )
+            })()}
+          </svg>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] font-medium text-[var(--apex-text-tertiary)]">8 wk ago</span>
+            <span className="text-[10px] font-medium text-[var(--apex-text-tertiary)]">Now</span>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── New-user empty state ─────────────────────────────────────────── */}
       {state.setLogs.length === 0 && !state.gymSession.active ? (
