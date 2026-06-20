@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
-import {
-  APEX_TODAY_MORE_OPEN_KEY,
-  APEX_TODAY_PLAN_OPEN_KEY,
-  stripNotificationMessage,
-  useTodaySectionOpen,
-} from './lib/persist'
+import { stripNotificationMessage } from './lib/persist'
 import { AchievementsPage } from './components/AchievementsPage'
 import { ExercisesTab } from './components/ExercisesTab'
 import { FullHistory } from './components/FullHistory'
@@ -15,16 +10,15 @@ import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
 import { ScheduleTab } from './components/ScheduleTab'
-import { TodayTab } from './components/TodayTab'
-import { ApexLogo } from './components/ApexLogo'
 import { SpotifyPlayerCard } from './components/SpotifyPlayerCard'
 import { TrainerClientsOverview } from './components/TrainerClientsOverview'
 import { useSwipeBackLayer } from './lib/swipeBackNavigation'
-import { streakCurrent } from './lib/achievements'
 import { computeWeekSummary } from './lib/weekSummary'
 import { computeLongevityScore } from './lib/longevityScore'
 import { readTrainerModeEnabled } from './lib/trainer'
+import { weekStartMonday, weekDatesFromStart } from './lib/dates'
 import { type TrainerClientSummary } from './lib/supabase'
+import type { WeightedSetLog } from './types'
 
 const DESKTOP_MIN_WIDTH = 768
 
@@ -114,8 +108,8 @@ export function DesktopOnlyGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-function DashboardHeader() {
-  const { state, todayKey } = useWorkout()
+function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
+  const { state, todayKey, resolveExerciseById } = useWorkout()
   const { clock } = useWorkoutTick()
 
   const firstName = useMemo(() => {
@@ -127,19 +121,13 @@ function DashboardHeader() {
     const d = new Date(clock)
     const hour = d.getHours()
     const sal = hour >= 5 && hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
-    const sched = state.schedule.find((s) => s.dateKey === todayKey)
-    const planName = sched?.workoutName?.trim() ?? ''
-    const dow = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    const dow = d.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
+    const md = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }).toUpperCase()
     return {
-      greeting: firstName ? `Good ${sal}, ${firstName}` : `Good ${sal}`,
-      dateLine: planName ? `${dow} · ${planName}` : dow,
+      greeting: firstName ? `Good ${sal}, ${firstName}.` : `Good ${sal}.`,
+      dateLine: `${dow}, ${md}`,
     }
-  }, [clock, firstName, state.schedule, todayKey])
-
-  const streakDays = useMemo(
-    () => streakCurrent(state, clock),
-    [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock],
-  )
+  }, [clock, firstName])
 
   const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
   const lastWeekRecap = useMemo(() => computeWeekSummary(state, clock - 7 * 24 * 60 * 60 * 1000), [state, clock])
@@ -154,50 +142,46 @@ function DashboardHeader() {
     const cur = weekRecap.totalVolumeLbs
     const prev = lastWeekRecap.totalVolumeLbs
     if (!prev || !cur) return null
-    const pct = Math.round(((cur - prev) / prev) * 100)
-    return pct
+    return Math.round(((cur - prev) / prev) * 100)
   }, [weekRecap.totalVolumeLbs, lastWeekRecap.totalVolumeLbs])
 
   const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
 
-  const weekSessions = useMemo(() => {
-    const ws = new Date(clock)
-    const day = ws.getDay()
-    ws.setDate(ws.getDate() + (day === 0 ? -6 : 1 - day))
-    ws.setHours(0, 0, 0, 0)
-    const we = new Date(ws)
-    we.setDate(ws.getDate() + 7)
-    const days = new Set(
-      state.setLogs
-        .filter((l) => l.at >= ws.getTime() && l.at < we.getTime())
-        .map((l) => new Date(l.at).toDateString()),
+  const { weekSessions, weeklyGoal, weekBarData } = useMemo(() => {
+    const ws = weekStartMonday(new Date(clock))
+    const dates = weekDatesFromStart(ws)
+    const todayStr = new Date(clock).toISOString().slice(0, 10)
+    const loggedDays = new Set(
+      state.setLogs.map((l) => new Date(l.at).toISOString().slice(0, 10))
     )
-    return days.size
-  }, [state.setLogs, clock])
+    const bars = dates.map((d, i) => {
+      const vol = state.setLogs
+        .filter((l): l is WeightedSetLog => l.kind === 'weighted' && new Date(l.at).toISOString().slice(0, 10) === d)
+        .reduce((sum, l) => sum + (l.weight ?? 0) * l.reps, 0)
+      return { vol, isToday: d === todayStr, label: ['M','T','W','T','F','S','S'][i] ?? '' }
+    })
+    const goal = Math.max(
+      dates.filter((d) => state.schedule.some((s) => s.dateKey === d && s.workoutName?.trim())).length,
+      1
+    )
+    return {
+      weekSessions: dates.filter((d) => loggedDays.has(d)).length,
+      weeklyGoal: goal,
+      weekBarData: bars,
+    }
+  }, [state.setLogs, state.schedule, clock])
 
-  const weeklyGoal = state.schedule.filter((s) => s.workoutName?.trim()).length || 5
+  const sched = state.schedule.find((s) => s.dateKey === todayKey)
+  const planName = sched?.workoutName?.trim() ?? ''
 
-  const activeDaysThisWeek = useMemo(() => {
-    const ws = new Date(clock)
-    const day = ws.getDay()
-    ws.setDate(ws.getDate() + (day === 0 ? -6 : 1 - day))
-    ws.setHours(0, 0, 0, 0)
-    const we = new Date(ws)
-    we.setDate(ws.getDate() + 7)
-    const totalMins = state.cardioEntries
-      .filter((e) => e.at >= ws.getTime() && e.at < we.getTime())
-      .reduce((sum, e) => sum + (e.durationMinutes ?? 0), 0)
-    return totalMins
-  }, [state.cardioEntries, clock])
+  const todayPlannedExercises = useMemo(() => {
+    if (!sched?.plannedExerciseIds?.length) return []
+    return sched.plannedExerciseIds
+      .map((id) => resolveExerciseById(id))
+      .filter((ex): ex is NonNullable<typeof ex> => ex != null)
+  }, [sched, resolveExerciseById])
 
-  const kpis: {
-    label: string
-    value: string
-    sub: string | null
-    trend?: number | null
-    progress?: { filled: number; total: number } | null
-    extra?: string | null
-  }[] = [
+  const kpis: { label: string; value: string; sub: string | null; trend?: number | null; progress?: { filled: number; total: number } | null; extra?: string | null }[] = [
     {
       label: 'WEEKLY VOLUME',
       value: weeklyVolLabel,
@@ -216,41 +200,18 @@ function DashboardHeader() {
       sub: longevityScore > 0 ? '/ 100' : null,
       extra: longevityScore > 0 ? 'Based on your training age' : null,
     },
-    {
-      label: 'ACTIVE MINS',
-      value: activeDaysThisWeek > 0 ? `${activeDaysThisWeek}` : '—',
-      sub: activeDaysThisWeek > 0 ? 'this week' : null,
-      extra: activeDaysThisWeek > 0 ? 'from cardio sessions' : null,
-    },
   ]
+
+  const hasBarData = weekBarData.some((d) => d.vol > 0)
 
   return (
     <div className="shrink-0 px-8 pt-8 pb-0">
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">{dateLine}</p>
-          <h1 className="text-[38px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)]">{greeting}</h1>
-          <p className="mt-2 text-[14px] text-[var(--apex-text-secondary)]">
-            {streakDays > 0
-              ? <>You're on a <span className="font-medium text-[var(--apex-text-primary)]">{streakDays}-day</span> streak.{weekSessions < weeklyGoal ? <> One session away from your weekly goal.</> : <> Weekly goal hit.</>}</>
-              : weekSessions < weeklyGoal
-                ? `${weeklyGoal - weekSessions} session${weeklyGoal - weekSessions > 1 ? 's' : ''} left this week.`
-                : 'Weekly goal hit.'
-            }
-          </p>
-        </div>
-        {streakDays > 0 && (
-          <div
-            className="shrink-0 flex flex-col items-center justify-center rounded-[12px] px-5 py-4 min-w-[96px]"
-            style={{ background: 'var(--apex-surface-card)', border: '0.5px solid var(--apex-border)' }}
-          >
-            <span className="text-[22px] leading-none">🔥</span>
-            <span className="text-[22px] font-medium tabular-nums leading-none mt-1 text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.02em' }}>{streakDays}</span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)] mt-1">day streak</span>
-          </div>
-        )}
-      </div>
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      {/* Date + greeting */}
+      <p className="text-[11px] font-medium tracking-[0.12em] text-[var(--apex-text-tertiary)] mb-2" style={{ fontVariantNumeric: 'tabular-nums' }}>{dateLine}</p>
+      <h1 className="text-[34px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)] mb-6">{greeting}</h1>
+
+      {/* 3-col stat strip */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="apex-card px-5 py-5 flex flex-col gap-1">
             <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">{kpi.label}</p>
@@ -266,37 +227,105 @@ function DashboardHeader() {
             {kpi.progress && (
               <div className="mt-2 flex gap-1">
                 {Array.from({ length: kpi.progress.total }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-1 flex-1 rounded-full"
-                    style={{ background: i < kpi.progress!.filled ? '#3d7ab5' : 'var(--apex-surface-nested)' }}
-                  />
+                  <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < kpi.progress!.filled ? '#3d7ab5' : 'rgba(255,255,255,0.08)' }} />
                 ))}
               </div>
             )}
-            {kpi.extra && (
-              <p className="mt-1.5 text-[11px] text-[var(--apex-text-tertiary)]">{kpi.extra}</p>
-            )}
+            {kpi.extra && <p className="mt-1.5 text-[11px] text-[var(--apex-text-tertiary)]">{kpi.extra}</p>}
           </div>
         ))}
       </div>
+
+      {/* Today's workout card */}
+      <div className="apex-card px-5 py-5 mb-4">
+        {planName ? (
+          <>
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">Today's workout</p>
+            <p className="text-[18px] font-medium text-[var(--apex-text-primary)] tracking-tight mb-3">{planName}</p>
+            {todayPlannedExercises.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {todayPlannedExercises.slice(0, 4).map((ex) => (
+                  <span key={ex.id} className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-secondary)]" style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                    {ex.name}
+                  </span>
+                ))}
+                {todayPlannedExercises.length > 4 && (
+                  <span className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-tertiary)]" style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
+                    +{todayPlannedExercises.length - 4} more
+                  </span>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className="w-full min-h-10 rounded-[8px] text-[13px] font-medium text-white"
+              style={{ background: '#3d7ab5' }}
+              onClick={onStartWorkout}
+            >
+              Start workout
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">Today</p>
+            <p className="text-[15px] font-medium text-[var(--apex-text-primary)]">Rest day</p>
+            <p className="mt-1 text-[13px] text-[var(--apex-text-secondary)]">No workout scheduled — recovery is part of the plan.</p>
+          </>
+        )}
+      </div>
+
+      {/* Weekly volume bar chart */}
+      {hasBarData && (
+        <div className="apex-card px-5 py-5 mb-4">
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-4">Weekly volume</p>
+          <div className="flex items-end gap-2 h-14">
+            {(() => {
+              const maxVol = Math.max(...weekBarData.map((d) => d.vol), 1)
+              return weekBarData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                  <div
+                    className="w-full rounded-[3px]"
+                    style={{
+                      height: `${Math.max((d.vol / maxVol) * 44, d.vol > 0 ? 4 : 2)}px`,
+                      background: d.isToday ? '#3d7ab5' : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                      alignSelf: 'flex-end',
+                    }}
+                  />
+                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? '#3d7ab5' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                </div>
+              ))
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function SidebarUserProfile() {
+function SidebarUserProfile({ onSettings }: { onSettings: () => void }) {
   const { state } = useWorkout()
   const name = state.settings.displayName?.trim() || 'You'
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="flex items-center gap-3 px-4 py-4 border-t border-[0.5px] border-[var(--apex-border)]">
+    <div className="flex items-center gap-3 px-4 py-3.5 border-t border-[0.5px] border-[var(--apex-border)]">
       <div
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-medium text-[var(--apex-text-primary)]"
-        style={{ background: 'var(--apex-surface-nested)', border: '0.5px solid var(--apex-border)' }}
+        style={{ background: 'rgba(61,122,181,0.18)', border: '0.5px solid rgba(61,122,181,0.3)' }}
       >
         {initials}
       </div>
-      <span className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate">{name}</span>
+      <span className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate flex-1">{name}</span>
+      <button
+        type="button"
+        aria-label="Settings"
+        className="shrink-0 text-[var(--apex-text-tertiary)] hover:text-[var(--apex-text-primary)] transition-colors"
+        onClick={onSettings}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
     </div>
   )
 }
@@ -316,15 +345,8 @@ export function DashboardShell() {
 
   useSwipeBackLayer(historyOpen, () => setHistoryOpen(false))
 
-  const [gymSettingsToken, setGymSettingsToken] = useState(0)
+  const [gymSettingsToken] = useState(0)
   const [aiSub, setAiSub] = useState<'coach' | 'parser' | 'form' | 'insights'>('coach')
-  const [todayMoreOpen, setTodayMoreOpen] = useTodaySectionOpen(APEX_TODAY_MORE_OPEN_KEY)
-  const [todayPlanOpen, setTodayPlanOpen] = useTodaySectionOpen(APEX_TODAY_PLAN_OPEN_KEY)
-
-  const openGymMembershipSetup = () => {
-    setNav('settings')
-    setGymSettingsToken((t) => t + 1)
-  }
 
   if (historyOpen) {
     return <FullHistory onClose={() => setHistoryOpen(false)} />
@@ -346,10 +368,9 @@ export function DashboardShell() {
 
       {/* Sidebar */}
       <aside className="apex-dashboard-nav shrink-0 w-[260px] border-r border-[0.5px] border-[var(--apex-border)] flex flex-col min-h-0">
-        {/* Logo + app name */}
-        <div className="flex items-center gap-3 px-5 py-5 shrink-0">
-          <ApexLogo size={34} />
-          <span className="text-[17px] font-medium text-[var(--apex-text-primary)]">Lift</span>
+        {/* Wordmark */}
+        <div className="px-5 py-5 shrink-0">
+          <span className="text-[19px] font-medium tracking-[-0.02em] text-[var(--apex-text-primary)]">Lift</span>
         </div>
 
         {/* Nav */}
@@ -377,18 +398,18 @@ export function DashboardShell() {
           })}
         </nav>
 
-        {/* Spotify player */}
+        {/* Spotify mini-player */}
         <div className="px-3 pb-2 shrink-0">
           <SpotifyPlayerCard />
         </div>
 
         {/* User profile */}
-        <SidebarUserProfile />
+        <SidebarUserProfile onSettings={() => setNav('settings')} />
       </aside>
 
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-        {nav === 'today' && <DashboardHeader />}
+        {nav === 'today' && <DashboardHeader onStartWorkout={() => { setNav('today') }} />}
         {nav === 'coach' && (
           <div className="px-8 pt-8 pb-2 shrink-0">
             <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">AI Coach</h2>
@@ -429,17 +450,7 @@ export function DashboardShell() {
 
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto">
           {nav === 'today' && (
-            <div className="px-8 pb-8">
-              <TodayTab
-                screenLayout="desktop"
-                onOpenHistory={() => setHistoryOpen(true)}
-                onOpenGymMembershipSetup={openGymMembershipSetup}
-                moreOpen={todayMoreOpen}
-                onMoreOpenChange={setTodayMoreOpen}
-                planOpen={todayPlanOpen}
-                onPlanOpenChange={setTodayPlanOpen}
-              />
-            </div>
+            <div className="px-8 pb-8" />
           )}
           {nav === 'coach' && (
             <div className="px-8 pb-8 h-full flex flex-col">
