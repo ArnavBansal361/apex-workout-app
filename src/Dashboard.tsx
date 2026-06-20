@@ -323,20 +323,18 @@ function DashboardHome() {
     <div className="px-8 pt-8 pb-10 overflow-y-auto flex-1 min-h-0">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-1">
+      <div className="flex items-center justify-between mb-3">
         <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: ACCENT }}>{dateLine}</p>
-      </div>
-      <div className="flex items-start justify-between mb-2">
-        <h1 className="text-[40px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)]">{greeting}</h1>
         {streakDays > 0 && (
-          <div className="shrink-0 flex flex-col items-center px-4 py-3 rounded-[99px] ml-4" style={{ background: ACCENT_BG, border: ACCENT_BORDER }}>
-            <span className="text-[18px] leading-none" aria-hidden>🔥</span>
-            <span className="text-[24px] font-medium tabular-nums leading-none mt-1" style={{ color: ACCENT, letterSpacing: '-0.02em' }}>{streakDays}</span>
-            <span className="text-[9px] font-medium uppercase tracking-[0.1em] mt-0.5" style={{ color: ACCENT, opacity: 0.7 }}>day streak</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-[99px]" style={{ background: ACCENT_BG, border: ACCENT_BORDER }}>
+            <span className="text-[15px] leading-none" aria-hidden>🔥</span>
+            <span className="text-[20px] font-medium tabular-nums leading-none" style={{ color: ACCENT, letterSpacing: '-0.02em' }}>{streakDays}</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.08em]" style={{ color: ACCENT, opacity: 0.8 }}>day streak</span>
           </div>
         )}
       </div>
-      <p className="text-[14px] text-[var(--apex-text-secondary)] mb-7">{subtitle}</p>
+      <h1 className="text-[48px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)] mb-2">{greeting}</h1>
+      <p className="text-[14px] text-[var(--apex-text-secondary)] mb-8">{subtitle}</p>
 
       {/* ── 4-col stat strip ── */}
       <div className="grid grid-cols-4 gap-3 mb-4">
@@ -413,24 +411,18 @@ function DashboardHome() {
               <span className="px-2.5 py-1 rounded-[6px] text-[11px] font-medium text-[var(--apex-text-tertiary)]">Month</span>
             </div>
           </div>
-          <div className="flex items-end gap-2" style={{ height: 100 }}>
+          <div className="flex items-end gap-2 mt-2" style={{ height: 140 }}>
             {weekBarData.map((d, i) => {
-              const barH = d.vol > 0 ? Math.max((d.vol / maxBarVol) * 80, 6) : 3
+              const barH = d.vol > 0 ? Math.max((d.vol / maxBarVol) * 100, 8) : 4
               return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  {d.volK && (
-                    <span className="text-[9px] tabular-nums" style={{ color: d.isToday ? ACCENT : 'rgba(255,255,255,0.3)' }}>{d.volK}</span>
-                  )}
+                <div key={i} className="flex-1 flex flex-col items-center" style={{ gap: 4 }}>
+                  <span className="text-[9px] tabular-nums" style={{ color: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.35)' : 'transparent', minHeight: 13 }}>{d.volK || ' '}</span>
                   <div className="flex-1 w-full flex items-end">
                     <div
                       className="w-full rounded-t-[3px]"
                       style={{
                         height: barH,
-                        background: d.isToday
-                          ? `linear-gradient(to bottom, ${ACCENT}, rgba(192,88,42,0.6))`
-                          : d.vol > 0
-                            ? 'linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(255,255,255,0.08))'
-                            : 'rgba(255,255,255,0.05)',
+                        background: d.isToday ? ACCENT : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
                       }}
                     />
                   </div>
@@ -445,23 +437,27 @@ function DashboardHome() {
         <div className="flex flex-col gap-3">
           {/* Cardio card */}
           <div style={CARD_STYLE} className="px-5 py-5 flex-1">
-            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-1">Cardio</p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
-              {cardioMinsThisWeek > 0 && <span className="text-[12px] text-[var(--apex-text-tertiary)]">min zone 2</span>}
+            <div className="flex items-start justify-between mb-1">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Cardio</p>
+              <span className="text-[10px] font-medium text-[var(--apex-text-tertiary)]">Zone 2</span>
             </div>
-            <div className="flex gap-1.5 mt-3">
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
+              {cardioMinsThisWeek > 0 && <span className="text-[12px] text-[var(--apex-text-tertiary)]">min this week</span>}
+            </div>
+            <div className="flex gap-2 mt-4">
               {cardioByDay.map((active, i) => (
                 <div
                   key={i}
-                  className="flex-1 h-1 rounded-full"
-                  style={{ background: active ? ACCENT : 'rgba(255,255,255,0.1)' }}
+                  className="flex-1 rounded-[4px]"
+                  style={{ aspectRatio: '1', background: active ? ACCENT : 'rgba(255,255,255,0.07)', maxWidth: 24 }}
                 />
               ))}
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-[9px] text-[var(--apex-text-tertiary)]">M</span>
-              <span className="text-[9px] text-[var(--apex-text-tertiary)]">S</span>
+            <div className="flex justify-between mt-1.5">
+              {(['M','T','W','T','F','S','S'] as const).map((l, i) => (
+                <span key={i} className="text-[9px] text-[var(--apex-text-tertiary)] flex-1 text-center">{l}</span>
+              ))}
             </div>
           </div>
 
