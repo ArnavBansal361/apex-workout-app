@@ -18,7 +18,7 @@ import { computeLongevityScore } from './lib/longevityScore'
 import { readTrainerModeEnabled } from './lib/trainer'
 import { weekStartMonday, weekDatesFromStart } from './lib/dates'
 import {
-  disconnectSpotify,
+
   fetchSpotifyNowPlaying,
   isSpotifyConfigured,
   isSpotifyConnected,
