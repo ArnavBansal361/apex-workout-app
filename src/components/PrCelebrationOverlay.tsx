@@ -155,12 +155,12 @@ function TrophyIcon() {
     >
       <path
         d="M8 4h8v2.5c0 2.2 1.4 4.1 3.3 4.8L19 13H5l2.7-1.7C9.6 10.6 11 8.7 11 6.5V4z"
-        stroke="#3d7ab5"
+        stroke="#c0582a"
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
-      <path d="M9 17h6v3H9v-3z" fill="#3d7ab5" />
-      <path d="M7 20h10" stroke="#3d7ab5" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M9 17h6v3H9v-3z" fill="#c0582a" />
+      <path d="M7 20h10" stroke="#c0582a" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }

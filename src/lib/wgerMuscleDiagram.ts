@@ -31,7 +31,7 @@ const WGER_ID_TO_CLASSES: Record<number, MuscleClass[]> = {
   15: ['muscle-legs'],
 }
 
-export const PRIMARY_FILL = '#3d7ab5'
+export const PRIMARY_FILL = '#c0582a'
 export const PRIMARY_STROKE = '#5a94c9'
 export const SECONDARY_FILL = 'rgba(255,255,255,0.2)'
 export const SECONDARY_STROKE = 'rgba(255,255,255,0.28)'

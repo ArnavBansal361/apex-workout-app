@@ -919,7 +919,7 @@ function AiInsightsPanel() {
   if (!hasAnySessionData) {
     return (
       <div className="py-14 text-center">
-        <i className="ti ti-chart-bar text-[26px] leading-none mx-auto block mb-4 text-[#3d7ab5]" aria-hidden />
+        <i className="ti ti-chart-bar text-[26px] leading-none mx-auto block mb-4 text-[#c0582a]" aria-hidden />
         <p className="text-[20px] font-medium text-[var(--apex-text-primary)]">No data yet</p>
         <p className="mt-2 text-[14px] font-medium text-[var(--apex-text-secondary)]">
           Log your first workout to start seeing patterns here.
@@ -931,7 +931,7 @@ function AiInsightsPanel() {
   return (
     <div className="space-y-4">
       <header>
-        <p className="apex-section-label text-[#3d7ab5]">INSIGHTS</p>
+        <p className="apex-section-label text-[#c0582a]">INSIGHTS</p>
         <h2 className="mt-1 text-[28px] font-medium text-[var(--apex-text-primary)] leading-tight">Training Patterns</h2>
         <p className="mt-2 text-[14px] font-medium text-[var(--apex-text-secondary)]">Updated weekly based on your sessions.</p>
       </header>
@@ -944,10 +944,10 @@ function AiInsightsPanel() {
               <Line
                 type="monotone"
                 dataKey="volume"
-                stroke="#3d7ab5"
+                stroke="#c0582a"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 3, fill: '#3d7ab5' }}
+                activeDot={{ r: 3, fill: '#c0582a' }}
               />
               <Tooltip
                 cursor={{ stroke: chart.grid }}
@@ -963,7 +963,7 @@ function AiInsightsPanel() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <p className={`mt-2 text-[13px] font-medium ${volumeDeltaPct >= 0 ? 'text-[#3d7ab5]' : 'text-[var(--apex-text-secondary)]'}`}>
+        <p className={`mt-2 text-[13px] font-medium ${volumeDeltaPct >= 0 ? 'text-[#c0582a]' : 'text-[var(--apex-text-secondary)]'}`}>
           {volumeTrendText}
         </p>
       </section>
@@ -979,7 +979,7 @@ function AiInsightsPanel() {
                   <span className="tabular-nums">{row.thisWeek} sets</span>
                 </div>
                 <div className="mt-1 h-2 rounded-full bg-white/[0.08] overflow-hidden">
-                  <div className="h-full bg-[#3d7ab5]" style={{ width: `${row.pct}%` }} />
+                  <div className="h-full bg-[#c0582a]" style={{ width: `${row.pct}%` }} />
                 </div>
               </div>
             ))
@@ -1444,7 +1444,7 @@ function StrengthAgeSemicircle({ strengthAge }: { strengthAge: number }) {
         <path
           d="M 12 58 A 48 48 0 0 1 108 58"
           fill="none"
-          stroke="#3d7ab5"
+          stroke="#c0582a"
           strokeWidth="7"
           strokeLinecap="round"
           strokeDasharray={`${dash} ${arcLen}`}
@@ -1761,7 +1761,7 @@ function GlobalLeaderboardOverlay({
               return (
                 <li
                   key={row.user_id}
-                  className={`apex-me-card flex items-center gap-3 px-4 py-3 ${isMe ? 'ring-1 ring-[#3d7ab5]/40' : ''}`}
+                  className={`apex-me-card flex items-center gap-3 px-4 py-3 ${isMe ? 'ring-1 ring-[#c0582a]/40' : ''}`}
                 >
                   <span className="apex-me-lb-rank tabular-nums w-6">{index + 1}</span>
                   <span className="apex-me-lb-avatar apex-me-lb-avatar--shade-1">
@@ -2765,7 +2765,7 @@ export function ProfileTab({
                     }}
                   />
                   {connectCodeError ? (
-                    <p className="text-[12px] text-[#3d7ab5] mt-2" role="alert">
+                    <p className="text-[12px] text-[#c0582a] mt-2" role="alert">
                       {connectCodeError}
                     </p>
                   ) : null}

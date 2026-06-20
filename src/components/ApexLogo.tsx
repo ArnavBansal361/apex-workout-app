@@ -17,7 +17,7 @@ export function ApexLogo({
         width: size,
         height: size,
         borderRadius: size * 0.2,
-        background: '#3d7ab5',
+        background: '#c0582a',
         border: 'none',
         color: '#ffffff',
       }}

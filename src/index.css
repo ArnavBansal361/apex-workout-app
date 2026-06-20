@@ -15,7 +15,7 @@ html.apex-capacitor-native body {
 html {
   --font-scale: 1;
   --apex-font-scale: 1;
-  --apex-accent: #3d7ab5;
+  --apex-accent: #c0582a;
   --accent: var(--apex-accent);
   --apex-surface-page: #090d14;
   --apex-surface-card: #13181f;
@@ -597,7 +597,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   min-height: 48px;
   border-radius: 8px;
   border: none;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 14px;
   font-weight: 500;
@@ -746,7 +746,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   margin: 0;
   font-size: 11px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   line-height: 1.3;
@@ -835,7 +835,7 @@ html[data-apex-theme='light'] .apex-modal-overlay {
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.08em;
-  color: #3d7ab5;
+  color: #c0582a;
   border: 0.5px solid rgba(61, 122, 181, 0.45);
   border-radius: 4px;
   padding: 2px 5px;
@@ -1251,7 +1251,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
   margin: 0;
   font-size: 11px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   line-height: 1.3;
@@ -1370,8 +1370,8 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
 }
 
 .apex-library-pill--active {
-  border-color: #3d7ab5;
-  background: #3d7ab5;
+  border-color: #c0582a;
+  background: #c0582a;
   color: #ffffff;
 }
 
@@ -1524,7 +1524,7 @@ html[data-apex-theme='light'] .apex-btn-muted:hover {
 }
 
 .apex-library-row__star--on {
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-btn-delete {
@@ -1682,7 +1682,7 @@ html[data-apex-theme='light'] .apex-coach-dots span {
 
 .apex-rest-banner__fill {
   height: 100%;
-  background: #3d7ab5;
+  background: #c0582a;
   transition: width 0.2s linear;
 }
 
@@ -1696,7 +1696,7 @@ html[data-apex-theme='light'] .apex-coach-dots span {
 .apex-rest-banner__clock {
   flex-shrink: 0;
   display: flex;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-rest-banner__text {
@@ -2720,7 +2720,7 @@ html[data-apex-theme='light'] .apex-fab {
   margin: 0;
   font-size: 11px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   line-height: 1.3;
@@ -2805,7 +2805,7 @@ html[data-apex-theme='light'] .apex-fab {
 .apex-schedule-volume__bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: #3d7ab5;
+  background: #c0582a;
   transition: width 0.3s ease;
 }
 
@@ -2846,8 +2846,8 @@ html[data-apex-theme='light'] .apex-fab {
 }
 
 .apex-schedule-strip-pill--today {
-  background: #3d7ab5;
-  border-color: #3d7ab5;
+  background: #c0582a;
+  border-color: #c0582a;
   color: #ffffff;
 }
 
@@ -2937,8 +2937,8 @@ html[data-apex-theme='light'] .apex-fab {
 }
 
 .apex-schedule-day-card--today {
-  border-left: 3px solid #3d7ab5;
-  background: color-mix(in srgb, #3d7ab5 6%, var(--apex-surface-card));
+  border-left: 3px solid #c0582a;
+  background: color-mix(in srgb, #c0582a 6%, var(--apex-surface-card));
 }
 
 .apex-schedule-day-card__btn {
@@ -3139,7 +3139,7 @@ html[data-apex-theme='light'] html {
   height: 56px;
   border: none;
   border-radius: 12px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;
@@ -3293,7 +3293,7 @@ html[data-apex-theme='light'] html {
   background: transparent;
   font-size: 13px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   touch-action: manipulation;
 }
 
@@ -3371,7 +3371,7 @@ html[data-apex-theme='light'] html {
   height: 56px;
   border: none;
   border-radius: 12px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;
@@ -3427,7 +3427,7 @@ html[data-apex-theme='light'] html {
   margin: 4px 0 0;
   font-size: 14px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-me-theme-toggle {
@@ -3460,7 +3460,7 @@ html[data-apex-theme='light'] html {
 .apex-me-xp-fill {
   height: 100%;
   border-radius: 99px;
-  background: #3d7ab5;
+  background: #c0582a;
   transition: width 0.35s ease;
 }
 
@@ -3535,7 +3535,7 @@ html[data-apex-theme='light'] html {
   background: transparent;
   font-size: 13px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   touch-action: manipulation;
 }
 
@@ -3595,7 +3595,7 @@ html[data-apex-theme='light'] html {
   margin: 4px 0 0;
   font-size: 12px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-me-strength-card {
@@ -3617,7 +3617,7 @@ html[data-apex-theme='light'] html {
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-me-strength-placeholder {
@@ -3682,7 +3682,7 @@ html[data-apex-theme='light'] html {
   width: 1.25rem;
   font-size: 14px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   flex-shrink: 0;
 }
 
@@ -3774,7 +3774,7 @@ html[data-apex-theme='light'] html {
   background: transparent;
   font-size: 13px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   text-align: center;
   touch-action: manipulation;
 }
@@ -3806,7 +3806,7 @@ html[data-apex-theme='light'] html {
   margin: 0 16px 8px;
   text-align: center;
   font-size: 13px;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-me-back {
@@ -3816,7 +3816,7 @@ html[data-apex-theme='light'] html {
   background: transparent;
   font-size: 15px;
   font-weight: 500;
-  color: #3d7ab5;
+  color: #c0582a;
   touch-action: manipulation;
 }
 
@@ -3872,7 +3872,7 @@ html[data-apex-theme='light'] html {
 
 .apex-onboarding__dot--active {
   width: 20px;
-  background: #3d7ab5;
+  background: #c0582a;
 }
 
 .apex-onboarding__counter {
@@ -3927,7 +3927,7 @@ html[data-apex-theme='light'] html {
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-onboarding__headline {
@@ -4024,7 +4024,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-onboarding-units__btn--on {
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
 }
 
@@ -4037,7 +4037,7 @@ html[data-apex-theme='light'] html {
   height: 56px;
   border: none;
   border-radius: 8px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;
@@ -4071,7 +4071,7 @@ html[data-apex-theme='light'] html {
   height: 48px;
   border: none;
   border-radius: 8px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 15px;
   font-weight: 500;
@@ -4118,7 +4118,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-onboarding-integration__icon--health {
-  background: #3d7ab5;
+  background: #c0582a;
 }
 
 .apex-onboarding-integration__icon--spotify {
@@ -4167,7 +4167,7 @@ html[data-apex-theme='light'] html {
   justify-content: center;
   border-radius: 99px;
   background: rgba(61, 122, 181, 0.35);
-  color: #3d7ab5;
+  color: #c0582a;
   font-size: 16px;
   font-weight: 500;
 }
@@ -4218,7 +4218,7 @@ html[data-apex-theme='light'] html {
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #3d7ab5;
+  color: #c0582a;
 }
 
 .apex-workout-progress__title {
@@ -4346,7 +4346,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-workout-status--active {
-  background: #3d7ab5;
+  background: #c0582a;
   position: relative;
 }
 
@@ -4363,7 +4363,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-workout-status--complete {
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 13px;
 }
@@ -4383,8 +4383,8 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-workout-set-dots__dot--done {
-  border-color: #3d7ab5;
-  background: #3d7ab5;
+  border-color: #c0582a;
+  background: #c0582a;
 }
 
 .apex-workout-progress__footer {
@@ -4400,7 +4400,7 @@ html[data-apex-theme='light'] html {
   height: 56px;
   border: none;
   border-radius: 8px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;
@@ -4472,7 +4472,7 @@ html[data-apex-theme='light'] html {
 .apex-pr-celebration__confetti-piece {
   position: absolute;
   top: 0;
-  background: #3d7ab5;
+  background: #c0582a;
   border-radius: 1px;
   opacity: 0.9;
   animation: apex-pr-confetti-fall linear infinite;
@@ -4517,7 +4517,7 @@ html[data-apex-theme='light'] html {
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #3d7ab5;
+  color: #c0582a;
   text-align: center;
 }
 
@@ -4554,7 +4554,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-pr-celebration__pill-delta {
-  color: #3d7ab5;
+  color: #c0582a;
   font-weight: 500;
 }
 
@@ -4590,7 +4590,7 @@ html[data-apex-theme='light'] html {
   margin-top: 8px;
   border: none;
   border-radius: 12px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;
@@ -4628,7 +4628,7 @@ html[data-apex-theme='light'] html {
   font-size: 22px;
   line-height: 1;
   font-weight: 300;
-  color: #3d7ab5;
+  color: #c0582a;
   touch-action: manipulation;
 }
 
@@ -4731,7 +4731,7 @@ html[data-apex-theme='light'] html {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
 }
 
@@ -4768,7 +4768,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-settings-segment__btn.is-active {
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
 }
 
@@ -4796,7 +4796,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-settings-toggle-segment__btn.is-active {
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
 }
 
@@ -4814,7 +4814,7 @@ html[data-apex-theme='light'] html {
 }
 
 .apex-ios-switch.is-on {
-  background: #3d7ab5;
+  background: #c0582a;
 }
 
 .apex-ios-switch__thumb {
@@ -4839,7 +4839,7 @@ html[data-apex-theme='light'] html {
   padding: 0 14px;
   border: none;
   border-radius: 99px;
-  background: #3d7ab5;
+  background: #c0582a;
   font-size: 13px;
   font-weight: 500;
   color: #ffffff;
@@ -4899,7 +4899,7 @@ html[data-apex-theme='light'] html {
   appearance: none;
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.12);
-  accent-color: #3d7ab5;
+  accent-color: #c0582a;
 }
 
 .apex-settings-text-size__slider::-webkit-slider-thumb {
@@ -4907,7 +4907,7 @@ html[data-apex-theme='light'] html {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #3d7ab5;
+  background: #c0582a;
   border: 2px solid #ffffff;
   box-shadow: none;
 }
@@ -5061,7 +5061,7 @@ html[data-apex-theme='light'] .apex-settings-segment__btn.is-active {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #3d7ab5;
+  background: #c0582a;
   border: 2px solid #ffffff;
   box-shadow: none;
 }
@@ -5095,7 +5095,7 @@ html[data-apex-theme='light'] .apex-settings-segment__btn.is-active {
   height: 56px;
   border: none;
   border-radius: 12px;
-  background: #3d7ab5;
+  background: #c0582a;
   color: #ffffff;
   font-size: 16px;
   font-weight: 500;

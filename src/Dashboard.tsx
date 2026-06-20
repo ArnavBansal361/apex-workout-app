@@ -227,7 +227,7 @@ function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
             {kpi.progress && (
               <div className="mt-2 flex gap-1">
                 {Array.from({ length: kpi.progress.total }).map((_, i) => (
-                  <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < kpi.progress!.filled ? '#3d7ab5' : 'rgba(255,255,255,0.08)' }} />
+                  <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < kpi.progress!.filled ? '#c0582a' : 'rgba(255,255,255,0.08)' }} />
                 ))}
               </div>
             )}
@@ -259,7 +259,7 @@ function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
             <button
               type="button"
               className="w-full min-h-10 rounded-[8px] text-[13px] font-medium text-white"
-              style={{ background: '#3d7ab5' }}
+              style={{ background: '#c0582a' }}
               onClick={onStartWorkout}
             >
               Start workout
@@ -287,11 +287,11 @@ function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
                     className="w-full rounded-[3px]"
                     style={{
                       height: `${Math.max((d.vol / maxVol) * 44, d.vol > 0 ? 4 : 2)}px`,
-                      background: d.isToday ? '#3d7ab5' : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                      background: d.isToday ? '#c0582a' : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
                       alignSelf: 'flex-end',
                     }}
                   />
-                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? '#3d7ab5' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? '#c0582a' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
                 </div>
               ))
             })()}
@@ -389,7 +389,7 @@ export function DashboardShell() {
                 style={active ? { background: 'rgba(61,122,181,0.22)', border: '0.5px solid rgba(61,122,181,0.4)' } : undefined}
                 onClick={() => setNav(item.id)}
               >
-                <span className={`shrink-0 ${active ? 'text-[#3d7ab5]' : 'text-[var(--apex-text-tertiary)]'}`}>
+                <span className={`shrink-0 ${active ? 'text-[#c0582a]' : 'text-[var(--apex-text-tertiary)]'}`}>
                   {NAV_ICONS[item.id]}
                 </span>
                 {item.label}

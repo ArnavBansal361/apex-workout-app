@@ -44,7 +44,7 @@ function normalizeSeries(values: number[]): number[] {
   return values.map((v) => v / max)
 }
 
-function MiniSparkline({ values, stroke = '#3d7ab5' }: { values: number[]; stroke?: string }) {
+function MiniSparkline({ values, stroke = '#c0582a' }: { values: number[]; stroke?: string }) {
   const norm = normalizeSeries(values)
   const w = 56
   const h = 28
@@ -82,7 +82,7 @@ function WaterRing({ progress }: { progress: number }) {
         cy="18"
         r={r}
         fill="none"
-        stroke="#3d7ab5"
+        stroke="#c0582a"
         strokeWidth="3"
         strokeLinecap="round"
         strokeDasharray={`${c * p} ${c}`}
@@ -99,7 +99,7 @@ function SleepBars({ hours }: { hours: number[] }) {
       {norm.map((v, i) => (
         <span
           key={i}
-          className="w-[5px] rounded-[2px] bg-[#3d7ab5]"
+          className="w-[5px] rounded-[2px] bg-[#c0582a]"
           style={{ height: `${Math.max(4, Math.round(v * 28))}px`, opacity: hours[i]! > 0 ? 1 : 0.25 }}
         />
       ))}
@@ -181,7 +181,7 @@ export function TodayMoreQuickGrid({ activeId, onSelect, hideIds }: Props) {
     },
     'cardio-tracker': {
       stat: cardioTodayMin > 0 ? `${Math.round(cardioTodayMin)} min` : '—',
-      visual: <MiniSparkline values={cardioSpark} stroke="#3d7ab5" />,
+      visual: <MiniSparkline values={cardioSpark} stroke="#c0582a" />,
     },
     'water-tracker': {
       stat: formatWater(waterTodayOz, unit),

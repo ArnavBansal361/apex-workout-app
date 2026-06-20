@@ -19,11 +19,11 @@ export type LevelInfo = {
 }
 
 const TIERS: Omit<LevelInfo, 'progressInTier'>[] = [
-  { tier: 'beginner', label: 'Beginner', minXp: 0, nextThreshold: 250, ringColor: '#3d7ab5' },
-  { tier: 'novice', label: 'Novice', minXp: 250, nextThreshold: 750, ringColor: '#3d7ab5' },
-  { tier: 'intermediate', label: 'Intermediate', minXp: 750, nextThreshold: 2000, ringColor: '#3d7ab5' },
-  { tier: 'advanced', label: 'Advanced', minXp: 2000, nextThreshold: 5000, ringColor: '#3d7ab5' },
-  { tier: 'elite', label: 'Elite', minXp: 5000, nextThreshold: null, ringColor: '#3d7ab5' },
+  { tier: 'beginner', label: 'Beginner', minXp: 0, nextThreshold: 250, ringColor: '#c0582a' },
+  { tier: 'novice', label: 'Novice', minXp: 250, nextThreshold: 750, ringColor: '#c0582a' },
+  { tier: 'intermediate', label: 'Intermediate', minXp: 750, nextThreshold: 2000, ringColor: '#c0582a' },
+  { tier: 'advanced', label: 'Advanced', minXp: 2000, nextThreshold: 5000, ringColor: '#c0582a' },
+  { tier: 'elite', label: 'Elite', minXp: 5000, nextThreshold: null, ringColor: '#c0582a' },
 ]
 
 export function xpBarLabels(totalXp: number): { left: string; right: string } {

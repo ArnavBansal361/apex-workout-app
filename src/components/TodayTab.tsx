@@ -356,7 +356,7 @@ function WaterLogSheet({
             type="button"
             className={`min-h-12 rounded-[8px] border-[0.5px] text-[15px] font-medium touch-manipulation active:scale-[0.98] ${
               customMode
-                ? 'border-[#3d7ab5] bg-[#3d7ab5]/20 text-[var(--apex-text-primary)]'
+                ? 'border-[#c0582a] bg-[#c0582a]/20 text-[var(--apex-text-primary)]'
                 : 'border-white/[0.1] bg-white/[0.06] text-[var(--apex-text-primary)]'
             }`}
             onClick={() => onCustomMode(!customMode)}
@@ -1636,12 +1636,12 @@ export function TodayTab({
                 <>
                   <defs>
                     <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3d7ab5" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#3d7ab5" stopOpacity="0" />
+                      <stop offset="0%" stopColor="#c0582a" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#c0582a" stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   <path d={fillD} fill="url(#sparkGrad)" />
-                  <path d={d} stroke="#3d7ab5" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={d} stroke="#c0582a" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </>
               )
             })()}
