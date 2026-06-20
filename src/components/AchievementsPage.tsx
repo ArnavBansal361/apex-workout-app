@@ -112,86 +112,108 @@ function AchievementGlyph({ id, className }: { id: string; className?: string })
   }
 }
 
+const ACHIEVEMENT_ICON: Record<string, string> = {
+  'first-pr': '★',
+  'streak-7': '7',
+  'sets-100': '100',
+  'workouts-30': '30',
+  'six-groups': '6',
+  'bw-7': '+',
+  'first-workout': '1',
+  'night-owl': '☽',
+  'early-bird': '☀',
+  'streak-30': '30',
+  'sets-1000': '1k',
+  'workouts-100': '100',
+  'volume-50k': '50k',
+  'streak-14': '14',
+  'iron-will': '7',
+  'consistency-4w': '4',
+  'pr-machine': '10',
+  'variety-pack': '5',
+  'marathon-session': '2h',
+  'volume-king': '50k',
+}
+
+const ACCENT = '#c0582a'
+const ACCENT_BG = 'rgba(192,88,42,0.18)'
+
 function AchievementList({ standalone }: { standalone?: boolean }) {
   const { state } = useWorkout()
   const earned = new Set(state.achievements)
+  const sorted = [...ACHIEVEMENT_DEFS].sort((a, b) => {
+    const aOk = earned.has(a.id) ? 0 : 1
+    const bOk = earned.has(b.id) ? 0 : 1
+    return aOk - bOk
+  })
+  const unlockedCount = sorted.filter((a) => earned.has(a.id)).length
+
   return (
     <div className={standalone
-      ? 'overflow-y-auto p-6 grid grid-cols-2 xl:grid-cols-3 gap-3 pb-8'
-      : 'flex-1 min-h-0 overflow-y-auto p-4 space-y-3 pb-28'
+      ? 'overflow-y-auto px-8 pb-10'
+      : 'flex-1 min-h-0 overflow-y-auto p-4 pb-28'
     }>
-      {ACHIEVEMENT_DEFS.map((a) => {
-        const ok = earned.has(a.id)
-        const prog = getAchievementProgress(state, a.id)
-        return (
-          <div
-            key={a.id}
-            className={`rounded-[12px] border-[0.5px] p-4 ${
-              ok
-                ? 'bg-[var(--apex-surface-card)] border-white/[0.1]'
-                : 'bg-[var(--apex-surface-card)] border-[var(--apex-border)] opacity-90'
-            }`}
-          >
-            <div className="flex gap-4">
+      {standalone && (
+        <p className="text-[13px] text-[var(--apex-text-tertiary)] mb-6">
+          {unlockedCount} of {sorted.length} unlocked · keep showing up.
+        </p>
+      )}
+      <div className={standalone ? 'grid grid-cols-4 gap-3' : 'grid grid-cols-2 gap-3'}>
+        {sorted.map((a) => {
+          const ok = earned.has(a.id)
+          const prog = getAchievementProgress(state, a.id)
+          const icon = ACHIEVEMENT_ICON[a.id] ?? '·'
+          return (
+            <div
+              key={a.id}
+              className="rounded-[12px] border-[0.5px] p-5 flex flex-col items-center text-center"
+              style={{
+                background: '#13181f',
+                border: ok ? `0.5px solid rgba(192,88,42,0.3)` : '0.5px solid rgba(255,255,255,0.08)',
+                opacity: ok ? 1 : 0.65,
+              }}
+            >
+              {/* Icon circle */}
               <div
-                className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[12px] border-[0.5px] ${
-                  ok ? 'border-transparent' : 'border-[var(--apex-border)] bg-[var(--apex-surface-page)]'
-                }`}
-                style={ok ? { color: 'var(--apex-text-primary)', background: 'var(--apex-surface-nested)' } : { color: 'var(--apex-text-tertiary)' }}
+                className="flex items-center justify-center rounded-full mb-4"
+                style={{
+                  width: 72,
+                  height: 72,
+                  background: ok ? ACCENT_BG : 'rgba(255,255,255,0.05)',
+                  border: ok ? `0.5px solid rgba(192,88,42,0.35)` : '0.5px solid rgba(255,255,255,0.08)',
+                  color: ok ? ACCENT : 'rgba(255,255,255,0.2)',
+                  fontSize: icon.length > 2 ? 22 : icon.length > 1 ? 26 : 30,
+                  fontWeight: 500,
+                  letterSpacing: '-0.02em',
+                }}
               >
-                <AchievementGlyph id={a.id} />
-                {!ok ? (
-                  <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-[0.5px] border-[var(--apex-border)] bg-[var(--apex-surface-card)] text-[var(--apex-text-secondary)]">
-                    <LockIcon className="text-[var(--apex-text-secondary)]" />
-                  </span>
-                ) : null}
+                {icon}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className={`text-[14px] font-medium leading-snug ${ok ? 'text-[var(--apex-text-primary)]' : 'text-[var(--apex-text-secondary)]'}`}>
-                    {a.title}
-                  </p>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.5px] ${
-                      ok ? 'text-[#0c0c0c]' : 'text-[var(--apex-text-tertiary)] bg-[var(--apex-surface-nested)] border-[0.5px] border-[var(--apex-border)]'
-                    }`}
-                    style={ok ? { backgroundColor: '#ffffff' } : undefined}
-                  >
-                    {ok ? 'Unlocked' : 'Locked'}
-                  </span>
-                </div>
-                <p
-                  className={`mt-2 text-[13px] font-medium leading-relaxed ${
-                    ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'
-                  }`}
-                >
-                  {a.description}
+
+              {/* Name */}
+              <p className="text-[14px] font-medium leading-snug mb-1" style={{ color: ok ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)' }}>
+                {a.title}
+              </p>
+
+              {/* Description */}
+              <p className="text-[12px] leading-snug mb-3" style={{ color: ok ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)' }}>
+                {a.description}
+              </p>
+
+              {/* Status */}
+              {ok ? (
+                <p className="text-[12px] font-medium" style={{ color: '#4ade80' }}>
+                  ✓ Unlocked
                 </p>
-                <div className="mt-3">
-                  <div className="flex items-center justify-between gap-2 text-[10px] font-medium uppercase tracking-wide text-[var(--apex-text-tertiary)]">
-                    <span>Progress</span>
-                    <span className="tabular-nums text-[var(--apex-text-secondary)]">
-                      {prog.current} / {prog.target}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-2 w-full rounded-full bg-[var(--apex-surface-nested)] overflow-hidden border-[0.5px] border-[var(--apex-border)]">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-300"
-                      style={{
-                        width: `${prog.percent}%`,
-                        backgroundColor: ok ? '#ffffff' : '#3f3f46',
-                      }}
-                    />
-                  </div>
-                  <p className={`mt-1.5 text-[11px] font-medium ${ok ? 'text-[var(--apex-text-secondary)]' : 'text-[var(--apex-text-tertiary)]'}`}>
-                    {prog.detail}
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <p className="text-[11px] tabular-nums" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  {prog.current} / {prog.target}
+                </p>
+              )}
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
