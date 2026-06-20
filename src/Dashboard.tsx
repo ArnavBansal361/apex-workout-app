@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
 import { stripNotificationMessage } from './lib/persist'
@@ -10,15 +10,139 @@ import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
 import { ScheduleTab } from './components/ScheduleTab'
-import { SpotifyPlayerCard } from './components/SpotifyPlayerCard'
 import { TrainerClientsOverview } from './components/TrainerClientsOverview'
 import { useSwipeBackLayer } from './lib/swipeBackNavigation'
+import { streakCurrent } from './lib/achievements'
 import { computeWeekSummary } from './lib/weekSummary'
 import { computeLongevityScore } from './lib/longevityScore'
 import { readTrainerModeEnabled } from './lib/trainer'
 import { weekStartMonday, weekDatesFromStart } from './lib/dates'
+import {
+  disconnectSpotify,
+  fetchSpotifyNowPlaying,
+  isSpotifyConfigured,
+  isSpotifyConnected,
+  setSpotifyPlaying,
+  startSpotifyOAuth,
+  type SpotifyNowPlaying,
+} from './lib/spotify'
 import { type TrainerClientSummary } from './lib/supabase'
 import type { WeightedSetLog } from './types'
+
+const ACCENT = '#c0582a'
+const ACCENT_BG = 'rgba(192,88,42,0.15)'
+const ACCENT_BORDER = '0.5px solid rgba(192,88,42,0.4)'
+const CARD_STYLE = { background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 12 }
+
+const QUOTES = [
+  { text: 'Strength isn\'t given — it\'s built between the sets when no one\'s watching.', attr: 'Lift' },
+  { text: 'Consistency over intensity. Small wins compound into something undeniable.', attr: 'Lift' },
+  { text: 'The bar doesn\'t care about your mood — only your effort.', attr: 'Lift' },
+  { text: 'Discipline is choosing what you want most over what you want right now.', attr: 'Lift' },
+  { text: 'Every expert was once a beginner who refused to quit.', attr: 'Lift' },
+  { text: 'Progress is built one rep at a time. Show up today.', attr: 'Lift' },
+  { text: 'Heavy isn\'t heroic — controlled, honest reps are.', attr: 'Lift' },
+]
+
+function dailyQuote(dateKey: string) {
+  let h = 2166136261
+  for (let i = 0; i < dateKey.length; i++) { h ^= dateKey.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return QUOTES[Math.abs(h >>> 0) % QUOTES.length]!
+}
+
+function SidebarSpotify() {
+  const { notify } = useWorkout()
+  const configured = isSpotifyConfigured()
+  const [connected, setConnected] = useState(() => isSpotifyConnected())
+  const [np, setNp] = useState<SpotifyNowPlaying | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const refresh = useCallback(async () => {
+    if (!isSpotifyConnected()) { setConnected(false); setNp(null); return }
+    setConnected(true)
+    try { setNp(await fetchSpotifyNowPlaying()) } catch { setNp(null) }
+  }, [])
+
+  useEffect(() => {
+    if (!connected) return
+    void refresh()
+    const id = window.setInterval(() => void refresh(), 4000)
+    return () => clearInterval(id)
+  }, [connected, refresh])
+
+  useEffect(() => {
+    const sync = () => setConnected(isSpotifyConnected())
+    window.addEventListener('storage', sync)
+    window.addEventListener('focus', sync)
+    return () => { window.removeEventListener('storage', sync); window.removeEventListener('focus', sync) }
+  }, [])
+
+  async function toggle() {
+    if (!np) return
+    setBusy(true)
+    try {
+      await setSpotifyPlaying(!np.isPlaying)
+      setNp({ ...np, isPlaying: !np.isPlaying })
+      setTimeout(() => void refresh(), 400)
+    } catch (e) { notify(e instanceof Error ? e.message : 'Playback error') }
+    finally { setBusy(false) }
+  }
+
+  if (!configured || !connected) {
+    return (
+      <div className="px-4 py-3">
+        <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[var(--apex-text-tertiary)] mb-1">Spotify</p>
+        <p className="text-[12px] text-[var(--apex-text-tertiary)]">
+          {!configured ? 'Not configured' : 'Not connected'}{' '}
+          {configured && !connected && (
+            <button type="button" className="underline" onClick={() => startSpotifyOAuth()}>Connect</button>
+          )}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-3 py-3">
+      <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-[var(--apex-text-tertiary)] mb-2">Now playing</p>
+      {np ? (
+        <>
+          <div className="flex items-center gap-2 mb-2 min-w-0">
+            <div className="w-8 h-8 rounded-[4px] shrink-0 bg-white/[0.08] flex items-center justify-center">
+              <i className="ti ti-brand-spotify text-[14px] text-[#1db954]" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-[var(--apex-text-primary)] truncate leading-snug">{np.trackName}</p>
+              <p className="text-[11px] text-[var(--apex-text-tertiary)] truncate">{np.artistName}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-4">
+            <button type="button" aria-label="Previous" className="text-[var(--apex-text-tertiary)] hover:text-[var(--apex-text-primary)]" onClick={() => void refresh()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z"/></svg>
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              aria-label={np.isPlaying ? 'Pause' : 'Play'}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--apex-text-primary)] bg-white/[0.08] hover:bg-white/[0.14] disabled:opacity-50"
+              onClick={() => void toggle()}
+            >
+              {np.isPlaying
+                ? <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                : <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              }
+            </button>
+            <button type="button" aria-label="Next" className="text-[var(--apex-text-tertiary)] hover:text-[var(--apex-text-primary)]" onClick={() => void refresh()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2.5-6 8.5 6V6l-8.5 6z"/></svg>
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="text-[12px] text-[var(--apex-text-tertiary)]">Nothing playing</p>
+      )}
+    </div>
+  )
+}
 
 const DESKTOP_MIN_WIDTH = 768
 
@@ -108,8 +232,8 @@ export function DesktopOnlyGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
-  const { state, todayKey, resolveExerciseById } = useWorkout()
+function DashboardHome() {
+  const { state, todayKey } = useWorkout()
   const { clock } = useWorkoutTick()
 
   const firstName = useMemo(() => {
@@ -129,14 +253,15 @@ function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
     }
   }, [clock, firstName])
 
+  const streakDays = useMemo(
+    () => streakCurrent(state, clock),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.setLogs, state.cardioEntries, state.streakShieldUsedWeekStart, clock],
+  )
+
   const weekRecap = useMemo(() => computeWeekSummary(state, clock), [state, clock])
   const lastWeekRecap = useMemo(() => computeWeekSummary(state, clock - 7 * 24 * 60 * 60 * 1000), [state, clock])
-
-  const weeklyVolLabel = useMemo(() => {
-    const v = weekRecap.totalVolumeLbs
-    if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}K lbs`
-    return v > 0 ? `${v} lbs` : '—'
-  }, [weekRecap.totalVolumeLbs])
+  const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
 
   const volTrend = useMemo(() => {
     const cur = weekRecap.totalVolumeLbs
@@ -145,159 +270,208 @@ function DashboardHeader({ onStartWorkout }: { onStartWorkout?: () => void }) {
     return Math.round(((cur - prev) / prev) * 100)
   }, [weekRecap.totalVolumeLbs, lastWeekRecap.totalVolumeLbs])
 
-  const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
-
-  const { weekSessions, weeklyGoal, weekBarData } = useMemo(() => {
+  const { weekSessions, weeklyGoal, weekBarData, cardioMinsThisWeek, cardioByDay } = useMemo(() => {
     const ws = weekStartMonday(new Date(clock))
     const dates = weekDatesFromStart(ws)
     const todayStr = new Date(clock).toISOString().slice(0, 10)
-    const loggedDays = new Set(
-      state.setLogs.map((l) => new Date(l.at).toISOString().slice(0, 10))
-    )
+    const loggedDays = new Set(state.setLogs.map((l) => new Date(l.at).toISOString().slice(0, 10)))
+    const we = new Date(ws.getTime() + 7 * 86400000)
+
     const bars = dates.map((d, i) => {
       const vol = state.setLogs
         .filter((l): l is WeightedSetLog => l.kind === 'weighted' && new Date(l.at).toISOString().slice(0, 10) === d)
         .reduce((sum, l) => sum + (l.weight ?? 0) * l.reps, 0)
-      return { vol, isToday: d === todayStr, label: ['M','T','W','T','F','S','S'][i] ?? '' }
+      return { vol, isToday: d === todayStr, label: (['M','T','W','T','F','S','S'] as const)[i] ?? '', volK: vol >= 1000 ? `${(vol/1000).toFixed(1)}k` : vol > 0 ? `${vol}` : '' }
     })
-    const goal = Math.max(
-      dates.filter((d) => state.schedule.some((s) => s.dateKey === d && s.workoutName?.trim())).length,
-      1
-    )
+
+    const goal = Math.max(dates.filter((d) => state.schedule.some((s) => s.dateKey === d && s.workoutName?.trim())).length, 1)
+    const cardioEntries = state.cardioEntries.filter((e) => e.at >= ws.getTime() && e.at < we.getTime())
+    const cardioMins = cardioEntries.reduce((s, e) => s + (e.durationMinutes ?? 0), 0)
+    const cardioByDay = dates.map((d) => cardioEntries.some((e) => new Date(e.at).toISOString().slice(0, 10) === d))
+
     return {
       weekSessions: dates.filter((d) => loggedDays.has(d)).length,
       weeklyGoal: goal,
       weekBarData: bars,
+      cardioMinsThisWeek: cardioMins,
+      cardioByDay,
     }
-  }, [state.setLogs, state.schedule, clock])
+  }, [state.setLogs, state.cardioEntries, state.schedule, clock])
 
-  const sched = state.schedule.find((s) => s.dateKey === todayKey)
-  const planName = sched?.workoutName?.trim() ?? ''
+  const weeklyVolStr = useMemo(() => {
+    const v = weekRecap.totalVolumeLbs
+    if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return v > 0 ? `${v}` : '—'
+  }, [weekRecap.totalVolumeLbs])
 
-  const todayPlannedExercises = useMemo(() => {
-    if (!sched?.plannedExerciseIds?.length) return []
-    return sched.plannedExerciseIds
-      .map((id) => resolveExerciseById(id))
-      .filter((ex): ex is NonNullable<typeof ex> => ex != null)
-  }, [sched, resolveExerciseById])
+  const subtitle = useMemo(() => {
+    if (streakDays > 0) {
+      const sessionsPart = weekSessions < weeklyGoal
+        ? ` ${weeklyGoal - weekSessions} session${weeklyGoal - weekSessions > 1 ? 's' : ''} left this week.`
+        : ' Weekly goal hit.'
+      return `You're on a ${streakDays}-day streak.${sessionsPart}`
+    }
+    return weekSessions < weeklyGoal
+      ? `${weeklyGoal - weekSessions} session${weeklyGoal - weekSessions > 1 ? 's' : ''} left this week.`
+      : 'Weekly goal hit. Great week.'
+  }, [streakDays, weekSessions, weeklyGoal])
 
-  const kpis: { label: string; value: string; sub: string | null; trend?: number | null; progress?: { filled: number; total: number } | null; extra?: string | null }[] = [
-    {
-      label: 'WEEKLY VOLUME',
-      value: weeklyVolLabel,
-      sub: weekRecap.totalSets > 0 ? `${weekRecap.totalSets} sets` : null,
-      trend: volTrend,
-    },
-    {
-      label: 'SESSIONS',
-      value: `${weekSessions}`,
-      sub: `/ ${weeklyGoal} goal`,
-      progress: { filled: weekSessions, total: weeklyGoal },
-    },
-    {
-      label: 'LONGEVITY SCORE',
-      value: longevityScore > 0 ? `${longevityScore}` : '—',
-      sub: longevityScore > 0 ? '/ 100' : null,
-      extra: longevityScore > 0 ? 'Based on your training age' : null,
-    },
-  ]
-
-  const hasBarData = weekBarData.some((d) => d.vol > 0)
+  const quote = useMemo(() => dailyQuote(todayKey), [todayKey])
+  const maxBarVol = Math.max(...weekBarData.map((d) => d.vol), 1)
 
   return (
-    <div className="shrink-0 px-8 pt-8 pb-0">
-      {/* Date + greeting */}
-      <p className="text-[11px] font-medium tracking-[0.12em] text-[var(--apex-text-tertiary)] mb-2" style={{ fontVariantNumeric: 'tabular-nums' }}>{dateLine}</p>
-      <h1 className="text-[34px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)] mb-6">{greeting}</h1>
+    <div className="px-8 pt-8 pb-10 overflow-y-auto flex-1 min-h-0">
 
-      {/* 3-col stat strip */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        {kpis.map((kpi) => (
-          <div key={kpi.label} className="apex-card px-5 py-5 flex flex-col gap-1">
-            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">{kpi.label}</p>
-            <div className="flex items-baseline gap-1.5 mt-2">
-              <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{kpi.value}</span>
-              {kpi.sub && <span className="text-[13px] text-[var(--apex-text-tertiary)]">{kpi.sub}</span>}
-            </div>
-            {kpi.trend != null && (
-              <p className="mt-2 text-[12px] font-medium" style={{ color: kpi.trend >= 0 ? '#4ade80' : '#f87171' }}>
-                {kpi.trend >= 0 ? '↑' : '↓'} {Math.abs(kpi.trend)}% vs last week
-              </p>
-            )}
-            {kpi.progress && (
-              <div className="mt-2 flex gap-1">
-                {Array.from({ length: kpi.progress.total }).map((_, i) => (
-                  <div key={i} className="h-1 flex-1 rounded-full" style={{ background: i < kpi.progress!.filled ? '#c0582a' : 'rgba(255,255,255,0.08)' }} />
-                ))}
-              </div>
-            )}
-            {kpi.extra && <p className="mt-1.5 text-[11px] text-[var(--apex-text-tertiary)]">{kpi.extra}</p>}
-          </div>
-        ))}
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-1">
+        <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: ACCENT }}>{dateLine}</p>
       </div>
-
-      {/* Today's workout card */}
-      <div className="apex-card px-5 py-5 mb-4">
-        {planName ? (
-          <>
-            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">Today's workout</p>
-            <p className="text-[18px] font-medium text-[var(--apex-text-primary)] tracking-tight mb-3">{planName}</p>
-            {todayPlannedExercises.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {todayPlannedExercises.slice(0, 4).map((ex) => (
-                  <span key={ex.id} className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-secondary)]" style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-                    {ex.name}
-                  </span>
-                ))}
-                {todayPlannedExercises.length > 4 && (
-                  <span className="px-2.5 py-1 text-[12px] font-medium rounded-[99px] text-[var(--apex-text-tertiary)]" style={{ background: 'rgba(255,255,255,0.06)', border: '0.5px solid rgba(255,255,255,0.08)' }}>
-                    +{todayPlannedExercises.length - 4} more
-                  </span>
-                )}
-              </div>
-            )}
-            <button
-              type="button"
-              className="w-full min-h-10 rounded-[8px] text-[13px] font-medium text-white"
-              style={{ background: '#c0582a' }}
-              onClick={onStartWorkout}
-            >
-              Start workout
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-2">Today</p>
-            <p className="text-[15px] font-medium text-[var(--apex-text-primary)]">Rest day</p>
-            <p className="mt-1 text-[13px] text-[var(--apex-text-secondary)]">No workout scheduled — recovery is part of the plan.</p>
-          </>
+      <div className="flex items-start justify-between mb-2">
+        <h1 className="text-[40px] font-medium leading-none tracking-[-0.03em] text-[var(--apex-text-primary)]">{greeting}</h1>
+        {streakDays > 0 && (
+          <div className="shrink-0 flex flex-col items-center px-4 py-3 rounded-[99px] ml-4" style={{ background: ACCENT_BG, border: ACCENT_BORDER }}>
+            <span className="text-[18px] leading-none" aria-hidden>🔥</span>
+            <span className="text-[24px] font-medium tabular-nums leading-none mt-1" style={{ color: ACCENT, letterSpacing: '-0.02em' }}>{streakDays}</span>
+            <span className="text-[9px] font-medium uppercase tracking-[0.1em] mt-0.5" style={{ color: ACCENT, opacity: 0.7 }}>day streak</span>
+          </div>
         )}
       </div>
+      <p className="text-[14px] text-[var(--apex-text-secondary)] mb-7">{subtitle}</p>
 
-      {/* Weekly volume bar chart */}
-      {hasBarData && (
-        <div className="apex-card px-5 py-5 mb-4">
-          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-4">Weekly volume</p>
-          <div className="flex items-end gap-2 h-14">
-            {(() => {
-              const maxVol = Math.max(...weekBarData.map((d) => d.vol), 1)
-              return weekBarData.map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <div
-                    className="w-full rounded-[3px]"
-                    style={{
-                      height: `${Math.max((d.vol / maxVol) * 44, d.vol > 0 ? 4 : 2)}px`,
-                      background: d.isToday ? '#c0582a' : d.vol > 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
-                      alignSelf: 'flex-end',
-                    }}
-                  />
-                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? '#c0582a' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
-                </div>
-              ))
-            })()}
+      {/* ── 4-col stat strip ── */}
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        {/* Weekly Volume */}
+        <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Weekly Volume</p>
+          <div className="flex items-baseline gap-1 mt-3">
+            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weeklyVolStr}</span>
+            {weekRecap.totalVolumeLbs > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">lbs</span>}
+          </div>
+          {volTrend != null && (
+            <p className="mt-2 text-[12px] font-medium" style={{ color: volTrend >= 0 ? '#4ade80' : '#f87171' }}>
+              {volTrend >= 0 ? '↑' : '↓'} {Math.abs(volTrend)}% vs last week
+            </p>
+          )}
+        </div>
+
+        {/* Sessions */}
+        <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Sessions</p>
+          <div className="flex items-baseline gap-1 mt-3">
+            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{weekSessions}</span>
+            <span className="text-[13px] text-[var(--apex-text-tertiary)]">/ {weeklyGoal} goal</span>
+          </div>
+          <div className="mt-3 flex gap-1">
+            {Array.from({ length: weeklyGoal }).map((_, i) => (
+              <div key={i} className="h-[3px] flex-1 rounded-full" style={{ background: i < weekSessions ? ACCENT : 'rgba(255,255,255,0.1)' }} />
+            ))}
           </div>
         </div>
-      )}
+
+        {/* Longevity Score */}
+        <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Longevity Score</p>
+          <div className="flex items-baseline gap-1 mt-3">
+            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{longevityScore > 0 ? longevityScore : '—'}</span>
+            {longevityScore > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">/ 100</span>}
+          </div>
+          {longevityScore > 0 && <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">Based on training age</p>}
+        </div>
+
+        {/* Active Days */}
+        <div style={CARD_STYLE} className="px-5 py-5 flex flex-col">
+          <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)]">Active Mins</p>
+          <div className="flex items-baseline gap-1 mt-3">
+            <span className="text-[32px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
+            {cardioMinsThisWeek > 0 && <span className="text-[13px] text-[var(--apex-text-tertiary)]">this week</span>}
+          </div>
+          {cardioMinsThisWeek === 0 && <p className="mt-2 text-[11px] text-[var(--apex-text-tertiary)]">No cardio logged yet</p>}
+        </div>
+      </div>
+
+      {/* ── Daily quote ── */}
+      <div className="mb-4 px-5 py-4 rounded-[12px] relative flex items-start gap-4" style={{ background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderLeft: `3px solid ${ACCENT}` }}>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] text-[var(--apex-text-primary)] leading-relaxed">"{quote.text}"</p>
+          <p className="mt-2 text-[12px] text-[var(--apex-text-tertiary)]">— {quote.attr}</p>
+        </div>
+        <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.14em] text-[var(--apex-text-tertiary)] mt-0.5">Daily</span>
+      </div>
+
+      {/* ── Two-column section ── */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 0.65fr' }}>
+
+        {/* Left: Weekly Training Volume bar chart */}
+        <div style={CARD_STYLE} className="px-5 py-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[14px] font-medium text-[var(--apex-text-primary)]">Weekly Training Volume</p>
+              <p className="text-[11px] text-[var(--apex-text-tertiary)] mt-0.5">Total tonnage lifted per day</p>
+            </div>
+            <div className="flex gap-1">
+              <span className="px-2.5 py-1 rounded-[6px] text-[11px] font-medium text-white" style={{ background: ACCENT }}>Week</span>
+              <span className="px-2.5 py-1 rounded-[6px] text-[11px] font-medium text-[var(--apex-text-tertiary)]">Month</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-2" style={{ height: 100 }}>
+            {weekBarData.map((d, i) => {
+              const barH = d.vol > 0 ? Math.max((d.vol / maxBarVol) * 80, 6) : 3
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  {d.volK && (
+                    <span className="text-[9px] tabular-nums" style={{ color: d.isToday ? ACCENT : 'rgba(255,255,255,0.3)' }}>{d.volK}</span>
+                  )}
+                  <div className="flex-1 w-full flex items-end">
+                    <div
+                      className="w-full rounded-t-[3px]"
+                      style={{
+                        height: barH,
+                        background: d.isToday
+                          ? `linear-gradient(to bottom, ${ACCENT}, rgba(192,88,42,0.6))`
+                          : d.vol > 0
+                            ? 'linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(255,255,255,0.08))'
+                            : 'rgba(255,255,255,0.05)',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-medium" style={{ color: d.isToday ? ACCENT : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Right: two stacked cards */}
+        <div className="flex flex-col gap-3">
+          {/* Cardio card */}
+          <div style={CARD_STYLE} className="px-5 py-5 flex-1">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-1">Cardio</p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-[28px] font-medium tabular-nums leading-none text-[var(--apex-text-primary)]" style={{ letterSpacing: '-0.03em' }}>{cardioMinsThisWeek > 0 ? cardioMinsThisWeek : '—'}</span>
+              {cardioMinsThisWeek > 0 && <span className="text-[12px] text-[var(--apex-text-tertiary)]">min zone 2</span>}
+            </div>
+            <div className="flex gap-1.5 mt-3">
+              {cardioByDay.map((active, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-1 rounded-full"
+                  style={{ background: active ? ACCENT : 'rgba(255,255,255,0.1)' }}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-[9px] text-[var(--apex-text-tertiary)]">M</span>
+              <span className="text-[9px] text-[var(--apex-text-tertiary)]">S</span>
+            </div>
+          </div>
+
+          {/* Placeholder card */}
+          <div style={CARD_STYLE} className="px-5 py-5 flex-1 flex flex-col items-start justify-center">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--apex-text-tertiary)] mb-1">Coming soon</p>
+            <p className="text-[13px] text-[var(--apex-text-secondary)] leading-snug mt-1">Body composition &amp; recovery trends</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -310,7 +484,7 @@ function SidebarUserProfile({ onSettings }: { onSettings: () => void }) {
     <div className="flex items-center gap-3 px-4 py-3.5 border-t border-[0.5px] border-[var(--apex-border)]">
       <div
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-medium text-[var(--apex-text-primary)]"
-        style={{ background: 'rgba(61,122,181,0.18)', border: '0.5px solid rgba(61,122,181,0.3)' }}
+        style={{ background: ACCENT_BG, border: ACCENT_BORDER }}
       >
         {initials}
       </div>
@@ -386,7 +560,7 @@ export function DashboardShell() {
                     ? 'text-[var(--apex-text-primary)]'
                     : 'text-[var(--apex-text-secondary)] hover:text-[var(--apex-text-primary)]'
                 }`}
-                style={active ? { background: 'rgba(61,122,181,0.22)', border: '0.5px solid rgba(61,122,181,0.4)' } : undefined}
+                style={active ? { background: ACCENT_BG, border: ACCENT_BORDER } : undefined}
                 onClick={() => setNav(item.id)}
               >
                 <span className={`shrink-0 ${active ? 'text-[#c0582a]' : 'text-[var(--apex-text-tertiary)]'}`}>
@@ -400,7 +574,7 @@ export function DashboardShell() {
 
         {/* Spotify mini-player */}
         <div className="px-3 pb-2 shrink-0">
-          <SpotifyPlayerCard />
+          <SidebarSpotify />
         </div>
 
         {/* User profile */}
@@ -409,7 +583,6 @@ export function DashboardShell() {
 
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-        {nav === 'today' && <DashboardHeader onStartWorkout={() => { setNav('today') }} />}
         {nav === 'coach' && (
           <div className="px-8 pt-8 pb-2 shrink-0">
             <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">AI Coach</h2>
@@ -448,10 +621,8 @@ export function DashboardShell() {
           </div>
         )}
 
-        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto">
-          {nav === 'today' && (
-            <div className="px-8 pb-8" />
-          )}
+        <main className="flex-1 min-h-0 min-w-0 overflow-y-auto flex flex-col">
+          {nav === 'today' && <DashboardHome />}
           {nav === 'coach' && (
             <div className="px-8 pb-8 h-full flex flex-col">
               <div className="flex-1 min-h-0 flex flex-col">
