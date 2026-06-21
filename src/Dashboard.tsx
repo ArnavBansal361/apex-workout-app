@@ -817,12 +817,6 @@ export function DashboardShell() {
             <p className="mt-1 text-[13px] text-[var(--apex-text-tertiary)]">Knows your full training history</p>
           </div>
         )}
-        {nav === 'exercises' && (
-          <div className="px-8 pt-8 pb-2 shrink-0">
-            <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">Library</h2>
-            <p className="mt-1 text-[13px] text-[var(--apex-text-tertiary)]">Your exercises and routines</p>
-          </div>
-        )}
         {nav === 'schedule' && (
           <div className="px-8 pt-8 pb-2 shrink-0">
             <h2 className="text-[26px] font-medium text-[var(--apex-text-primary)] tracking-[-0.02em]">Schedule</h2>
