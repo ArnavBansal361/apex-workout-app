@@ -572,14 +572,14 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
         </div>
       </div>
       <div className="apex-coach-sidebar-footer shrink-0 min-w-0 w-full pt-2">
-        <div className="grid grid-cols-1 gap-2">
-          {coachSuggestions.map((label) => (
+        <div className={isSidebar ? 'grid grid-cols-1 gap-2' : 'flex flex-wrap gap-2'}>
+          {(isSidebar ? coachSuggestions : coachSuggestions.slice(0, 4)).map((label) => (
             <button
               key={label}
               type="button"
               disabled={busy}
-              className={`apex-btn min-h-10 min-w-0 w-full px-2 font-medium leading-snug text-left text-[var(--apex-text-primary)] border-white/[0.12] disabled:opacity-45 ${
-                isSidebar ? 'text-[13px]' : 'text-[12px]'
+              className={`apex-btn min-h-10 min-w-0 px-3 font-medium leading-snug text-left text-[var(--apex-text-primary)] border-white/[0.12] disabled:opacity-45 ${
+                isSidebar ? 'w-full text-[13px]' : 'text-[12px]'
               }`}
               onClick={() => void runCoachTurn(label, { hideUserBubble: true })}
             >
