@@ -62,7 +62,7 @@ import {
   requestGymCardScreenWakeLock,
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
-import { PostWorkoutStretchesCard, stretchSuggestionsForSummary } from './PostWorkoutStretchesCard'
+import { stretchSuggestionsForSummary } from './PostWorkoutStretchesCard'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
 import { SpotifyPlayerCard } from './SpotifyPlayerCard'
 import type { Exercise, SetLog, TodaySectionId } from '../types'
@@ -1351,76 +1351,54 @@ export function TodayTab({
       }
       case 'my-plan':
         return null
-      case 'todays-log':
+      case 'todays-log': {
+        // Group sets by exercise, preserving order of first appearance
+        const exMap = new Map<string, { name: string; sets: number; topWeight: number | null; unit: string; hasPr: boolean }>()
+        for (const l of [...todaysLogs].reverse()) {
+          const existing = exMap.get(l.exerciseId)
+          const w = l.kind === 'weighted' && !l.bodyweight ? (l.weight ?? 0) : null
+          const setsCount = l.kind === 'weighted' ? l.sets : 1
+          if (existing) {
+            existing.sets += setsCount
+            if (w != null && (existing.topWeight == null || w > existing.topWeight)) existing.topWeight = w
+            if (l.isPr) existing.hasPr = true
+          } else {
+            exMap.set(l.exerciseId, { name: l.exerciseName, sets: setsCount, topWeight: w, unit: state.settings.unit, hasPr: !!l.isPr })
+          }
+        }
+        const grouped = [...exMap.values()]
         return (
           <section>
-            <h2 className="apex-page-sub mb-1">Session</h2>
-            <p className="text-xl font-medium text-[var(--apex-text-primary)] tracking-tight mb-4">Today&apos;s log</p>
-            <button type="button" className={`${btnNeutral} w-full min-h-12 mb-4`} onClick={onOpenHistory}>
-              Full history
-            </button>
-            {todaysLogs.length > 0 ? (
-              <div className="mb-4">
-                <PostWorkoutStretchesCard setLogs={state.setLogs} todayKey={todayKey} />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[18px] font-medium text-[var(--apex-text-primary)] tracking-tight">Today&apos;s log</p>
+              <button type="button" className="text-[12px] text-[var(--apex-text-tertiary)] border-[0.5px] border-[var(--apex-border)] rounded-[8px] px-3 py-1.5" onClick={onOpenHistory}>
+                Full history
+              </button>
+            </div>
+            {grouped.length === 0 ? (
+              <div className="apex-card px-4 py-5 text-center">
+                <p className="text-[14px] text-[var(--apex-text-secondary)]">No sets logged yet today.</p>
               </div>
-            ) : null}
-            <ul className="space-y-3">
-              {todaysLogs.map((l) => (
-                <li key={l.id} className="apex-card apex-card-interactive p-4">
-                  <div className="flex justify-between gap-2 items-start">
+            ) : (
+              <div className="apex-card overflow-hidden">
+                {grouped.map((ex, i) => (
+                  <div key={ex.name} className={`flex items-center justify-between px-4 py-3 gap-3 ${i > 0 ? 'border-t border-[0.5px] border-white/[0.06]' : ''}`}>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-medium text-[var(--apex-text-primary)] min-w-0 tracking-tight">
-                        {l.exerciseName}
+                      <p className="text-[14px] font-medium text-[var(--apex-text-primary)] truncate">{ex.name}</p>
+                      <p className="text-[12px] text-[var(--apex-text-secondary)] mt-0.5">
+                        {ex.topWeight != null ? `${ex.topWeight} ${ex.unit} · ` : ''}{ex.sets} sets
                       </p>
                     </div>
-                    {l.isPr ? (
-                      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-black">
-                        PR
-                      </span>
-                    ) : null}
+                    {ex.hasPr && (
+                      <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-black">PR</span>
+                    )}
                   </div>
-                  <p className="text-[14px] font-medium text-[var(--apex-text-secondary)] mt-2">
-                    {l.kind === 'weighted'
-                      ? `${l.bodyweight ? 'Bodyweight' : `${l.weight ?? 0} ${state.settings.unit}`} × ${l.reps} · ${l.sets} sets`
-                      : `${l.durationSec}s timed`}
-                  </p>
-                  {l.note ? <p className="text-[12px] text-[var(--apex-text-secondary)] mt-2 leading-relaxed">{l.note}</p> : null}
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[0.5px] border-white/[0.06] pt-3">
-                    <p className="apex-section-label opacity-80">
-                      {new Date(l.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        className="apex-btn-primary min-h-9 rounded-[8px] px-3 text-[12px]"
-                        onClick={() => {
-                          setEditLog(l)
-                          setLogTarget(null)
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="apex-btn min-h-9 rounded-[8px] border-red-500/35 bg-red-950/20 px-3 text-[12px] font-medium text-red-400"
-                        onClick={() => setConfirmDeleteSetId(l.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-              {todaysLogs.length === 0 ? (
-                <li>
-                  <div className="apex-empty-state">
-                    <p className="text-[14px] font-medium text-[var(--apex-text-secondary)]">No sets logged yet today.</p>
-                  </div>
-                </li>
-              ) : null}
-            </ul>
+                ))}
+              </div>
+            )}
           </section>
         )
+      }
       default:
         return null
     }
