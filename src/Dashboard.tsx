@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom'
 import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
 import { stripNotificationMessage } from './lib/persist'
 import { AchievementsPage } from './components/AchievementsPage'
-import { ExercisesTab } from './components/ExercisesTab'
 import { FullHistory } from './components/FullHistory'
 import { AiHub, ProfileTab } from './components/ProfileTab'
 import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
@@ -575,99 +574,160 @@ function SidebarUserProfile({ onSettings }: { onSettings: () => void }) {
   )
 }
 
-const MUSCLE_GROUP_TAGS: Record<string, string> = {
-  Chest: 'Push', Back: 'Pull', Shoulders: 'Push', Arms: 'Push',
-  Legs: 'Legs', Core: 'Core', Cardio: 'Cardio',
+const ROUTINE_CATS_DESKTOP = ['All', 'Push', 'Pull', 'Legs', 'Cardio', 'Full Body'] as const
+const ROUTINE_CAT_MAP_D: Record<string, string> = {
+  Chest: 'Push', Shoulders: 'Push', Arms: 'Push',
+  Back: 'Pull', Legs: 'Legs', Cardio: 'Cardio',
+}
+const EX_GROUPS_DESKTOP = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const
+
+function pill(_label: string, active: boolean): React.CSSProperties {
+  return active
+    ? { flexShrink: 0, padding: '7px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 12.5, whiteSpace: 'nowrap', background: ACCENT, border: `0.5px solid ${ACCENT}`, color: '#fff', fontWeight: 500 }
+    : { flexShrink: 0, padding: '7px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 12.5, whiteSpace: 'nowrap', background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', color: '#8a9099', fontWeight: 400 }
 }
 
-const TEMPLATE_FILTERS = ['All', 'Push', 'Pull', 'Legs', 'Cardio', 'Other'] as const
-
 function DesktopLibrary() {
-  const { state } = useWorkout()
-  const [filter, setFilter] = useState<string>('All')
+  const { state, visibleExercises } = useWorkout()
+  const [routineCat, setRoutineCat] = useState<string>('All')
+  const [muscle, setMuscle] = useState<string>('All')
+  const [query, setQuery] = useState('')
 
   const templates = state.templates ?? []
-  const hasTemplates = templates.length > 0
 
-  const filtered = useMemo(() => {
-    if (filter === 'All') return templates
+  const filteredRoutines = useMemo(() => {
+    if (routineCat === 'All') return templates
     return templates.filter((t) => {
-      const exIds = t.exerciseIds ?? []
-      if (exIds.length === 0) return filter === 'Other'
-      const tags = new Set(exIds.map((id) => {
+      if (!t.exerciseIds?.length) return false
+      const cats = new Set(t.exerciseIds.map((id) => {
         const ex = state.customExercises?.find((e) => e.id === id)
-        return ex ? (MUSCLE_GROUP_TAGS[ex.muscleGroup] ?? 'Other') : 'Other'
+        return ex ? (ROUTINE_CAT_MAP_D[ex.muscleGroup] ?? 'Other') : 'Other'
       }))
-      return tags.has(filter)
+      return cats.has(routineCat)
     })
-  }, [templates, filter, state.customExercises])
+  }, [templates, routineCat, state.customExercises])
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return EX_GROUPS_DESKTOP
+      .filter((g) => muscle === 'All' || muscle === g)
+      .map((g) => {
+        const items = visibleExercises
+          .filter((e) => e.muscleGroup === g && (!q || e.name.toLowerCase().includes(q)))
+        return { name: g, count: items.length, items }
+      })
+      .filter((g) => g.items.length > 0)
+  }, [visibleExercises, muscle, query])
 
   return (
-    <div className="px-8 pb-8">
-      {/* Routines section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)]">Routines</p>
+    <div style={{ maxWidth: 1140, margin: '0 auto', padding: '34px 44px 64px' }}>
+
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 30 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', color: '#f2f4f7' }}>Library</h1>
+          <p style={{ margin: '7px 0 0', fontSize: 14, fontWeight: 400, color: '#8a9099' }}>
+            {templates.length} routines · {visibleExercises.length} exercises
+          </p>
+        </div>
+      </div>
+
+      {/* Routines */}
+      <section style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, letterSpacing: '-0.01em', color: '#e8eaed' }}>Routines</h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {ROUTINE_CATS_DESKTOP.map((c) => (
+              <button key={c} type="button" onClick={() => setRoutineCat(c)} style={pill(c, routineCat === c)}>{c}</button>
+            ))}
+          </div>
         </div>
 
-        {hasTemplates ? (
-          <>
-            {/* Filter pills */}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {TEMPLATE_FILTERS.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilter(f)}
-                  className="px-3 py-1.5 rounded-[99px] text-[12px] font-medium transition-colors"
-                  style={filter === f
-                    ? { background: ACCENT, color: '#fff', border: '0.5px solid transparent' }
-                    : { background: 'transparent', color: 'var(--apex-text-secondary)', border: '0.5px solid rgba(255,255,255,0.12)' }
-                  }
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-
-            {/* Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              {filtered.map((t) => (
-                <div key={t.id} style={CARD_STYLE} className="px-5 py-4">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-[14px] font-medium"
-                      style={{ background: ACCENT_BG, color: ACCENT }}
-                    >
-                      {t.name[0]?.toUpperCase() ?? '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium text-[var(--apex-text-primary)] truncate">{t.name}</p>
-                      <p className="text-[12px] text-[var(--apex-text-tertiary)] mt-0.5">
-                        {t.exerciseIds?.length ?? 0} exercise{(t.exerciseIds?.length ?? 0) === 1 ? '' : 's'}
-                      </p>
-                    </div>
+        {templates.length === 0 ? (
+          <div style={{ ...CARD_STYLE, padding: '28px', textAlign: 'center', borderStyle: 'dashed' }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.5)' }}>No routines yet</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Create workout templates in Schedule to save them here.</p>
+          </div>
+        ) : filteredRoutines.length === 0 ? (
+          <p style={{ padding: '28px 0', textAlign: 'center', fontSize: 13.5, color: '#6b7280' }}>No routines in this category.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+            {filteredRoutines.map((t) => (
+              <div key={t.id} style={{ background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                  <div style={{ width: 46, height: 46, flexShrink: 0, borderRadius: 12, background: ACCENT_BG, border: `0.5px solid ${ACCENT_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, fontWeight: 500, color: ACCENT }}>
+                    {t.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                    <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>{t.exerciseIds?.length ?? 0} exercises</div>
                   </div>
                 </div>
-              ))}
-              {filtered.length === 0 && (
-                <p className="text-[13px] text-[var(--apex-text-tertiary)] col-span-2 py-2">No routines match this filter.</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <div style={{ ...CARD_STYLE, borderStyle: 'dashed' }} className="px-5 py-6 text-center">
-            <p className="text-[14px] font-medium text-[var(--apex-text-primary)] mb-1">No routines yet</p>
-            <p className="text-[12px] text-[var(--apex-text-tertiary)]">Create a workout template in the Schedule tab to save it here.</p>
+                <div style={{ marginTop: 15 }}>
+                  <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, letterSpacing: '0.04em', color: '#8a9099', padding: '4px 10px', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 7 }}>
+                    {ROUTINE_CAT_MAP_D[t.exerciseIds?.[0] ? (state.customExercises?.find((e) => e.id === t.exerciseIds[0])?.muscleGroup ?? '') : ''] ?? 'General'}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Exercise list */}
-      <div>
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)] mb-4">Exercises</p>
-        <ExercisesTab gridCols={4} />
-      </div>
+      {/* Exercises */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, letterSpacing: '-0.01em', color: '#e8eaed' }}>Exercises</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 11, padding: '9px 13px', width: 300 }}>
+            <span style={{ fontSize: 14, color: '#6b7280', lineHeight: 1 }}>⌕</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search 300+ exercises"
+              style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none', color: '#e8eaed', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 400 }}
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+          {['All', ...EX_GROUPS_DESKTOP].map((m) => (
+            <button key={m} type="button" onClick={() => setMuscle(m)} style={pill(m, muscle === m)}>{m}</button>
+          ))}
+        </div>
+
+        {groups.length === 0 ? (
+          <p style={{ padding: '34px 0', textAlign: 'center', fontSize: 13.5, color: '#6b7280' }}>
+            {query ? `No exercises match "${query}".` : 'No exercises found.'}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+            {groups.map((g) => (
+              <div key={g.name}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 2px 9px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a9099' }}>{g.name}</span>
+                  <span style={{ fontSize: 11, color: '#4b515c' }}>{g.count}</span>
+                </div>
+                <div style={{ background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
+                  {g.items.slice(0, 8).map((ex, i) => (
+                    <div key={ex.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 15px', borderTop: i === 0 ? 'none' : '0.5px solid rgba(255,255,255,0.08)' }}>
+                      <span style={{ fontSize: 14, fontWeight: 400, color: '#e8eaed' }}>{ex.name}</span>
+                      <span style={{ flexShrink: 0, fontSize: 11, color: '#8a9099', padding: '4px 9px', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 7 }}>{ex.equipment ?? 'Bodyweight'}</span>
+                    </div>
+                  ))}
+                  {g.items.length > 8 && (
+                    <div style={{ padding: '10px 15px', borderTop: '0.5px solid rgba(255,255,255,0.08)', fontSize: 12, color: '#6b7280' }}>
+                      +{g.items.length - 8} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
