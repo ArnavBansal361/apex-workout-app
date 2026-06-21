@@ -741,6 +741,8 @@ export function TodayTab({
           id !== 'muscle-balance' &&
           id !== 'gym-tracker' &&
           id !== 'my-plan' &&
+          id !== 'nutrition-tracker' &&
+          id !== 'spotify-player' &&
           !(isDesktop && DESKTOP_HIDDEN.includes(id)),
       ),
     [layout.order, hiddenSet, isDesktop],
