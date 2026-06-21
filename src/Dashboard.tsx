@@ -620,7 +620,7 @@ function DesktopLibrary() {
   }, [visibleExercises, muscle, query])
 
   return (
-    <div style={{ maxWidth: 1140, margin: '0 auto', padding: '34px 44px 64px' }}>
+    <div style={{ width: '100%', padding: '34px 48px 64px' }}>
 
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, marginBottom: 30 }}>
