@@ -313,10 +313,7 @@ export async function claudeCoachComplete(
   )
   const cycleInstruction = cycleCoachInstruction(state, dateKey(new Date(nowMs)))
   const visionBlock = lastHasImage && !isPlan ? `\n${COACH_VISION_HINT}` : ''
-  const _system = isPlan
-    ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context ---\n${coachContext}`
-    : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
-  const maxTokens = options.maxTokens ?? (isPlan ? 1200 : lastHasImage ? 800 : 600)
+const maxTokens = options.maxTokens ?? (isPlan ? 1200 : lastHasImage ? 800 : 600)
   const staticSystemText = isPlan ? COACH_PLAN_SYSTEM : COACH_SYSTEM
   const dynamicSystemText = isPlan
     ? `${todayLine}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context ---\n${coachContext}`
