@@ -11,7 +11,8 @@ import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
-const CLAUDE_MODEL = 'claude-opus-4-5'
+const ANTHROPIC_BETA = 'prompt-caching-2024-07-31'
+const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const CLAUDE_FAST_MODEL = 'claude-sonnet-4-6'
 
 function getAnthropicApiKey(): string {
@@ -316,10 +317,17 @@ export async function claudeCoachComplete(
     ? `${todayLine}\n\n${COACH_PLAN_SYSTEM}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context ---\n${coachContext}`
     : `${todayLine}\n\n${COACH_SYSTEM}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
   const maxTokens = options.maxTokens ?? (isPlan ? 1200 : lastHasImage ? 800 : 600)
+  const staticSystemText = isPlan ? COACH_PLAN_SYSTEM : COACH_SYSTEM
+  const dynamicSystemText = isPlan
+    ? `${todayLine}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context ---\n${coachContext}`
+    : `${todayLine}${visionBlock}${planBlock}${modeInstruction}${cycleInstruction}\n\n--- Athlete context (updated each request) ---\n${coachContext}`
   const requestBody = {
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
-    system,
+    system: [
+      { type: 'text', text: staticSystemText, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: dynamicSystemText },
+    ],
     messages,
   }
 
@@ -329,6 +337,7 @@ export async function claudeCoachComplete(
       'content-type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-beta': ANTHROPIC_BETA,
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(requestBody),
@@ -512,12 +521,16 @@ export async function fetchDailyMotivation(input: DailyMotivationInput): Promise
       'content-type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-beta': ANTHROPIC_BETA,
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: CLAUDE_FAST_MODEL,
       max_tokens: 120,
-      system: `${coachTodaySystemPrefix(Date.now())}\n\n${DAILY_MOTIVATION_SYSTEM}`,
+      system: [
+        { type: 'text', text: DAILY_MOTIVATION_SYSTEM, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: coachTodaySystemPrefix(Date.now()) },
+      ],
       messages: [{ role: 'user', content: user }],
     }),
   })
