@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.arnav.apex',
+  appId: 'com.arnav.lift',
   appName: 'Lift',
   webDir: 'dist',
   ios: {
