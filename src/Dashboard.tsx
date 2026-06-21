@@ -801,7 +801,7 @@ export function DashboardShell() {
           {nav === 'exercises' && <DesktopLibrary />}
           {nav === 'schedule' && (
             <div className="px-8 pb-8">
-              <ScheduleTab defaultViewMode="month" />
+              <ScheduleTab defaultViewMode="week" />
             </div>
           )}
           {nav === 'achievements' && (

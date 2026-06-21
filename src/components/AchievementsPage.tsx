@@ -27,6 +27,21 @@ const ACHIEVEMENT_ICON: Record<string, string> = {
   'variety-pack': '5',
   'marathon-session': '2h',
   'volume-king': '50k',
+  'sets-500': '500',
+  'sets-1500': '1.5k',
+  'longevity-50': '50',
+  'longevity-80': '80',
+  'triple-pr': '3★',
+  'cardio-60': '60',
+  'leg-day-hero': '🦵',
+  'deload-week': '↓',
+  'coach-chat': '✦',
+  'schedule-full': '◼',
+  'century-club': '100',
+  'beast-mode': '20',
+  'comeback-kid': '↩',
+  'perfect-week': '7',
+  'consistency': '4',
 }
 
 const ACCENT = '#c0582a'

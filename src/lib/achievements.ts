@@ -1,6 +1,7 @@
 import type { AppPersisted, SetLog } from '../types'
 import { dateKey, parseDateKey, weekDatesFromStart, weekStartMonday } from './dates'
 import { streakDaysWithShield } from './streakShield'
+import { computeLongevityScore } from './longevityScore'
 
 function hasLogAtHour(logs: SetLog[], hourAfter: number, hourBefore: number): boolean {
   for (const l of logs) {
@@ -171,6 +172,31 @@ function hasPerfectWeek(state: AppPersisted): boolean {
   return keys.every((k) => active.has(k))
 }
 
+function hasTriplePr(state: AppPersisted): boolean {
+  const prGroups = new Set(state.setLogs.filter((l) => l.isPr).map((l) => l.muscleGroup))
+  const benchLike = state.setLogs.some((l) => l.isPr && /bench/i.test(l.exerciseId))
+  const squatLike = state.setLogs.some((l) => l.isPr && /squat/i.test(l.exerciseId))
+  const deadLike = state.setLogs.some((l) => l.isPr && /dead/i.test(l.exerciseId))
+  return (benchLike && squatLike && deadLike) || prGroups.size >= 3
+}
+
+function weeklyCardioMinutes(state: AppPersisted): number {
+  const ws = weekStartMonday(new Date())
+  const wk = dateKey(ws)
+  return (state.cardioEntries ?? [])
+    .filter((c) => dateKey(new Date(c.at)) >= wk)
+    .reduce((s, c) => s + (c.durationMinutes ?? 0), 0)
+}
+
+function legDaySessions(state: AppPersisted): number {
+  const days = new Set(
+    state.setLogs
+      .filter((l) => l.muscleGroup === 'Legs')
+      .map((l) => dateKey(new Date(l.at)))
+  )
+  return days.size
+}
+
 export function evaluateAchievements(state: AppPersisted): string[] {
   const earned = new Set(state.achievements)
   const logs = state.setLogs
@@ -205,6 +231,20 @@ export function evaluateAchievements(state: AppPersisted): string[] {
   if (maxSetsSingleSession(logs) >= 20) earned.add('beast-mode')
   if (hasComebackKid(logs, workoutDays)) earned.add('comeback-kid')
   if (hasPerfectWeek(state)) earned.add('perfect-week')
+
+  // New achievements
+  if (streak >= 30) earned.add('streak-30')
+  if (logs.length >= 500) earned.add('sets-500')
+  if (logs.length >= 1000) earned.add('sets-1000')
+  const longevity = computeLongevityScore(state).score
+  if (longevity >= 50) earned.add('longevity-50')
+  if (longevity >= 80) earned.add('longevity-80')
+  if (hasTriplePr(state)) earned.add('triple-pr')
+  if (weeklyCardioMinutes(state) >= 60) earned.add('cardio-60')
+  if (legDaySessions(state) >= 10) earned.add('leg-day-hero')
+  if (state.deloadActiveWeekStart) earned.add('deload-week')
+  if (state.chatMessages?.length > 0) earned.add('coach-chat')
+  if (state.schedule?.every((d) => d.workoutName || d.plannedExerciseIds?.length > 0)) earned.add('schedule-full')
 
   return [...earned]
 }
@@ -508,6 +548,17 @@ export function getAchievementProgress(state: AppPersisted, achievementId: strin
         detail: `${cur} of ${keys.length} days this week`,
       }
     }
+    case 'streak-30': return { current: Math.min(streak, 30), target: 30, percent: pct(streak, 30), detail: `${streak} day streak` }
+    case 'sets-500': return { current: Math.min(logs.length, 500), target: 500, percent: pct(logs.length, 500), detail: `${logs.length} sets logged` }
+    case 'sets-1000': return { current: Math.min(logs.length, 1000), target: 1000, percent: pct(logs.length, 1000), detail: `${logs.length} sets logged` }
+    case 'longevity-50': { const s = computeLongevityScore(state).score; return { current: Math.min(s, 50), target: 50, percent: pct(s, 50), detail: `Score: ${s}` } }
+    case 'longevity-80': { const s = computeLongevityScore(state).score; return { current: Math.min(s, 80), target: 80, percent: pct(s, 80), detail: `Score: ${s}` } }
+    case 'triple-pr': { const has = hasTriplePr(state); return { current: has ? 3 : 0, target: 3, percent: has ? 100 : 0, detail: 'Bench · Squat · Deadlift PRs' } }
+    case 'cardio-60': { const m = weeklyCardioMinutes(state); return { current: Math.min(m, 60), target: 60, percent: pct(m, 60), detail: `${m} min cardio this week` } }
+    case 'leg-day-hero': { const n = legDaySessions(state); return { current: Math.min(n, 10), target: 10, percent: pct(n, 10), detail: `${n} leg sessions` } }
+    case 'deload-week': return { current: state.deloadActiveWeekStart ? 1 : 0, target: 1, percent: state.deloadActiveWeekStart ? 100 : 0, detail: 'Complete a deload week' }
+    case 'coach-chat': { const has = (state.chatMessages?.length ?? 0) > 0; return { current: has ? 1 : 0, target: 1, percent: has ? 100 : 0, detail: 'Ask the AI Coach anything' } }
+    case 'schedule-full': { const filled = (state.schedule ?? []).filter((d) => d.workoutName || d.plannedExerciseIds?.length > 0).length; return { current: filled, target: 7, percent: pct(filled, 7), detail: `${filled}/7 days planned` } }
     default:
       return { current: 0, target: 1, percent: 0, detail: '' }
   }
