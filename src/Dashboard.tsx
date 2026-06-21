@@ -575,6 +575,103 @@ function SidebarUserProfile({ onSettings }: { onSettings: () => void }) {
   )
 }
 
+const MUSCLE_GROUP_TAGS: Record<string, string> = {
+  Chest: 'Push', Back: 'Pull', Shoulders: 'Push', Arms: 'Push',
+  Legs: 'Legs', Core: 'Core', Cardio: 'Cardio',
+}
+
+const TEMPLATE_FILTERS = ['All', 'Push', 'Pull', 'Legs', 'Cardio', 'Other'] as const
+
+function DesktopLibrary() {
+  const { state } = useWorkout()
+  const [filter, setFilter] = useState<string>('All')
+
+  const templates = state.templates ?? []
+  const hasTemplates = templates.length > 0
+
+  const filtered = useMemo(() => {
+    if (filter === 'All') return templates
+    return templates.filter((t) => {
+      const exIds = t.exerciseIds ?? []
+      if (exIds.length === 0) return filter === 'Other'
+      const tags = new Set(exIds.map((id) => {
+        const ex = state.customExercises?.find((e) => e.id === id)
+        return ex ? (MUSCLE_GROUP_TAGS[ex.muscleGroup] ?? 'Other') : 'Other'
+      }))
+      return tags.has(filter)
+    })
+  }, [templates, filter, state.customExercises])
+
+  return (
+    <div className="px-8 pb-8">
+      {/* Routines section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)]">Routines</p>
+        </div>
+
+        {hasTemplates ? (
+          <>
+            {/* Filter pills */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {TEMPLATE_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  className="px-3 py-1.5 rounded-[99px] text-[12px] font-medium transition-colors"
+                  style={filter === f
+                    ? { background: ACCENT, color: '#fff', border: '0.5px solid transparent' }
+                    : { background: 'transparent', color: 'var(--apex-text-secondary)', border: '0.5px solid rgba(255,255,255,0.12)' }
+                  }
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            {/* Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {filtered.map((t) => (
+                <div key={t.id} style={CARD_STYLE} className="px-5 py-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-[14px] font-medium"
+                      style={{ background: ACCENT_BG, color: ACCENT }}
+                    >
+                      {t.name[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-medium text-[var(--apex-text-primary)] truncate">{t.name}</p>
+                      <p className="text-[12px] text-[var(--apex-text-tertiary)] mt-0.5">
+                        {t.exerciseIds?.length ?? 0} exercise{(t.exerciseIds?.length ?? 0) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && (
+                <p className="text-[13px] text-[var(--apex-text-tertiary)] col-span-2 py-2">No routines match this filter.</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{ ...CARD_STYLE, borderStyle: 'dashed' }} className="px-5 py-6 text-center">
+            <p className="text-[14px] font-medium text-[var(--apex-text-primary)] mb-1">No routines yet</p>
+            <p className="text-[12px] text-[var(--apex-text-tertiary)]">Create a workout template in the Schedule tab to save it here.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Exercise list */}
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--apex-text-tertiary)] mb-4">Exercises</p>
+        <ExercisesTab gridCols={4} />
+      </div>
+    </div>
+  )
+}
+
 export function DashboardShell() {
   const { notifications } = useWorkout()
   const [nav, setNav] = useState<DashboardNavId>('today')
@@ -701,11 +798,7 @@ export function DashboardShell() {
               </div>
             </div>
           )}
-          {nav === 'exercises' && (
-            <div className="px-8 pb-8">
-              <ExercisesTab gridCols={4} />
-            </div>
-          )}
+          {nav === 'exercises' && <DesktopLibrary />}
           {nav === 'schedule' && (
             <div className="px-8 pb-8">
               <ScheduleTab defaultViewMode="month" />
