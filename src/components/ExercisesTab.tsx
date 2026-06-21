@@ -198,9 +198,20 @@ function StrengthProgressChart({
   )
 }
 
+const ACCENT = '#c0582a'
+const ACCENT_BG = 'rgba(192,88,42,0.14)'
+const ACCENT_BORDER = 'rgba(192,88,42,0.35)'
+const ROUTINE_CATS = ['All', 'Push', 'Pull', 'Legs', 'Cardio'] as const
+const ROUTINE_CAT_MAP: Record<string, string> = {
+  Chest: 'Push', Shoulders: 'Push', Arms: 'Push',
+  Back: 'Pull', Legs: 'Legs', Cardio: 'Cardio',
+}
+
 export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
+  const isMobile = _gridCols !== 4
   const { visibleExercises, hideExercise, state, addPlanExercise, notify, toggleFavoriteExercise, addCustomExercise } =
     useWorkout()
+  const [routineCat, setRoutineCat] = useState<string>('All')
   const searchRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<MuscleGroup | 'All' | 'Favorites'>('All')
@@ -329,36 +340,115 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
     )
   }
 
+  const templates = state.templates ?? []
+  const filteredRoutines = useMemo(() => {
+    if (routineCat === 'All') return templates
+    return templates.filter((t) => {
+      if (!t.exerciseIds?.length) return routineCat === 'Cardio' ? false : false
+      const cats = new Set(t.exerciseIds.map((id) => {
+        const ex = state.customExercises?.find((e) => e.id === id)
+        return ex ? (ROUTINE_CAT_MAP[ex.muscleGroup] ?? 'Other') : 'Other'
+      }))
+      return cats.has(routineCat)
+    })
+  }, [templates, routineCat, state.customExercises])
+
   return (
     <div className="apex-library pb-28">
       <header className="apex-library-header">
-        <div className="apex-library-header__top">
-          <div className="min-w-0">
-            <p className="apex-library-eyebrow">Library</p>
-            <h1 className="apex-library-title">Exercises</h1>
-            <p className="apex-library-subtitle">300+ movements, filters by muscle.</p>
+        {isMobile ? (
+          <div className="flex items-end justify-between px-[var(--apex-page-gutter,18px)] pt-14 pb-3 border-b border-[0.5px] border-white/[0.08]" style={{ background: '#090d14' }}>
+            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', color: '#f2f4f7' }}>Library</h1>
+            <span style={{ fontSize: 13, color: '#6b7280' }}>{visibleExercises.length} exercises</span>
           </div>
-          <button
-            type="button"
-            className="apex-library-stretch-btn"
-            aria-label="Browse stretches"
-            onClick={() => setFilter('Stretches')}
-          >
-            <i className="ti ti-accessibility" aria-hidden />
-          </button>
-        </div>
-        <button
-          type="button"
-          className="mt-3 text-[12px] font-medium text-[var(--apex-text-tertiary)] touch-manipulation hover:text-[var(--apex-text-secondary)]"
-          onClick={() => {
-            setCreateOpen(true)
-            resetCreateForm()
-          }}
-        >
-          Create custom exercise
-        </button>
+        ) : (
+          <>
+            <div className="apex-library-header__top">
+              <div className="min-w-0">
+                <p className="apex-library-eyebrow">Library</p>
+                <h1 className="apex-library-title">Exercises</h1>
+                <p className="apex-library-subtitle">300+ movements, filters by muscle.</p>
+              </div>
+              <button
+                type="button"
+                className="apex-library-stretch-btn"
+                aria-label="Browse stretches"
+                onClick={() => setFilter('Stretches')}
+              >
+                <i className="ti ti-accessibility" aria-hidden />
+              </button>
+            </div>
+            <button
+              type="button"
+              className="mt-3 text-[12px] font-medium text-[var(--apex-text-tertiary)] touch-manipulation hover:text-[var(--apex-text-secondary)]"
+              onClick={() => { setCreateOpen(true); resetCreateForm() }}
+            >
+              Create custom exercise
+            </button>
+          </>
+        )}
       </header>
 
+      {/* Routines section — mobile only */}
+      {isMobile && (
+        <div style={{ padding: '20px 18px 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 13 }}>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500, letterSpacing: '-0.01em', color: '#e8eaed' }}>Routines</h2>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>{templates.length} saved</span>
+          </div>
+          {/* Filter pills */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14, scrollbarWidth: 'none' }}>
+            {ROUTINE_CATS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setRoutineCat(c)}
+                style={{
+                  flex: 'none', padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 12.5, whiteSpace: 'nowrap',
+                  background: routineCat === c ? ACCENT : '#13181f',
+                  border: `0.5px solid ${routineCat === c ? ACCENT : 'rgba(255,255,255,0.08)'}`,
+                  color: routineCat === c ? '#fff' : '#8a9099',
+                  fontWeight: routineCat === c ? 500 : 400,
+                }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {/* 2-col grid */}
+          {templates.length === 0 ? (
+            <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
+              Create templates in Schedule to see them here.
+            </div>
+          ) : filteredRoutines.length === 0 ? (
+            <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
+              No routines in this category.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {filteredRoutines.map((t) => (
+                <div
+                  key={t.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#13181f', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 13 }}
+                >
+                  <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, background: ACCENT_BG, border: `0.5px solid ${ACCENT_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 500, color: ACCENT }}>
+                    {t.name[0]?.toUpperCase() ?? '?'}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: '#e8eaed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                    <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>{t.exerciseIds?.length ?? 0} exercises</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isMobile && (
+        <h2 style={{ margin: '22px 18px 13px', fontSize: 15, fontWeight: 500, letterSpacing: '-0.01em', color: '#e8eaed' }}>Exercises</h2>
+      )}
       <div className="apex-library-search">
         <i className="ti ti-search apex-library-search__icon" aria-hidden />
         <input
