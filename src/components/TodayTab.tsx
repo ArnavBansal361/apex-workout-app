@@ -83,6 +83,7 @@ const MORE_QUICK_SECTION_IDS: TodaySectionId[] = [
   'cardio-tracker',
   'water-tracker',
   'sleep-tracker',
+  'todays-log',
 ]
 
 const inp = 'apex-input w-full px-3 py-2.5 min-h-11 font-normal'
@@ -472,9 +473,7 @@ export function TodayTab({
 
   const headerDateLabel = useMemo(() => {
     const d = new Date(clock)
-    const dow = d.toLocaleDateString('en-US', { weekday: 'short' })
-    const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    return `${dow}, ${md}`
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
   }, [clock])
 
   const longevityScore = useMemo(() => computeLongevityScore(state).score, [state])
@@ -1467,7 +1466,7 @@ export function TodayTab({
       {!isDesktop ? <header className="apex-card px-5 py-5">
         {/* Date row + streak badge */}
         <div className="flex items-start justify-between mb-3">
-          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--apex-text-tertiary)]">
+          <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
             {headerDateLabel}
             {!isRestDay && (
               <span style={{ color: 'var(--apex-accent)' }}> · {dayStatusLabel}</span>
@@ -1785,6 +1784,8 @@ export function TodayTab({
       <TrainerPlanCard clientUserId={userId} />
 
       <DailyCheckinCard />
+
+      {sectionBody('todays-log')}
 
       {sectionBody('daily-motivation')}
 
