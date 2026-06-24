@@ -63,6 +63,7 @@ import {
   type GymBarcodeStored,
 } from '../lib/gymBarcode'
 import { stretchSuggestionsForSummary } from './PostWorkoutStretchesCard'
+import { TodayWeekChartsSection } from './TodayVolumeCharts'
 import { SessionSummaryModal, type SessionSummaryData } from './SessionSummaryModal'
 import { SpotifyPlayerCard } from './SpotifyPlayerCard'
 import type { Exercise, SetLog, TodaySectionId } from '../types'
@@ -82,7 +83,6 @@ const MORE_QUICK_SECTION_IDS: TodaySectionId[] = [
   'weekly-volume',
   'cardio-tracker',
   'water-tracker',
-  'sleep-tracker',
   'todays-log',
 ]
 
@@ -742,6 +742,7 @@ export function TodayTab({
           id !== 'my-plan' &&
           id !== 'nutrition-tracker' &&
           id !== 'spotify-player' &&
+          id !== 'sleep-tracker' &&
           !(isDesktop && DESKTOP_HIDDEN.includes(id)),
       ),
     [layout.order, hiddenSet, isDesktop],
@@ -1111,7 +1112,7 @@ export function TodayTab({
       case 'spotify-player':
         return <SpotifyPlayerCard />
       case 'weekly-volume':
-        return null
+        return <TodayWeekChartsSection />
       case 'muscle-balance':
         return null
       case 'gym-tracker':

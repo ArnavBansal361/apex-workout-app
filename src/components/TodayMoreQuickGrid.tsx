@@ -25,7 +25,6 @@ export type MoreQuickTile = {
 export const MORE_QUICK_TILES: MoreQuickTile[] = [
   { id: 'weekly-volume', label: 'Charts', icon: 'ti ti-chart-bar' },
   { id: 'cardio-tracker', label: 'Cardio', icon: 'ti ti-heartbeat' },
-  { id: 'sleep-tracker', label: 'Sleep', icon: 'ti ti-chart-histogram' },
 ]
 
 function last7DayKeys(nowMs: number): string[] {
