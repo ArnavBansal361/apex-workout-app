@@ -1476,9 +1476,9 @@ export function TodayTab({
             </button>
           </div>
         </div>
-        {/* Greeting */}
-        <h1 className="text-[32px] font-medium text-[var(--apex-text-primary)] leading-none tracking-[-0.02em] mb-4">
-          {headerGreeting}
+        {/* Greeting / motivation */}
+        <h1 className="text-[22px] font-medium text-[var(--apex-text-primary)] leading-snug tracking-[-0.01em] mb-4">
+          {motivationReady ? (motivationText ?? fallbackQuote) : headerGreeting}
         </h1>
         {/* Action buttons */}
         <div className="apex-today-header-actions">
