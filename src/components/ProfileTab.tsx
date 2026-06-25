@@ -1157,7 +1157,7 @@ export function AiHub({
       {importPreview ? (
         <div
           role="presentation"
-          className="apex-modal-overlay fixed inset-0 z-[85] flex items-center justify-center p-4"
+          className="apex-modal-overlay fixed inset-0 z-[95] flex items-center justify-center p-4"
           onClick={() => setImportPreview(null)}
         >
           <div

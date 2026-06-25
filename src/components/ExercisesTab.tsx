@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWorkout } from '../context/WorkoutContext'
-import { getExerciseHelp } from '../data/exercises'
+import { getExerciseHelp, EXERCISES } from '../data/exercises'
 import {
   getStretchDefinition,
   STRETCH_SECTION_ORDER,
@@ -345,8 +345,9 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
     if (routineCat === 'All') return templates
     return templates.filter((t) => {
       if (!t.exerciseIds?.length) return routineCat === 'Cardio' ? false : false
+      const allEx = [...EXERCISES, ...(state.customExercises ?? [])]
       const cats = new Set(t.exerciseIds.map((id) => {
-        const ex = state.customExercises?.find((e) => e.id === id)
+        const ex = allEx.find((e) => e.id === id)
         return ex ? (ROUTINE_CAT_MAP[ex.muscleGroup] ?? 'Other') : 'Other'
       }))
       return cats.has(routineCat)
