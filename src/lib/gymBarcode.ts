@@ -1,4 +1,5 @@
 import * as bwipjs from 'bwip-js'
+import { Preferences } from '@capacitor/preferences'
 
 export const APEX_GYM_BARCODE_KEY = 'apex-gym-barcode'
 
@@ -39,20 +40,31 @@ export function readGymBarcode(): GymBarcodeStored | null {
   }
 }
 
+/** Async read — checks Capacitor Preferences first (persists on iOS), falls back to localStorage. */
+export async function readGymBarcodeAsync(): Promise<GymBarcodeStored | null> {
+  try {
+    const { value } = await Preferences.get({ key: APEX_GYM_BARCODE_KEY })
+    if (value) return parseStored(value)
+  } catch {
+    // fall through to localStorage
+  }
+  return readGymBarcode()
+}
+
 export function writeGymBarcode(data: GymBarcodeStored | null): void {
   try {
     if (!data?.number.trim()) {
       localStorage.removeItem(APEX_GYM_BARCODE_KEY)
+      void Preferences.remove({ key: APEX_GYM_BARCODE_KEY })
       return
     }
-    localStorage.setItem(
-      APEX_GYM_BARCODE_KEY,
-      JSON.stringify({
-        number: data.number.trim(),
-        format: data.format,
-        ...(data.gymName?.trim() ? { gymName: data.gymName.trim() } : {}),
-      }),
-    )
+    const serialized = JSON.stringify({
+      number: data.number.trim(),
+      format: data.format,
+      ...(data.gymName?.trim() ? { gymName: data.gymName.trim() } : {}),
+    })
+    localStorage.setItem(APEX_GYM_BARCODE_KEY, serialized)
+    void Preferences.set({ key: APEX_GYM_BARCODE_KEY, value: serialized })
   } catch {
     /* ignore */
   }

@@ -24,10 +24,26 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 - VITE_SPOTIFY_CLIENT_ID=99afc76107af4e3abb632efd8833ddeb
 
 ## AI
-- Coach chat: claude-opus-4-5 (reasoning, conversational)
-- Everything else (parser, meal parse, summaries, form tips, motivation): claude-sonnet-4-6 (fast, cheap)
-- Templates + calendar planning: claude-sonnet-4-6 (already was)
+- Coach chat: claude-sonnet-4-6 (switched from Opus Jun 21 2026 — cost, not quality)
+- Everything else (parser, meal parse, summaries, form tips, motivation): claude-sonnet-4-6
+- Templates + calendar planning: claude-sonnet-4-6
+- Prompt caching on coach + motivation system prompts (anthropic-beta: prompt-caching-2024-07-31)
+- Never use Opus — too expensive
 - AI Coach: data-first, answers as long as needed, no markdown, passes full athlete context
+
+## Plan Mode
+Always use Plan Mode at the start of every session (Shift+Tab twice activates it). Lock in the plan and confirm with Arnav before switching to execution. Never skip straight to writing code.
+
+## Self-verification
+After every change, verify your own work:
+- Run the dev server if possible
+- Open the live URL and visually confirm the change
+- Check for console errors
+- Check mobile viewport
+- Report what you saw, not just what you built
+
+## CLAUDE.md updates
+When you make a mistake or do something Arnav corrects, add a rule to CLAUDE.md immediately so it doesn't happen again. Treat CLAUDE.md as a living document that gets sharper every session.
 
 ## Structure
 - 5 tabs (desktop sidebar): Today · Exercises · Schedule · Profile · Settings

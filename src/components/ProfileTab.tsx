@@ -114,6 +114,7 @@ import {
 import {
   GYM_BARCODE_FORMAT_OPTIONS,
   readGymBarcode,
+  readGymBarcodeAsync,
   writeGymBarcode,
   type GymBarcodeFormat,
   type GymBarcodeStored,
@@ -1911,6 +1912,9 @@ export function ProfileTab({
   const [confirmClearData, setConfirmClearData] = useState(false)
   const [gymBarcode, setGymBarcode] = useState<GymBarcodeStored | null>(() => readGymBarcode())
   const [gymSettingsOpen, setGymSettingsOpen] = useState(false)
+  useEffect(() => {
+    readGymBarcodeAsync().then((b) => { if (b) setGymBarcode(b) })
+  }, [])
   const [gymDraftNumber, setGymDraftNumber] = useState('')
   const [gymDraftFormat, setGymDraftFormat] = useState<GymBarcodeFormat>('code128')
   const [gymDraftGymName, setGymDraftGymName] = useState('')
@@ -3385,7 +3389,7 @@ export function ProfileTab({
       {gymSettingsOpen ? (
         <div
           role="presentation"
-          className="apex-modal-overlay fixed inset-0 z-[85] flex items-center justify-center p-4"
+          className="apex-modal-overlay fixed inset-0 z-[95] flex items-center justify-center p-4"
           onClick={() => setGymSettingsOpen(false)}
         >
           <div
