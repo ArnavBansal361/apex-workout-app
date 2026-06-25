@@ -1,5 +1,4 @@
 import { EXERCISE_BY_ID, EXERCISES } from '../data/exercises'
-import { dateKey } from './dates'
 import { normalizeImportedCardio } from './persist'
 import type { AppPersisted, Exercise, MuscleGroup, SetLog, WeightedSetLog } from '../types'
 
@@ -118,10 +117,10 @@ export function resolveImportExercise(
 }
 
 function coerceTimestamp(raw: unknown, defaultAtMs: number): number {
-  const today = dateKey(new Date(defaultAtMs))
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return defaultAtMs
-  let at = raw < 1e11 ? raw * 1000 : raw
-  if (dateKey(new Date(at)) !== today) return defaultAtMs
+  const at = raw < 1e11 ? raw * 1000 : raw
+  // reject absurd future dates (> 1 day ahead) but allow any past date
+  if (at > defaultAtMs + 86_400_000) return defaultAtMs
   return at
 }
 

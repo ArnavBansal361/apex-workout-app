@@ -667,12 +667,13 @@ export async function claudeParseImport(
   const unit = state.settings.unit
   const user = `You parse workout notes in any format into JSON for an app. Return ONLY valid JSON with this shape:
 {"setLogs": [...], "bodyweightLogs": [...], "cardioEntries": [...], "schedule": [...] }
-Each weighted set log (one row per exercise): {"kind":"weighted","exerciseId":string,"exerciseName":string,"muscleGroup":string,"at":${atMs},"isPr":false,"note":"","bodyweight":false,"weight":number|null,"reps":number,"sets":number}
+Each weighted set log (one row per exercise): {"kind":"weighted","exerciseId":string,"exerciseName":string,"muscleGroup":string,"at":number,"isPr":false,"note":"","bodyweight":false,"weight":number|null,"reps":number,"sets":number}
 - "sets" = how many sets performed; "reps" = reps per set; "weight" = load per set in ${unit} (null if bodyweight).
 - exerciseId must be a slug id (lowercase, hyphens), e.g. bench-press for Bench Press, squat for Squat. Pick the closest built-in id.
-- Set every set log "at" to ${atMs} (today's workout). Never use 0.
-Timed: {"kind":"timed","durationSec":number,"exerciseId":...,"exerciseName":...,"muscleGroup":...,"at":${atMs},"isPr":false,"note":""}
-Cardio entries: {"name":string,"durationMinutes":number|null,"at":${atMs}}
+- "at" = Unix timestamp in milliseconds for when that workout actually happened. If the notes mention a date (e.g. "June 15", "last Monday", "2024-03-10"), parse it and use the correct timestamp. If no date is given for a session, use ${atMs} (now). Never use 0.
+- Today's date for reference: ${new Date(atMs).toDateString()}.
+Timed: {"kind":"timed","durationSec":number,"exerciseId":...,"exerciseName":...,"muscleGroup":...,"at":number,"isPr":false,"note":""}
+Cardio entries: {"name":string,"durationMinutes":number|null,"at":number}
 Use durationMinutes for cardio (not seconds). Use empty arrays if missing. MuscleGroup one of Chest,Back,Legs,Shoulders,Arms,Core,Cardio,Stretches.
 Raw notes:
 ${rawText.slice(0, 12000)}`
