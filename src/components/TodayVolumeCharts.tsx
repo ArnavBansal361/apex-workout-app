@@ -19,7 +19,7 @@ import { useApexChartColors } from '../lib/stats'
 import { workoutDaysFromLogs } from '../lib/achievements'
 import { weeklyVolumeHorizontalBarData, weeklyVolumeRadarData, detectInjuryRiskWarnings } from '../lib/volumeStats'
 
-const MIN_SESSIONS_FOR_VOLUME_CHART = 3
+const MIN_SESSIONS_FOR_VOLUME_CHART = 1
 
 const SLIDE_LABELS = ['Weekly volume', 'Muscle balance'] as const
 
