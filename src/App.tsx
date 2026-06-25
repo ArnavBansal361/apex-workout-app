@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 
 const DEV_BYPASS = import.meta.env.DEV && new URLSearchParams(window.location.search).has('dev')
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
@@ -16,13 +16,7 @@ import {
   useTodaySectionOpen,
 } from './lib/persist'
 import type { TabId } from './types'
-import { AchievementsPage } from './components/AchievementsPage'
 import { BottomNav } from './components/BottomNav'
-import { ExercisesTab } from './components/ExercisesTab'
-import { FullHistory } from './components/FullHistory'
-import { Onboarding } from './components/Onboarding'
-import { AiTab } from './components/AiTab'
-import { ProfileTab } from './components/ProfileTab'
 import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
@@ -30,10 +24,17 @@ import { GoogleCalendarOAuthHandler } from './components/GoogleCalendarOAuthHand
 import { SpotifyOAuthHandler } from './components/SpotifyOAuthHandler'
 import { isGoogleCalendarOAuthReturn } from './lib/googleCalendar'
 import { isSpotifyOAuthReturn } from './lib/spotify'
-import { ScheduleTab } from './components/ScheduleTab'
 import { ApexLogo } from './components/ApexLogo'
 import { TodayTab } from './components/TodayTab'
 import { installSwipeBackNavigation, useSwipeBackLayer } from './lib/swipeBackNavigation'
+
+const AchievementsPage = lazy(() => import('./components/AchievementsPage').then(m => ({ default: m.AchievementsPage })))
+const ExercisesTab = lazy(() => import('./components/ExercisesTab').then(m => ({ default: m.ExercisesTab })))
+const FullHistory = lazy(() => import('./components/FullHistory').then(m => ({ default: m.FullHistory })))
+const Onboarding = lazy(() => import('./components/Onboarding').then(m => ({ default: m.Onboarding })))
+const AiTab = lazy(() => import('./components/AiTab').then(m => ({ default: m.AiTab })))
+const ProfileTab = lazy(() => import('./components/ProfileTab').then(m => ({ default: m.ProfileTab })))
+const ScheduleTab = lazy(() => import('./components/ScheduleTab').then(m => ({ default: m.ScheduleTab })))
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -144,10 +145,10 @@ function AppShell() {
     state.gymSession.active || gymModeOverlay || prCelebration != null || postWorkoutCheckinOverlay
 
   if (historyOpen) {
-    return <FullHistory onClose={() => setHistoryOpen(false)} />
+    return <Suspense fallback={null}><FullHistory onClose={() => setHistoryOpen(false)} /></Suspense>
   }
   if (achievementsOpen) {
-    return <AchievementsPage onClose={() => setAchievementsOpen(false)} />
+    return <Suspense fallback={null}><AchievementsPage onClose={() => setAchievementsOpen(false)} /></Suspense>
   }
 
   return (
@@ -177,15 +178,17 @@ function AppShell() {
               onPlanOpenChange={setTodayPlanOpen}
             />
           ) : null}
-          {tab === 'library' ? <ExercisesTab /> : null}
-          {tab === 'plan' ? <ScheduleTab /> : null}
-          {tab === 'ai' ? <AiTab /> : null}
-          {tab === 'me' ? (
-            <ProfileTab
-              onOpenAchievements={() => setAchievementsOpen(true)}
-              openGymSettingsToken={gymSettingsToken}
-            />
-          ) : null}
+          <Suspense fallback={null}>
+            {tab === 'library' ? <ExercisesTab /> : null}
+            {tab === 'plan' ? <ScheduleTab /> : null}
+            {tab === 'ai' ? <AiTab /> : null}
+            {tab === 'me' ? (
+              <ProfileTab
+                onOpenAchievements={() => setAchievementsOpen(true)}
+                openGymSettingsToken={gymSettingsToken}
+              />
+            ) : null}
+          </Suspense>
         </main>
 
         <PwaInstallBanner />
@@ -198,7 +201,7 @@ function AppShell() {
 function AppWithOnboarding() {
   const { state, completeOnboarding } = useWorkout()
   if (!state.onboardingComplete) {
-    return <Onboarding onComplete={completeOnboarding} />
+    return <Suspense fallback={null}><Onboarding onComplete={completeOnboarding} /></Suspense>
   }
   return <AppShell />
 }

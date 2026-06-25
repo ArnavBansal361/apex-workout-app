@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useWorkout, useWorkoutTick } from './context/WorkoutContext'
 import { stripNotificationMessage } from './lib/persist'
-import { AchievementsPage } from './components/AchievementsPage'
-import { FullHistory } from './components/FullHistory'
-import { AiHub, ProfileTab } from './components/ProfileTab'
 import { GymSpotifyPrompt } from './components/GymSpotifyPrompt'
 import { PrCelebrationOverlay } from './components/PrCelebrationOverlay'
 import { RestBanner } from './components/RestBanner'
-import { ScheduleTab } from './components/ScheduleTab'
-import { TrainerClientsOverview } from './components/TrainerClientsOverview'
+
+const AchievementsPage = lazy(() => import('./components/AchievementsPage').then(m => ({ default: m.AchievementsPage })))
+const FullHistory = lazy(() => import('./components/FullHistory').then(m => ({ default: m.FullHistory })))
+const ProfileTab = lazy(() => import('./components/ProfileTab').then(m => ({ default: m.ProfileTab })))
+const AiHub = lazy(() => import('./components/ProfileTab').then(m => ({ default: m.AiHub })))
+const ScheduleTab = lazy(() => import('./components/ScheduleTab').then(m => ({ default: m.ScheduleTab })))
+const TrainerClientsOverview = lazy(() => import('./components/TrainerClientsOverview').then(m => ({ default: m.TrainerClientsOverview })))
 import { useSwipeBackLayer } from './lib/swipeBackNavigation'
 import { streakCurrent } from './lib/achievements'
 import { computeWeekSummary } from './lib/weekSummary'
@@ -751,7 +753,7 @@ export function DashboardShell() {
   const [aiSub, setAiSub] = useState<'coach' | 'parser' | 'form' | 'insights'>('coach')
 
   if (historyOpen) {
-    return <FullHistory onClose={() => setHistoryOpen(false)} />
+    return <Suspense fallback={null}><FullHistory onClose={() => setHistoryOpen(false)} /></Suspense>
   }
 
   return (
@@ -845,37 +847,39 @@ export function DashboardShell() {
 
         <main className="flex-1 min-h-0 min-w-0 overflow-y-auto flex flex-col">
           {nav === 'today' && <DashboardHome />}
-          {nav === 'coach' && (
-            <div className="px-8 pb-8 h-full flex flex-col">
-              <div className="flex-1 min-h-0 flex flex-col">
-                <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="tab" showNav />
+          <Suspense fallback={null}>
+            {nav === 'coach' && (
+              <div className="px-8 pb-8 h-full flex flex-col">
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <AiHub aiSub={aiSub} setAiSub={setAiSub} variant="tab" showNav />
+                </div>
               </div>
-            </div>
-          )}
-          {nav === 'exercises' && <DesktopLibrary />}
-          {nav === 'schedule' && (
-            <div className="px-8 pb-8">
-              <ScheduleTab defaultViewMode="week" />
-            </div>
-          )}
-          {nav === 'achievements' && (
-            <AchievementsPage onClose={() => {}} standalone />
-          )}
-          {nav === 'clients' && (
-            <div className="px-8 pb-8">
-              <TrainerClientsOverview onSelectClient={(c) => setSelectedClient(c)} />
-            </div>
-          )}
-          {nav === 'settings' && (
-            <div className="px-8 pb-8">
-              <ProfileTab
-                layout="desktop"
-                desktopSection="settings"
-                onOpenAchievements={() => setNav('achievements')}
-                openGymSettingsToken={gymSettingsToken}
-              />
-            </div>
-          )}
+            )}
+            {nav === 'exercises' && <DesktopLibrary />}
+            {nav === 'schedule' && (
+              <div className="px-8 pb-8">
+                <ScheduleTab defaultViewMode="week" />
+              </div>
+            )}
+            {nav === 'achievements' && (
+              <AchievementsPage onClose={() => {}} standalone />
+            )}
+            {nav === 'clients' && (
+              <div className="px-8 pb-8">
+                <TrainerClientsOverview onSelectClient={(c) => setSelectedClient(c)} />
+              </div>
+            )}
+            {nav === 'settings' && (
+              <div className="px-8 pb-8">
+                <ProfileTab
+                  layout="desktop"
+                  desktopSection="settings"
+                  onOpenAchievements={() => setNav('achievements')}
+                  openGymSettingsToken={gymSettingsToken}
+                />
+              </div>
+            )}
+          </Suspense>
         </main>
       </div>
     </div>
