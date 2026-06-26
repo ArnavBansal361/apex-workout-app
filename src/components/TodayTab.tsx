@@ -48,13 +48,7 @@ import {
   DEFAULT_MACRO_GOAL_PROTEIN_G,
   DEFAULT_WATER_GOAL_OZ,
 } from '../types'
-import {
-  migrateDailyMotivationFromSession,
-  readDailyMotivationForDay,
-  readRecentDailyMotivationTexts,
-  writeDailyMotivationForDay,
-} from '../lib/dailyMotivation'
-import { buildDailyMotivationInput, claudeParseMeal, fetchDailyMotivation } from '../lib/anthropicCoach'
+import { claudeParseMeal } from '../lib/anthropicCoach'
 import { fetchWeeklyInsight, type WeeklyInsight } from '../lib/weeklyInsight'
 import {
   readGymBarcode,
@@ -93,25 +87,90 @@ const DAILY_FITNESS_QUOTES = [
   'Progress is built one rep at a time — show up today.',
   'Consistency beats intensity. Small wins stack into big change.',
   'Your future self is watching — make them proud this session.',
-  'Strength isn’t given; it’s earned between sets when nobody’s watching.',
+  'Strength isn\'t given; it\'s earned between sets when nobody\'s watching.',
   'Rest is part of the plan — train hard, recover harder.',
-  'The bar doesn’t care about your mood — only your effort.',
-  'You don’t have to be extreme — just consistent.',
+  'The bar doesn\'t care about your mood — only your effort.',
+  'You don\'t have to be extreme — just consistent.',
   'Every expert was once a beginner who refused to quit.',
   'Discipline is choosing what you want most over what you want now.',
-  'Sweat is just your body applauding your effort.',
-  'The only bad workout is the one that didn’t happen.',
+  'The only bad workout is the one that didn\'t happen.',
   'Champions keep going when the warmup is over.',
-  'Comfort zones don’t build muscle — challenge does.',
+  'Comfort zones don\'t build muscle — challenge does.',
   'Fuel well, sleep well, train smart — the trifecta of gains.',
   'Your legs carry you through life — give them the work they deserve.',
-  'A strong core anchors everything — don’t skip the basics.',
+  'A strong core anchors everything — don\'t skip the basics.',
   'Mobility today keeps injuries away tomorrow.',
-  'Cardio isn’t punishment — it’s building an engine that lasts.',
+  'Cardio isn\'t punishment — it\'s building an engine that lasts.',
   'Track the work, trust the process, celebrate the PRs.',
-  'You’re not competing with anyone on the app — only with yesterday’s you.',
-  'Heavy isn’t heroic — controlled, honest reps are.',
+  'You\'re not competing with anyone on the app — only with yesterday\'s you.',
+  'Heavy isn\'t heroic — controlled, honest reps are.',
   'Breathe, brace, lift with intent. Details become PRs.',
+  'The hardest part is starting. After that, momentum takes over.',
+  'One more rep than last time is all progress ever asks for.',
+  'Show up on the days you don\'t feel like it — those are the ones that count.',
+  'Volume builds the base. Intensity builds the peak.',
+  'Your body is keeping score whether you log it or not.',
+  'Sleep is where strength is actually built.',
+  'Don\'t just log the wins — log the grind that leads there.',
+  'Ten minutes of movement beats zero minutes of intention.',
+  'The goal isn\'t perfection — it\'s direction.',
+  'Technique first, weight second. Always.',
+  'Recovery isn\'t laziness — it\'s strategy.',
+  'Strong people are harder to kill and more useful in general.',
+  'Every session is data. Every rest day is data. Use it.',
+  'Progressive overload is the only law that matters.',
+  'The plateau is just your body asking for a harder stimulus.',
+  'Train to get better at life, not just better at the gym.',
+  'Deload weeks aren\'t setbacks — they\'re setups.',
+  'You can\'t out-train a bad sleep schedule.',
+  'Injury prevention is the most underrated performance strategy.',
+  'The lifters who last longest are the ones who train smart, not just hard.',
+  'Chase competence, not aesthetics — the body follows.',
+  'Form is the foundation everything else is built on.',
+  'If it\'s not in the log, it didn\'t happen.',
+  'Strength is a skill. Treat it like one.',
+  'Three days a week done consistently beats six days done sporadically.',
+  'The gym doesn\'t care about your excuses — and neither does your goal.',
+  'Earned rest feels better than deserved rest.',
+  'Soreness isn\'t a measure of a good workout. Adaptation is.',
+  'Big goals start with small plates.',
+  'Mental strength is trained the same way as physical strength — repetition.',
+  'The compound lifts are called compound for a reason. Build around them.',
+  'Showing up is 80% of it. The other 20% is just not quitting.',
+  'Your warmup sets the tone. Don\'t rush them.',
+  'The best training program is the one you actually do.',
+  'Some sessions are a 10. Most are a 7. All of them move you forward.',
+  'Muscle memory is real — your body remembers what you put in.',
+  'Train with purpose. Rest with intention. Eat like it matters.',
+  'The people making the most progress are the most consistent, not the most gifted.',
+  'Long-term thinking is the biggest advantage in the gym.',
+  'Grip strength, posture, breathing — the unglamorous stuff that makes everything else work.',
+  'Mastery is just consistency compounded over time.',
+  'A training partner is good. A training log is better.',
+  'Your weakest lift is your most important lift to train.',
+  'Intensity without recovery is just breakdown.',
+  'Progress pictures lie. The numbers in the log don\'t.',
+  'Every PR started as a weight that scared you.',
+  'The gap between who you are and who you want to be is closed one session at a time.',
+  'You don\'t need motivation to train. You need a schedule.',
+  'Build the habit first. The results follow the habit.',
+  'Eat enough to perform. Recover enough to adapt. Train enough to grow.',
+  'Effort you can\'t see builds the strength others can\'t explain.',
+  'Patience isn\'t passive — it\'s staying consistent when results aren\'t visible yet.',
+  'The only shortcut in training is the one that leads to injury.',
+  'Strong habits produce strong people.',
+  'Don\'t compare your chapter 1 to someone else\'s chapter 20.',
+  'Accountability to yourself is harder and more valuable than accountability to anyone else.',
+  'The weight feels heavier on hard days. Lift anyway.',
+  'Rest days are active recovery — walk, stretch, eat, sleep.',
+  'Most plateaus break with more food and more sleep, not more volume.',
+  'A PR is a PR, whether it\'s 5 lbs or 50.',
+  'The athlete who trains through life — not just for an event — wins long-term.',
+  'Lift heavy things. Put them down. Repeat.',
+  'Intentional beats intense, every time.',
+  'The session you almost skipped often turns out to be the best one.',
+  'Your body adapts to what you consistently do — make it worth adapting to.',
+  'Great training is boring. It\'s the same fundamental movements, done repeatedly, done well.',
 ] as const
 
 function dailyQuoteForDateKey(todayKey: string): string {
@@ -532,33 +591,8 @@ export function TodayTab({
   }, [sched, resolveExerciseById])
 
   useEffect(() => {
-    let cancelled = false
-    const cached =
-      readDailyMotivationForDay(todayKey) ?? migrateDailyMotivationFromSession(todayKey)
-    if (cached) {
-      setMotivationText(cached)
-      setMotivationReady(true)
-      return
-    }
-    setMotivationText(null)
-    setMotivationReady(false)
-    const recent = readRecentDailyMotivationTexts(todayKey)
-    const input = buildDailyMotivationInput(state, streakDays, clock, recent, isRestDay)
-    void fetchDailyMotivation(input)
-      .then((text) => {
-        if (cancelled) return
-        setMotivationText(text)
-        setMotivationReady(true)
-        writeDailyMotivationForDay(todayKey, text)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setMotivationText(fallbackQuote)
-        setMotivationReady(true)
-      })
-    return () => {
-      cancelled = true
-    }
+    setMotivationText(fallbackQuote)
+    setMotivationReady(true)
   }, [todayKey, fallbackQuote])
 
   useEffect(() => {
