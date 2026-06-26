@@ -1445,13 +1445,13 @@ export function TodayTab({
       {!isDesktop ? <header className="apex-card px-5 py-5">
         {/* Date row + streak badge */}
         <div className="flex items-start justify-between mb-3">
-          <p className="text-[13px] font-medium text-[var(--apex-text-secondary)]">
+          <p className="text-[13px] font-medium text-[var(--apex-text-secondary)] min-w-0 flex-1 pr-2 truncate">
             {headerDateLabel}
             {!isRestDay && (
               <span style={{ color: 'var(--apex-accent)' }}> · {dayStatusLabel}</span>
             )}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {streakDays > 0 && (
               <div
                 className="flex items-center gap-1 px-2.5 py-1 rounded-[99px] text-[12px] font-medium"
