@@ -48,7 +48,6 @@ import {
   DEFAULT_MACRO_GOAL_PROTEIN_G,
   DEFAULT_WATER_GOAL_OZ,
 } from '../types'
-import { claudeParseMeal } from '../lib/anthropicCoach'
 import { fetchWeeklyInsight, type WeeklyInsight } from '../lib/weeklyInsight'
 import {
   readGymBarcode,
@@ -672,8 +671,6 @@ export function TodayTab({
   const [mealProteinDraft, setMealProteinDraft] = useState('')
   const [mealCarbsDraft, setMealCarbsDraft] = useState('')
   const [mealFatDraft, setMealFatDraft] = useState('')
-  const [mealAiText, setMealAiText] = useState('')
-  const [mealAiBusy, setMealAiBusy] = useState(false)
   const [confirmMealDeleteId, setConfirmMealDeleteId] = useState<string | null>(null)
 
   const macroGoals = useMemo(
@@ -714,19 +711,6 @@ export function TodayTab({
     notify('Meal logged')
   }
 
-  function applyParsedMeal(parsed: {
-    name: string
-    calories: number
-    proteinG: number
-    carbsG: number
-    fatG: number
-  }) {
-    setMealNameDraft(parsed.name)
-    setMealCalDraft(String(parsed.calories))
-    setMealProteinDraft(String(parsed.proteinG))
-    setMealCarbsDraft(String(parsed.carbsG))
-    setMealFatDraft(String(parsed.fatG))
-  }
 
   const [editLog, setEditLog] = useState<SetLog | null>(null)
   const [confirmDeleteSetId, setConfirmDeleteSetId] = useState<string | null>(null)
@@ -1281,35 +1265,6 @@ export function TodayTab({
                   </div>
                 )
               })}
-            </div>
-            <div className="space-y-2 pt-2 border-t border-[0.5px] border-white/[0.06]">
-              <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)] uppercase tracking-wide">AI meal parser</p>
-              <textarea
-                className={`w-full min-h-16 px-3 py-2.5 resize-y ${inp}`}
-                placeholder="e.g. 2 eggs, toast with butter, black coffee"
-                value={mealAiText}
-                onChange={(e) => setMealAiText(e.target.value)}
-              />
-              <button
-                type="button"
-                disabled={!mealAiText.trim() || mealAiBusy}
-                className="apex-btn w-full min-h-10 text-[13px] font-medium disabled:opacity-50"
-                onClick={() => {
-                  setMealAiBusy(true)
-                  void claudeParseMeal(mealAiText)
-                    .then((parsed) => {
-                      applyParsedMeal(parsed)
-                      setMealAiText('')
-                      notify('Macros filled — review and save')
-                    })
-                    .catch((e) =>
-                      notify(e instanceof Error ? e.message : 'Could not parse meal'),
-                    )
-                    .finally(() => setMealAiBusy(false))
-                }}
-              >
-                {mealAiBusy ? 'Parsing…' : 'Parse with AI'}
-              </button>
             </div>
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-[var(--apex-text-tertiary)] uppercase tracking-wide">Log meal</p>
