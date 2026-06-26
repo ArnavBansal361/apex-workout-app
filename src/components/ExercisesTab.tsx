@@ -6,7 +6,6 @@ import {
   STRETCH_SECTION_ORDER,
   type StretchSection,
 } from '../data/stretches'
-import { claudeExerciseFormTips } from '../lib/anthropicCoach'
 import { strengthProgressSeries, computeStrengthProgressProjection, STRENGTH_PROJECTION_WEEKS } from '../lib/overload'
 import { formatLong } from '../lib/dates'
 import { formatExerciseLastHistoryLine } from '../lib/lastSession'
@@ -198,6 +197,49 @@ function StrengthProgressChart({
   )
 }
 
+const STATIC_FORM_TIPS: Record<string, { formTips: string; commonMistakes: string; beginnerAdvice: string }> = {
+  Chest: {
+    formTips: 'Retract and depress your scapulae before pressing. Keep a slight arch in your lower back. Lower the bar to your mid-chest with elbows at ~75 degrees from your torso.',
+    commonMistakes: 'Flaring elbows too wide, bouncing the bar off your chest, not maintaining scapular retraction throughout the lift.',
+    beginnerAdvice: 'Start with a weight that lets you do 3x10 with perfect form. Focus on feeling the stretch at the bottom before pressing up.',
+  },
+  Back: {
+    formTips: 'Initiate every pull with your shoulder blades -- squeeze them together and down before your arms engage. Keep your chest up and spine neutral.',
+    commonMistakes: 'Using too much bicep, rounding the lower back, not achieving a full stretch at the top of the pull.',
+    beginnerAdvice: 'If you cannot do pull-ups yet, lat pulldowns or assisted pull-ups are perfect substitutes while you build strength.',
+  },
+  Legs: {
+    formTips: 'For squats: brace your core like you are about to take a punch, push your knees out over your toes, and sit back into the squat. For deadlifts: the bar should stay over your mid-foot the entire lift.',
+    commonMistakes: 'Knees caving in, rising onto toes, rounding the lower back under load, not hitting depth.',
+    beginnerAdvice: 'Master the goblet squat with a light dumbbell before loading a barbell. It naturally teaches you correct positioning.',
+  },
+  Shoulders: {
+    formTips: 'Press in a slight forward angle (scapular plane) rather than straight overhead. Keep your core braced and avoid excessive lumbar extension.',
+    commonMistakes: 'Leaning back excessively to press, shrugging the traps up, locking out too aggressively at the top.',
+    beginnerAdvice: 'Seated dumbbell presses are great for beginners -- they limit the ability to cheat with your lower back.',
+  },
+  Arms: {
+    formTips: 'For curls: keep your elbows pinned at your sides, control the eccentric. For tricep work: keep your elbows stationary and focus on full extension at the bottom.',
+    commonMistakes: 'Swinging the weight on curls, letting elbows flare on skull crushers, not achieving a full range of motion.',
+    beginnerAdvice: 'Arms respond well to higher rep ranges (12-15). Focus on the mind-muscle connection before adding weight.',
+  },
+  Core: {
+    formTips: 'Breathe out and brace your entire trunk on every rep. For planks: squeeze your glutes and quads, not just your abs. Your core should feel like a rigid cylinder.',
+    commonMistakes: 'Holding your breath, letting your hips sag in planks, relying on hip flexors instead of abs during crunches.',
+    beginnerAdvice: 'Dead bugs and planks build real core stability far better than crunches. Start there.',
+  },
+  Cardio: {
+    formTips: 'Stay in Zone 2 (conversational pace) for base building. For intervals, push hard enough that you cannot hold a conversation. Warm up and cool down are not optional.',
+    commonMistakes: 'Going too hard too often, skipping the warmup, neglecting to hydrate before long sessions.',
+    beginnerAdvice: 'Walk before you run -- literally. Build 3 sessions per week of 20-30 min at an easy pace before adding intensity.',
+  },
+  Stretches: {
+    formTips: 'Hold static stretches for at least 30 seconds per position. Breathe deeply and relax into the stretch on each exhale. Never stretch to the point of pain.',
+    commonMistakes: 'Bouncing in a stretch, stretching cold muscles, holding your breath, rushing through the routine.',
+    beginnerAdvice: 'Best done post-workout when muscles are warm. Hips, hamstrings, and thoracic spine are the highest-yield areas for most people.',
+  },
+}
+
 const ACCENT = '#c0582a'
 const ACCENT_BG = 'rgba(192,88,42,0.14)'
 const ACCENT_BORDER = 'rgba(192,88,42,0.35)'
@@ -220,8 +262,6 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createMuscle, setCreateMuscle] = useState<MuscleGroup>('Chest')
-  const [createTipsGenerating, setCreateTipsGenerating] = useState(false)
-  const [createTipsError, setCreateTipsError] = useState<string | null>(null)
   const [createFormTips, setCreateFormTips] = useState('')
   const [createCommonMistakes, setCreateCommonMistakes] = useState('')
   const [createBeginnerAdvice, setCreateBeginnerAdvice] = useState('')
@@ -709,49 +749,21 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
               />
             </label>
             {!createTipsReady ? (
-              <>
-                <button
-                  type="button"
-                  disabled={createTipsGenerating || !createName.trim()}
-                  className="w-full min-h-[40px] rounded-[8px] text-[13px] font-normal touch-manipulation disabled:opacity-40 flex items-center justify-center gap-2"
-                  style={{
-                    border: '0.5px solid rgba(255,255,255,0.2)',
-                    background: 'transparent',
-                    color: createTipsGenerating ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.6)',
-                  }}
-                  onClick={() => {
-                    const n = createName.trim()
-                    if (!n) return
-                    setCreateTipsGenerating(true)
-                    setCreateTipsError(null)
-                    void claudeExerciseFormTips(n)
-                      .then((h) => {
-                        setCreateFormTips(h.formTips)
-                        setCreateCommonMistakes(h.commonMistakes)
-                        setCreateBeginnerAdvice(h.beginnerAdvice)
-                        setCreateTipsReady(true)
-                      })
-                      .catch(() => {
-                        setCreateTipsError("Couldn't generate tips. You can add them manually.")
-                      })
-                      .finally(() => setCreateTipsGenerating(false))
-                  }}
-                >
-                  {createTipsGenerating ? (
-                    <>
-                      <i className="ti ti-loader-2 animate-spin text-[16px]" aria-hidden />
-                      <span>Generating…</span>
-                    </>
-                  ) : (
-                    'Generate form tips with AI'
-                  )}
-                </button>
-                {createTipsError ? (
-                  <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    {createTipsError}
-                  </p>
-                ) : null}
-              </>
+              <button
+                type="button"
+                disabled={!createName.trim()}
+                className="w-full min-h-[40px] rounded-[8px] text-[13px] font-normal touch-manipulation disabled:opacity-40 flex items-center justify-center gap-2"
+                style={{ border: '0.5px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'rgba(255,255,255,0.6)' }}
+                onClick={() => {
+                  const tips = STATIC_FORM_TIPS[createMuscle]
+                  setCreateFormTips(tips.formTips)
+                  setCreateCommonMistakes(tips.commonMistakes)
+                  setCreateBeginnerAdvice(tips.beginnerAdvice)
+                  setCreateTipsReady(true)
+                }}
+              >
+                Fill in form tips
+              </button>
             ) : (
               <div className="space-y-3">
                 <label className="block">

@@ -77,7 +77,6 @@ import {
   shouldAutoFillSleepFromHealth,
   writeGymSessionToAppleHealth,
 } from '../lib/appleHealth'
-import { claudeOneSentenceWorkoutSummary } from '../lib/anthropicCoach'
 import { applyTrainerShareToState, syncTrainerShareFromState } from '../lib/trainer'
 import {
   completeWorkoutSession,
@@ -994,17 +993,16 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
       }
     }
 
-    try {
-      const sentence = await claudeOneSentenceWorkoutSummary(snapshot, payload)
-      setState((s) => ({
-        ...s,
-        schedule: s.schedule.map((d) =>
-          d.dateKey === today ? { ...d, aiSummary: sentence } : d,
-        ),
-      }))
-    } catch {
-      notify('Could not generate workout summary right now.')
-    }
+    const topExercises = names.slice(0, 3).join(', ')
+    const sentence = mins > 0
+      ? `${mins} min · ${topExercises}${names.length > 3 ? ` +${names.length - 3} more` : ''} · ${logsToday.length} sets`
+      : `${topExercises}${names.length > 3 ? ` +${names.length - 3} more` : ''} · ${logsToday.length} sets`
+    setState((s) => ({
+      ...s,
+      schedule: s.schedule.map((d) =>
+        d.dateKey === today ? { ...d, aiSummary: sentence } : d,
+      ),
+    }))
   }, [notify, schedulePostWorkoutProteinNotification, userId])
 
   const addPlanExercise = useCallback((exerciseId: string) => {
