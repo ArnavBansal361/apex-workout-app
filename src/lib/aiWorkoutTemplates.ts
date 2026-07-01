@@ -6,7 +6,7 @@ import { muscleTrainingBalanceLines } from './coachInsights'
 import { resolveImportExercise } from './parseWorkoutImport'
 import { computePersonalRecords } from './personalRecords'
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const ANTHROPIC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/anthropic-proxy`
 const ANTHROPIC_VERSION = '2023-06-01'
 const TEMPLATE_MODEL = 'claude-sonnet-4-6'
 
@@ -39,14 +39,6 @@ export type AiWeeklyWorkoutTemplate = {
   days: AiTemplateDay[]
 }
 
-function getAnthropicApiKey(): string {
-  const k =
-    import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim()
-  if (!k) {
-    throw new Error(
-      'Missing Anthropic API key. Add VITE_ANTHROPIC_API_KEY (or VITE_CLAUDE_API_KEY) to `.env` in the project root (same folder as vite.config.ts), then restart `npm run dev`.',
-    )
-  }
   return k
 }
 
@@ -257,9 +249,7 @@ Generate 3 weekly templates now.`
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': getAnthropicApiKey(),
         'anthropic-version': ANTHROPIC_VERSION,
-        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: TEMPLATE_MODEL,

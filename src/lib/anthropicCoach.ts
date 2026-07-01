@@ -9,21 +9,11 @@ import { weeklyVolumeSeries } from './stats'
 import type { PrimaryCalendarEvent } from './googleCalendar'
 import { isCoachUiPromptLine, sanitizeCoachBubbleText } from './persist'
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+const ANTHROPIC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/anthropic-proxy`
 const ANTHROPIC_VERSION = '2023-06-01'
 const ANTHROPIC_BETA = 'prompt-caching-2024-07-31'
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const CLAUDE_FAST_MODEL = 'claude-sonnet-4-6'
-
-function getAnthropicApiKey(): string {
-  const k =
-    import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim()
-  if (!k)
-    throw new Error(
-      'Missing Anthropic API key. Add VITE_ANTHROPIC_API_KEY (or VITE_CLAUDE_API_KEY) to `.env` in the project root (same folder as vite.config.ts), then restart `npm run dev`.',
-    )
-  return k
-}
 
 type AnthropicContentBlock = { type: string; text?: string }
 
@@ -290,7 +280,6 @@ export async function claudeCoachComplete(
   chatHistory: ChatMessage[],
   options: CoachCompleteOptions = {},
 ): Promise<string> {
-  const apiKey = getAnthropicApiKey()
   const messages = chatHistoryToAnthropicMessages(chatHistory)
   if (messages.length === 0 || messages[messages.length - 1]!.role !== 'user') {
     throw new Error('Coach conversation must end with a user message.')
@@ -332,10 +321,8 @@ const maxTokens = options.maxTokens ?? (isPlan ? 1200 : lastHasImage ? 800 : 600
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
       'anthropic-beta': ANTHROPIC_BETA,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(requestBody),
   })
@@ -491,7 +478,6 @@ function sanitizeDailyMotivation(text: string): string {
 }
 
 export async function fetchDailyMotivation(input: DailyMotivationInput): Promise<string> {
-  const apiKey = getAnthropicApiKey()
   const prior =
     input.recentMotivations.length > 0
       ? input.recentMotivations.map((line, i) => `${i + 1}. ${line}`).join('\n')
@@ -516,10 +502,8 @@ export async function fetchDailyMotivation(input: DailyMotivationInput): Promise
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
       'anthropic-beta': ANTHROPIC_BETA,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: CLAUDE_FAST_MODEL,
@@ -573,7 +557,6 @@ function normalizeParsedMeal(raw: unknown): ParsedMeal {
 }
 
 export async function claudeParseMeal(rawText: string): Promise<ParsedMeal> {
-  const apiKey = getAnthropicApiKey()
   const text = rawText.trim().slice(0, 2000)
   if (!text) throw new Error('Describe what you ate first')
   const user = `Estimate nutrition for what the user ate. Return ONLY valid JSON:
@@ -586,9 +569,7 @@ ${text}`
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: CLAUDE_FAST_MODEL,
@@ -618,15 +599,12 @@ export async function claudeOneSentenceWorkoutSummary(
   state: AppPersisted,
   sessionPayload: string,
 ): Promise<string> {
-  const apiKey = getAnthropicApiKey()
   const user = `Write exactly one short sentence summarizing this gym session for the user's calendar. Plain English, no quotes.\n\nSession details:\n${sessionPayload}`
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: CLAUDE_FAST_MODEL,
@@ -662,7 +640,6 @@ export async function claudeParseImport(
     import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim(),
   )
   if (import.meta.env.DEV) console.log('[Apex Parser] preparing Anthropic parse request', { hasApiKey })
-  const apiKey = getAnthropicApiKey()
   const atMs = Date.now()
   const unit = state.settings.unit
   const user = `You parse workout notes in any format into JSON for an app. Return ONLY valid JSON with this shape:
@@ -689,9 +666,7 @@ ${rawText.slice(0, 12000)}`
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(requestBody),
     signal: options?.signal,
@@ -720,7 +695,6 @@ ${rawText.slice(0, 12000)}`
 }
 
 export async function claudeExerciseFormTips(exerciseName: string): Promise<ExerciseHelp> {
-  const apiKey = getAnthropicApiKey()
   const name = exerciseName.trim().slice(0, 120)
   if (!name) throw new Error('Enter an exercise name first')
   const user = `Exercise name: ${name}
@@ -733,9 +707,7 @@ Each field: 2–4 short plain sentences. No markdown, bullets, or emoji. Be spec
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: CLAUDE_FAST_MODEL,
@@ -791,14 +763,11 @@ async function anthropicMessagesRequest(
   user: string,
   maxTokens: number,
 ): Promise<string> {
-  const apiKey = getAnthropicApiKey()
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model,
