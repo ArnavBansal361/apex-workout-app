@@ -636,10 +636,7 @@ export async function claudeParseImport(
   rawText: string,
   options?: { signal?: AbortSignal },
 ): Promise<unknown> {
-  const hasApiKey = Boolean(
-    import.meta.env.VITE_ANTHROPIC_API_KEY?.trim() || import.meta.env.VITE_CLAUDE_API_KEY?.trim(),
-  )
-  if (import.meta.env.DEV) console.log('[Apex Parser] preparing Anthropic parse request', { hasApiKey })
+  if (import.meta.env.DEV) console.log('[Apex Parser] preparing Anthropic parse request')
   const atMs = Date.now()
   const unit = state.settings.unit
   const user = `You parse workout notes in any format into JSON for an app. Return ONLY valid JSON with this shape:

@@ -39,9 +39,6 @@ export type AiWeeklyWorkoutTemplate = {
   days: AiTemplateDay[]
 }
 
-  return k
-}
-
 function formatAnthropicApiError(status: number, data: unknown, rawText: string): string {
   const err = (data as { error?: { message?: string; type?: string } })?.error
   const apiMsg = err?.message?.trim() ?? ''
