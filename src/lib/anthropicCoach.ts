@@ -641,24 +641,23 @@ export async function claudeParseImport(
   const unit = state.settings.unit
   const user = `You parse workout notes in any format into JSON for an app. Return ONLY valid JSON with this shape:
 {"setLogs": [...], "bodyweightLogs": [...], "cardioEntries": [...], "schedule": [...] }
-Each weighted set log (one row per exercise): {"kind":"weighted","exerciseId":string,"exerciseName":string,"muscleGroup":string,"at":number,"isPr":false,"note":"","bodyweight":false,"weight":number|null,"reps":number,"sets":number}
-- "sets" = how many sets performed; "reps" = reps per set; "weight" = load per set in ${unit} (null if bodyweight).
-- exerciseId must be a slug id (lowercase, hyphens), e.g. bench-press for Bench Press, squat for Squat. Pick the closest built-in id.
-- "at" = Unix timestamp in milliseconds for when that workout actually happened. If the notes mention a date (e.g. "June 15", "last Monday", "2024-03-10"), parse it and use the correct timestamp. If no date is given for a session, use ${atMs} (now). Never use 0.
+Each weighted set log (one row per exercise): {"kind":"weighted","exerciseName":string,"weight":number|null,"reps":number,"sets":number,"date":"YYYY-MM-DD"}
+- "sets" = how many sets performed; "reps" = reps per set; "weight" = load per set in ${unit} (null if bodyweight; add "bodyweight":true for bodyweight movements).
+- "date" = the calendar date the workout happened, as written in the notes (e.g. "June 15" → "2026-06-15", "last Monday" → resolve against today). Omit "date" entirely if the notes give no date for that session. Never invent dates or compute timestamps.
 - Today's date for reference: ${new Date(atMs).toDateString()}.
-Timed: {"kind":"timed","durationSec":number,"exerciseId":...,"exerciseName":...,"muscleGroup":...,"at":number,"isPr":false,"note":""}
-Cardio entries: {"name":string,"durationMinutes":number|null,"at":number}
-Use durationMinutes for cardio (not seconds). Use empty arrays if missing. MuscleGroup one of Chest,Back,Legs,Shoulders,Arms,Core,Cardio,Stretches.
+Timed: {"kind":"timed","exerciseName":string,"durationSec":number,"date":"YYYY-MM-DD"}
+Cardio entries: {"name":string,"durationMinutes":number|null,"date":"YYYY-MM-DD"}
+Use durationMinutes for cardio (not seconds). Use empty arrays if missing.
 Raw notes:
 ${rawText.slice(0, 12000)}`
-  const coachContext = await resolveCoachContextBlock(state, { nowMs: Date.now() })
   const requestBody = {
     model: CLAUDE_FAST_MODEL,
     max_tokens: 8192,
-    system: `${coachTodaySystemPrefix(Date.now())}\n\nYou return only valid JSON, no markdown fences.\n\n--- Athlete context ---\n${coachContext}`,
+    system: 'You return only valid JSON, no markdown fences.',
     messages: [{ role: 'user', content: user }],
   }
   if (import.meta.env.DEV) console.log('[Apex Parser] sending Anthropic fetch', { model: CLAUDE_FAST_MODEL })
+  const t0 = performance.now()
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -668,7 +667,11 @@ ${rawText.slice(0, 12000)}`
     body: JSON.stringify(requestBody),
     signal: options?.signal,
   })
-  if (import.meta.env.DEV) console.log('[Apex Parser] Anthropic fetch finished', { status: res.status, ok: res.ok })
+  if (import.meta.env.DEV)
+    console.log('[Apex Parser] round-trip ms', Math.round(performance.now() - t0), {
+      status: res.status,
+      ok: res.ok,
+    })
   const importRaw = await res.text()
   let data: unknown = {}
   try {

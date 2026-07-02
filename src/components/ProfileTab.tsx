@@ -681,7 +681,7 @@ export function AiCoachPanel({ variant = 'tab', showTitle = true }: AiCoachPanel
 
 const inp = 'apex-input w-full min-h-12 px-3 py-2.5'
 
-const PARSER_TIMEOUT_MS = 15_000
+const PARSER_TIMEOUT_MS = 60_000
 const PARSER_TIMEOUT_MESSAGE = "Couldn't parse that. Try again."
 
 function AiParserPanel({
@@ -1076,6 +1076,9 @@ export function AiHub({
       ) {
         notify(apiError ?? 'No entries found — try different wording')
         return
+      }
+      if (apiError) {
+        notify('AI parse unavailable — used basic parser. Dates in notes were ignored; entries logged as today.')
       }
       setImportPreview(partial)
     } catch (e) {

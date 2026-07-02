@@ -939,7 +939,6 @@ export function WorkoutProvider({ children, userId }: { children: ReactNode; use
     const today = dateKey(new Date())
     const logsToday = snapshot.setLogs.filter((l) => dateKey(new Date(l.at)) === today)
     const names = [...new Set(logsToday.map((l) => l.exerciseName))].slice(0, 8)
-    const payload = `Duration about ${mins} minutes. Exercises: ${names.join(', ')}. Sets: ${logsToday.length}.`
 
     const hadActiveSession = snapshot.gymSession.active
     const sessionTrainingMode = snapshot.gymSession.trainingMode

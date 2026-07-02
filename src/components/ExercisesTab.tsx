@@ -270,8 +270,6 @@ export function ExercisesTab({ gridCols: _gridCols = 2 }: ExercisesTabProps) {
   function resetCreateForm() {
     setCreateName('')
     setCreateMuscle('Chest')
-    setCreateTipsGenerating(false)
-    setCreateTipsError(null)
     setCreateFormTips('')
     setCreateCommonMistakes('')
     setCreateBeginnerAdvice('')

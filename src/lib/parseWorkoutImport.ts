@@ -1,4 +1,5 @@
 import { EXERCISE_BY_ID, EXERCISES } from '../data/exercises'
+import { parseDateKey } from './dates'
 import { normalizeImportedCardio } from './persist'
 import type { AppPersisted, Exercise, MuscleGroup, SetLog, WeightedSetLog } from '../types'
 
@@ -116,12 +117,39 @@ export function resolveImportExercise(
   return best
 }
 
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** YYYY-MM-DD → local noon ms (noon avoids DST-edge day shifts). */
+function dateStringToLocalNoonMs(date: string): number | null {
+  if (!DATE_KEY_RE.test(date)) return null
+  const d = parseDateKey(date)
+  if (Number.isNaN(d.getTime())) return null
+  d.setHours(12, 0, 0, 0)
+  return d.getTime()
+}
+
 function coerceTimestamp(raw: unknown, defaultAtMs: number): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return defaultAtMs
-  const at = raw < 1e11 ? raw * 1000 : raw
+  let at = raw < 1e11 ? raw * 1000 : raw
+  // Exact UTC midnight is the signature of a model doing date→epoch math.
+  // Re-anchor to local noon of that UTC calendar date so it groups under the intended day.
+  if (at % 86_400_000 === 0) {
+    const utc = new Date(at)
+    const local = new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate(), 12)
+    at = local.getTime()
+  }
   // reject absurd future dates (> 1 day ahead) but allow any past date
   if (at > defaultAtMs + 86_400_000) return defaultAtMs
   return at
+}
+
+/** Prefer an explicit "date" (YYYY-MM-DD) field; fall back to numeric "at". */
+function resolveRowTimestamp(row: Record<string, unknown>, defaultAtMs: number): number {
+  if (typeof row.date === 'string') {
+    const fromDate = dateStringToLocalNoonMs(row.date.trim())
+    if (fromDate != null && fromDate <= defaultAtMs + 86_400_000) return fromDate
+  }
+  return coerceTimestamp(row.at, defaultAtMs)
 }
 
 export type NormalizeImportedSetLogsOptions = {
@@ -148,7 +176,7 @@ export function normalizeImportedSetLogs(
     )
     if (!resolved) continue
 
-    const at = coerceTimestamp(row.at, defaultAtMs)
+    const at = resolveRowTimestamp(row, defaultAtMs)
     const note = typeof row.note === 'string' ? row.note.trim() : ''
     const id = typeof row.id === 'string' && row.id.trim() ? row.id.trim() : crypto.randomUUID()
     const muscleGroup = coerceMuscleGroup(row.muscleGroup, resolved.muscleGroup)
@@ -310,7 +338,12 @@ export function sanitizeWorkoutImport(
     )
   }
   if (Array.isArray(o.cardioEntries) && o.cardioEntries.length) {
-    out.cardioEntries = normalizeImportedCardio(o.cardioEntries).map((c) => ({
+    const withDates = o.cardioEntries.map((item) => {
+      if (!item || typeof item !== 'object') return item
+      const row = item as Record<string, unknown>
+      return { ...row, at: resolveRowTimestamp(row, atMs) }
+    })
+    out.cardioEntries = normalizeImportedCardio(withDates).map((c) => ({
       ...c,
       at: coerceTimestamp(c.at, atMs),
     }))

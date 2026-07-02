@@ -1,14 +1,13 @@
 # Lift — Claude Code Rules
 
-Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.md. App-specific additions below.
+Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.md.
 
 ## App
 - **Name:** Lift (formerly Apex — repo/deploy still use apex name, UI says Lift)
 - **Stack:** React + Vite + TypeScript + Tailwind
 - **Accent color:** #c0582a (burnt sienna)
 - **Deployed:** lift.tendedstudio.com (Vercel, project: apex-workout-app)
-- **GitHub:** ArnavBansal361/apex-workout-app
-- **Branch:** cursor/match-approved-design-mockups
+- **GitHub:** ArnavBansal361/apex-workout-app, branch: main
 
 ## Supabase
 - Project ID: pmhrdgfwujmusveebswj
@@ -16,7 +15,7 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 - Tables: user_workout_data, leaderboard, trainer_codes, trainer_connections, trainer_notes, body_measurements, deload_weeks, tended_user_state, friendships
 - Auth: email/password + Google OAuth — RLS on all tables
 
-## Environment variables (all set in Vercel + .env)
+## Environment variables
 - VITE_ANTHROPIC_API_KEY
 - VITE_SUPABASE_URL=https://pmhrdgfwujmusveebswj.supabase.co
 - VITE_SUPABASE_ANON_KEY=sb_publishable_pDsthbihok7nxgSkGUZuIw_qmDcqa77
@@ -24,59 +23,43 @@ Inherits all rules from /Users/arnav/Documents/Arnav/Home/Tended Studio/CLAUDE.m
 - VITE_SPOTIFY_CLIENT_ID=99afc76107af4e3abb632efd8833ddeb
 
 ## AI
-- Coach chat: claude-sonnet-4-6 (switched from Opus Jun 21 2026 — cost, not quality)
-- Everything else (parser, meal parse, summaries, form tips, motivation): claude-sonnet-4-6
-- Templates + calendar planning: claude-sonnet-4-6
-- Prompt caching on coach + motivation system prompts (anthropic-beta: prompt-caching-2024-07-31)
+- Coach chat: claude-sonnet-4-6 (prompt caching on system prompt)
+- Workout parser + AI templates: claude-sonnet-4-6
+- Motivation, weekly insight, session summary, form tips: zero-cost local logic — no AI calls
 - Never use Opus — too expensive
-- AI Coach: data-first, answers as long as needed, no markdown, passes full athlete context
+- AI Coach voice: data-first, no markdown, passes full athlete context
 
-## Plan Mode
-Always use Plan Mode at the start of every session (Shift+Tab twice activates it). Lock in the plan and confirm with Arnav before switching to execution. Never skip straight to writing code.
+## Pre-TestFlight Checklist
+**At the start of every session, print this checklist with current status before any other work.**
 
-## Self-verification
-After every change, verify your own work:
-- Run the dev server if possible
-- Open the live URL and visually confirm the change
-- Check for console errors
-- Check mobile viewport
-- Report what you saw, not just what you built
+- [ ] AI coach API key moved to Supabase Edge Function — must NOT ship in iOS JS bundle
+- [ ] Privacy policy live at lift.tendedstudio.com/privacy.html
+- [ ] Open Graph tags on lift.tendedstudio.com (og:title, og:description, og:image)
+- [ ] com.arnav.lift registered in App Store Connect
+- [ ] Xcode widget signing team set in Signing & Capabilities
+- [ ] App Store metadata written: description, keywords, screenshots
+- [ ] No hardcoded "Apex" in any user-facing UI string
+
+Check each item by inspecting the actual code/live URL, not from memory. If any are incomplete, flag them before starting feature work.
+
+## Before implementing any feature
+1. Check if it already exists somewhere in the app — say so if it does.
+2. Check if a similar feature exists elsewhere that could be extended — point to it first.
+3. Only then implement from scratch.
 
 ## CLAUDE.md updates
-When you make a mistake or do something Arnav corrects, add a rule to CLAUDE.md immediately so it doesn't happen again. Treat CLAUDE.md as a living document that gets sharper every session.
+When Arnav corrects a mistake, add a rule here immediately. Treat this as a living doc.
 
 ## Structure
-- 5 tabs (desktop sidebar): Today · Exercises · Schedule · Profile · Settings
 - Mobile bottom nav: Today · Library · Plan · AI · Me
-- /dashboard route for desktop (auto-redirects when width > 768px)
+- Desktop: /dashboard route (auto-redirects when width > 768px), sidebar layout
 - iOS via Capacitor: ios/App/App.xcodeproj
-
-## What's built and working
-- Workout logging (sets, reps, weight), gym mode, rest timer
-- Exercise library (300+ from wger), custom exercises, muscle group filter
-- Weekly schedule, AI workout templates in Schedule tab
-- AI coach chat (Opus, voice-to-text mic, TTS speaker toggle)
-- AI workout parser (paste text → structured workout)
-- PR celebrations, session summary modal
-- Longevity score, Injury risk score (Low/Moderate/High)
-- Top Lifts Progress card with sparklines + 4W/8W/All toggle
-- Performance insights (needs 2+ weeks data — has proper empty state)
-- Strength Age (renders in Me tab when bench/squat/deadlift PRs logged)
-- Streak + streak shield, deload week auto-suggestion
-- Body measurements, bodyweight chart
-- Google Calendar sync, Spotify connect, Apple Health (iOS only)
-- Trainer mode (trainer code, client connect, coach notes)
-- Gym barcode (Settings)
-- New user empty state on Today tab
-- Password reset flow (forgot password + reset password)
-- Google OAuth
 
 ## After every change — MANDATORY
 1. Open lift.tendedstudio.com and verify the change looks correct
 2. Check every other tab/page for regressions
-3. Check on mobile viewport (narrow)
+3. Check on mobile viewport (375px — iPhone SE is the minimum)
 4. Flag anything off, broken, or improvable — even if unrelated to the task
-5. Report what you saw, not just what you built
 
 ## Design violations to watch for in this app
 - Hardcoded "Apex" text in UI (file/repo names are fine)
@@ -84,4 +67,4 @@ When you make a mistake or do something Arnav corrects, add a rule to CLAUDE.md 
 - Pink colors (none)
 - Card bg other than #13181f dark / #f5f9f7 light
 - Border heavier than 0.5px
-- Font weight 600/700 and gradients are acceptable if they look good — not hard violations
+- Font weight 600/700 and gradients are acceptable if they look good
